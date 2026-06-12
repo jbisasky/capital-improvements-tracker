@@ -93,6 +93,12 @@ collapses to a bottom tab bar with a center **Add (＋)** action; on desktop it'
 
 ## 4. Global layout & shell
 
+### Desktop layout
+
+![Desktop shell — left rail navigation, top bar with search/sync/account, footer disclaimer](mockups/02-dashboard.png)
+
+<details><summary>ASCII wireframe (original)</summary>
+
 ```
 DESKTOP                                              
 ┌───────────────────────────────────────────────────────────┐
@@ -106,7 +112,17 @@ DESKTOP
 │           │                                                │
 │ ── status │  ⚠ Not tax advice · ● Synced 2m ago            │  ← persistent footer strip
 └───────────┴───────────────────────────────────────────────┘
+```
 
+</details>
+
+### Mobile layout
+
+![Mobile shell — bottom tab bar with center Add button, compact header, synced footer](mockups/09-mobile-layout.png)
+
+<details><summary>ASCII wireframe (original)</summary>
+
+```
 MOBILE
 ┌───────────────────────────┐
 │ ◑ Capital Improvements  (J)│
@@ -120,6 +136,8 @@ MOBILE
 └───────────────────────────┘
 ```
 
+</details>
+
 Persistent elements:
 - **Sync indicator** (`⟳`/`●`): idle / syncing / synced (with timestamp) / error. Reflects Drive
   CAS write status (LLD §6). Click → last-sync details / retry.
@@ -131,6 +149,11 @@ Persistent elements:
 ## 5. Screen inventory (wireframes)
 
 ### 5.1 Landing / Sign-in (`/`)
+
+![Landing page — centered sign-in with privacy bullets and disclaimer](mockups/01-landing.png)
+
+<details><summary>ASCII wireframe (original)</summary>
+
 ```
 ┌───────────────────────────────────────────┐
 │              ◑  Capital Improvements        │
@@ -146,10 +169,17 @@ Persistent elements:
 │  ⚠ Not tax advice. For recordkeeping only.  │
 └───────────────────────────────────────────┘
 ```
+
+</details>
 - Single primary CTA. Below the fold: privacy explainer + what you'll need (Google account, an AI
   Studio key). Error inline if GIS init fails (origin mismatch → friendly "config issue" note).
 
 ### 5.2 Dashboard (`/dashboard`)
+
+![Dashboard — summary cards, educational banner, recent projects table](mockups/02-dashboard.png)
+
+<details><summary>ASCII wireframe (original)</summary>
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Overview                                  Tax year: 2025 ▾│
@@ -169,10 +199,17 @@ Persistent elements:
 │ [ ＋ Add improvement ]                                     │
 └─────────────────────────────────────────────────────────┘
 ```
+
+</details>
 - Summary cards are **derived** values (LLD §6.3). "Unclassified" badge nudges the user to set
   `taxTreatment` on `unknown` items. Year selector filters everything.
 
 ### 5.3 Projects list (`/projects`)
+
+![Projects list — filterable table with treatment chips and attachment counts](mockups/03-projects-list.png)
+
+<details><summary>ASCII wireframe (original)</summary>
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Projects   [search title/vendor…]  Year▾ Treatment▾ Sort▾ │
@@ -185,6 +222,8 @@ Persistent elements:
 │ 4 of 17 shown                       [ ＋ Add improvement ]│
 └─────────────────────────────────────────────────────────┘
 ```
+
+</details>
 - Row: title, completion date, cost, treatment chip, attachment count. Tap → detail. Checkboxes
   enable bulk actions (delete/export selection) — later phase for bulk extract.
 - Empty state: friendly illustration + "Add your first improvement" + "Import receipts".
@@ -193,6 +232,10 @@ Persistent elements:
 Two entry modes that converge on the same form:
 - **From a receipt** (AI-assisted): drop/scan a file → extraction → review → form prefilled.
 - **Manual**: blank form.
+
+![Add improvement form — attachments, AI extract, fields, tax treatment radios, save](mockups/04-add-edit.png)
+
+<details><summary>ASCII wireframe (original)</summary>
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -214,12 +257,19 @@ Two entry modes that converge on the same form:
 │                         [ Cancel ]   [ Save improvement ] │
 └─────────────────────────────────────────────────────────┘
 ```
+
+</details>
 - Field-level validation (zod-mirrored). `taxTreatment` drives which amount fields are emphasized
   (capital → cost-basis; credit/deductible → deductible amount).
 - Save = attachments-first, manifest-last (LLD §9). Button shows progress; disabled while a budget
   or circuit guard is tripped (LLD §13) with an inline reason.
 
 ### 5.5 AI extraction review (modal/step)
+
+![AI review modal — per-field confidence badges, editable inputs, confirm/discard](mockups/05-ai-review.png)
+
+<details><summary>ASCII wireframe (original)</summary>
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Review extracted details          confidence: ●●●○ (0.78) │
@@ -236,11 +286,18 @@ Two entry modes that converge on the same form:
 │ [ Discard ]                  [ Looks good → continue ]    │
 └─────────────────────────────────────────────────────────┘
 ```
+
+</details>
 - Per-field "✦ extracted" markers and **low-confidence warnings** on individual fields. Editing a
   field clears its AI marker. `finishReason != STOP` → fallback banner "couldn't read fully, enter
   manually" (maps to `EXTRACTION_INCOMPLETE`).
 
 ### 5.6 Project detail (`/projects/:id`)
+
+![Project detail — cost/treatment table, justification, attachments list, history](mockups/06-project-detail.png)
+
+<details><summary>ASCII wireframe (original)</summary>
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ ← Projects                              [ Edit ] [ ⋯ ]    │
@@ -258,9 +315,16 @@ Two entry modes that converge on the same form:
 │ ⚠ Not tax advice.            History: created/updated …   │
 └─────────────────────────────────────────────────────────┘
 ```
+
+</details>
 - `⋯` menu: delete (confirm), duplicate, export this project.
 
 ### 5.7 Settings (`/settings`)
+
+![Settings — account, BYOK key, usage limits, data export, appearance toggle](mockups/07-settings.png)
+
+<details><summary>ASCII wireframe (original)</summary>
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Settings                                                  │
@@ -285,10 +349,17 @@ Two entry modes that converge on the same form:
 │ Appearance: ( ) System ( ) Light ( ) Dark                 │
 └─────────────────────────────────────────────────────────┘
 ```
+
+</details>
 - BYOK warning is explicit (decision D11). "Test" pings Gemini with a trivial call (counts against
   budget). Budgets back LLD §13.5; "used today" reflects the persisted counter.
 
 ### 5.8 Export (`/export`)
+
+![Export — format and scope radio groups, info note, download button](mockups/08-export.png)
+
+<details><summary>ASCII wireframe (original)</summary>
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Export your data                                          │
@@ -301,6 +372,8 @@ Two entry modes that converge on the same form:
 │                                   [ Download ]            │
 └─────────────────────────────────────────────────────────┘
 ```
+
+</details>
 
 ### 5.9 Diagnostics (`/settings/diagnostics`)
 - Read-only ring-buffer log (LLD §13.7): timestamped events incl. `LOOP_GUARD_TRIPPED`,
