@@ -251,6 +251,22 @@ Pages can only do a weaker `<meta http-equiv>` CSP).
 - **CI/CD:** Cloudflare Pages builds directly from the GitHub repo on push to `main`
   (preview deployments for PRs).
 
+### 8.1 Hosting is portable (why D10 is low-stakes / reversible)
+
+The build output is just static files, fully decoupled from any host, and the app's data lives
+in the user's Google Drive (never on the host). Migrating to another static host (Firebase
+Hosting, Netlify, GitHub Pages, S3+CloudFront) is a ~15–30 min change with **zero application
+code changes**:
+
+1. Point the new host at the same GitHub repo (or upload the build output).
+2. Re-express the security headers in the host's format: `_headers` (Cloudflare) ↔ `headers`
+   in `firebase.json` (Firebase) ↔ `netlify.toml`. Same CSP, different file. *(Caveat: GitHub
+   Pages can't serve real headers — only a weaker `<meta>` CSP.)*
+3. Update the OAuth **Authorized JavaScript origins** to the new domain in Google Cloud.
+4. Repoint DNS only if using a custom domain.
+
+No data migration is ever required. Treat the host as swappable infrastructure.
+
 ---
 
 ## 9. Longevity (20-year) Strategy (decision D13: include if feasible)
