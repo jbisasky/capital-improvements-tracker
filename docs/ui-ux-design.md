@@ -74,6 +74,8 @@
 ```mermaid
 flowchart TD
     Landing["/ (Landing / Sign-in)"] -->|signed in| Dash["/dashboard"]
+    Landing -->|see a demo| Demo["/demo/dashboard"]
+    Demo -->|sign in to use your own data| Landing
     Dash --> Projects["/projects (list)"]
     Projects --> Detail["/projects/:id"]
     Projects --> New["/projects/new"]
@@ -150,7 +152,9 @@ Persistent elements:
 
 ### 5.1 Landing / Sign-in (`/`)
 
-![Landing page — centered sign-in with privacy bullets and disclaimer](mockups/01-landing.png)
+| Desktop | Mobile |
+| --- | --- |
+| ![Landing page — sign-in + demo button, privacy bullets, disclaimer](mockups/01-landing.png) | ![Mobile landing](mockups/m01-landing.png) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -161,6 +165,7 @@ Persistent elements:
 │   impact — privately, in your own Drive.    │
 │                                             │
 │        [  Sign in with Google  ]            │
+│        [  See a demo           ]            │
 │                                             │
 │  • Your data stays in YOUR Google Drive     │
 │  • No server ever sees your files or keys   │
@@ -171,12 +176,17 @@ Persistent elements:
 ```
 
 </details>
-- Single primary CTA. Below the fold: privacy explainer + what you'll need (Google account, an AI
+
+- **Primary CTA:** "Sign in with Google." **Secondary CTA:** "See a demo" — navigates to
+  `/demo/dashboard` with pre-populated fixture data (HLD D14, LLD §15). No auth required.
+- Below the fold: privacy explainer + what you'll need (Google account, an AI
   Studio key). Error inline if GIS init fails (origin mismatch → friendly "config issue" note).
 
 ### 5.2 Dashboard (`/dashboard`)
 
-![Dashboard — summary cards, educational banner, recent projects table](mockups/02-dashboard.png)
+| Desktop | Mobile |
+| --- | --- |
+| ![Dashboard — summary cards, educational banner, recent projects table](mockups/02-dashboard.png) | ![Mobile dashboard](mockups/m02-dashboard.png) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -206,7 +216,9 @@ Persistent elements:
 
 ### 5.3 Projects list (`/projects`)
 
-![Projects list — filterable table with treatment chips and attachment counts](mockups/03-projects-list.png)
+| Desktop | Mobile |
+| --- | --- |
+| ![Projects list — filterable table with treatment chips and attachment counts](mockups/03-projects-list.png) | ![Mobile projects list](mockups/m03-projects-list.png) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -233,7 +245,9 @@ Two entry modes that converge on the same form:
 - **From a receipt** (AI-assisted): drop/scan a file → extraction → review → form prefilled.
 - **Manual**: blank form.
 
-![Add improvement form — attachments, AI extract, fields, tax treatment radios, save](mockups/04-add-edit.png)
+| Desktop | Mobile |
+| --- | --- |
+| ![Add improvement form — attachments, AI extract, fields, tax treatment radios, save](mockups/04-add-edit.png) | ![Mobile add improvement](mockups/m04-add-edit.png) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -266,7 +280,9 @@ Two entry modes that converge on the same form:
 
 ### 5.5 AI extraction review (modal/step)
 
-![AI review modal — per-field confidence badges, editable inputs, confirm/discard](mockups/05-ai-review.png)
+| Desktop | Mobile |
+| --- | --- |
+| ![AI review modal — per-field confidence badges, editable inputs, confirm/discard](mockups/05-ai-review.png) | ![Mobile AI review](mockups/m05-ai-review.png) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -294,7 +310,9 @@ Two entry modes that converge on the same form:
 
 ### 5.6 Project detail (`/projects/:id`)
 
-![Project detail — cost/treatment table, justification, attachments list, history](mockups/06-project-detail.png)
+| Desktop | Mobile |
+| --- | --- |
+| ![Project detail — cost/treatment table, justification, attachments list, history](mockups/06-project-detail.png) | ![Mobile project detail](mockups/m06-project-detail.png) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -321,7 +339,9 @@ Two entry modes that converge on the same form:
 
 ### 5.7 Settings (`/settings`)
 
-![Settings — account, BYOK key, usage limits, data export, appearance toggle](mockups/07-settings.png)
+| Desktop | Mobile |
+| --- | --- |
+| ![Settings — account, BYOK key, usage limits, data export, appearance toggle](mockups/07-settings.png) | ![Mobile settings](mockups/m07-settings.png) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -356,7 +376,9 @@ Two entry modes that converge on the same form:
 
 ### 5.8 Export (`/export`)
 
-![Export — format and scope radio groups, info note, download button](mockups/08-export.png)
+| Desktop | Mobile |
+| --- | --- |
+| ![Export — format and scope radio groups, info note, download button](mockups/08-export.png) | ![Mobile export](mockups/m08-export.png) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -391,6 +413,9 @@ Two entry modes that converge on the same form:
 ```mermaid
 flowchart TD
     A[Landing] --> B[Sign in with Google]
+    A --> G["See a demo"]
+    G --> H["/demo/dashboard — read-only sandbox<br/>with sample data + persistent banner"]
+    H -->|sign in to use your own data| A
     B --> C{BYOK key set?}
     C -- no --> D[Prompt: add Gemini key in Settings<br/>or skip & enter projects manually]
     C -- yes --> E[Dashboard - empty state]

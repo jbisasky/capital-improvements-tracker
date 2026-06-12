@@ -25,6 +25,7 @@
 12. [Security handshake details](#12-security-handshake-details)
 13. [Runaway-usage failsafes (API/token budget protection)](#13-runaway-usage-failsafes-apitoken-budget-protection)
 14. [Testing & CI](#14-testing--ci)
+15. [Demo mode](#15-demo-mode)
 
 ---
 
@@ -50,9 +51,16 @@ Timestamps are ISO-8601 UTC strings produced by `new Date().toISOString()`. Date
 `completionDate`) are `YYYY-MM-DD` local-date strings with no timezone.
 
 ### 1.4 HTTP client
-A single typed `httpFetch` wrapper centralizes: auth header injection, timeout (`AbortController`,
-default 30s), JSON (de)serialization, and mapping of HTTP status → `AppError`. It implements the
-retry policy in §1.5.
+A single typed `httpFetch` wrapper around the **native `fetch` API** centralizes: auth header
+injection, timeout (`AbortController`, default 30s), JSON (de)serialization, and mapping of HTTP
+status → `AppError`. It implements the retry policy in §1.5.
+
+> **No Axios (or any third-party HTTP client).** The browser-native `fetch` API covers every
+> requirement (streaming, `AbortController`, `Headers`, `FormData` for multipart uploads).
+> Adding Axios would introduce a redundant abstraction layer, extra bundle weight (~13 kB min),
+> and a second set of interceptor/transform conventions to maintain. All HTTP concerns live in
+> the single `httpFetch` wrapper — keeping the dependency surface minimal and the behavior
+> fully visible in one place.
 
 ### 1.5 Retry & backoff policy
 - **Retryable:** `408`, `429`, `500`, `502`, `503`, `504`, and network errors.
@@ -852,6 +860,113 @@ All three jobs run in parallel. PR merge requires all to pass (branch protection
 - **Contract tests** — overkill for a single SPA calling stable third-party APIs (Google Drive v3,
   Generative Language API). The mock shapes in E2E serve as de-facto consumer contracts;
   breaking changes from Google are caught by version-pinned API paths and release notes.
+
+---
+
+## 15. Demo mode
+
+The landing page offers a **"See a demo"** button (HLD D14) that drops the user into a
+read-only sandbox with no authentication required. This section specifies how it works.
+
+### 15.1 Activation & routing
+
+Clicking "See a demo" navigates to `/demo/dashboard`. All `/demo/*` routes mirror the
+authenticated routes (`/dashboard`, `/projects`, `/projects/:id`, `/settings`, `/export`) but
+wrap them in a `DemoProvider` context instead of the real `AuthProvider` + `DriveProvider`.
+
+```ts
+// Simplified route structure
+"/"           → Landing (sign-in + "See a demo" CTA)
+"/demo/*"     → DemoShell (DemoProvider wrapping real UI components)
+"/dashboard"  → AuthShell (real AuthProvider + DriveProvider)
+```
+
+### 15.2 Data layer — static fixtures
+
+Demo mode replaces all service calls with **static fixture data** bundled at build time:
+
+```ts
+// src/demo/fixtures.ts
+import type { Manifest } from "../domain/manifest";
+
+export const DEMO_MANIFEST: Manifest = {
+  schemaVersion: 1,
+  lastUpdated: "2025-06-01T00:00:00.000Z",
+  summary: {
+    totalCostBasisAdded: 42_300,
+    totalDeductible: 1_200,
+  },
+  projects: [
+    {
+      id: "demo-001",
+      title: "New roof",
+      completionDate: "2025-04-12",
+      totalCost: 18_000,
+      taxTreatment: "capital_improvement",
+      costBasisAdjustment: 18_000,
+      deductibleAmount: 0,
+      irsJustification: "Full tear-off and replacement of existing shingle roof.",
+      confidence: 0.92,
+      attachments: [/* demo file stubs */],
+      createdAt: "2025-04-14T10:00:00.000Z",
+      updatedAt: "2025-04-14T10:00:00.000Z",
+    },
+    // ... 3–5 more sample projects spanning different tax treatments
+  ],
+};
+```
+
+### 15.3 DemoProvider context
+
+```ts
+interface DemoContext {
+  isDemo: true;
+  manifest: Manifest;          // DEMO_MANIFEST (read-only)
+  user: { email: "demo@example.com"; name: "Demo User" };
+}
+```
+
+The `DemoProvider` supplies the same context shape as the real providers, so all existing
+UI components (dashboard cards, project list, detail view, settings) render identically —
+they read from context and don't care whether the data came from Drive or a fixture.
+
+**Mutations are no-ops with feedback:** Any write action (create, edit, delete, save settings)
+shows a toast: *"This is a demo — sign in to save your own data."* The fixture data never
+changes. The "Extract with AI" button shows a canned extraction result (pre-built fixture)
+rather than calling Gemini.
+
+### 15.4 Persistent demo banner
+
+A sticky top banner renders on all `/demo/*` routes:
+
+```
+┌──────────────────────────────────────────────────────┐
+│ 🔍 Demo mode — exploring with sample data.  [Sign in to use your own data →] │
+└──────────────────────────────────────────────────────┘
+```
+
+The banner is visually distinct (e.g. light blue background) so it's never confused with a
+real session. The "Sign in" link navigates back to `/`.
+
+### 15.5 What works vs. what doesn't in demo mode
+
+| Feature | Demo behavior |
+| --- | --- |
+| Dashboard summary cards | Rendered from fixture data |
+| Projects list + detail | Fully browsable (read-only) |
+| Search & filter | Works against fixture data |
+| Add / edit / delete | Toast: "Sign in to save" |
+| AI extraction | Shows canned extraction result |
+| Settings (BYOK, budgets) | Viewable; changes not persisted |
+| Export | Downloads the demo fixture as JSON/CSV |
+| Theme toggle | Works (persisted in localStorage) |
+| Sign out | Navigates back to `/` |
+
+### 15.6 Bundle impact
+
+The fixture data is small (~2–5 KB JSON) and tree-shaken from the authenticated code path.
+No additional API clients or service logic is loaded — the demo provider short-circuits
+everything.
 
 ---
 
