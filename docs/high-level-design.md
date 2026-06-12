@@ -29,29 +29,33 @@ Build a production-grade, **100% serverless, client-side SPA** that:
 
 ## 2. Architecture Overview
 
-```
-+------------------------------------------------------------------+
-|                          Browser (SPA)                           |
-|                                                                  |
-|  React Router v7 (SPA mode)  +  Tailwind v4  +  shadcn/ui        |
-|                                                                  |
-|  +------------+   +-------------------+   +-------------------+   |
-|  |  Auth      |   |  Domain / State   |   |  Settings (BYOK)  |   |
-|  |  (GIS)     |   |  (projects,       |   |  Gemini API key   |   |
-|  |  OAuth2    |   |   manifest)       |   |  in localStorage  |   |
-|  +-----+------+   +---------+---------+   +---------+---------+   |
-|        |                    |                       |             |
-|        | access token       | manifest + files      | API key     |
-|        v                    v                       v             |
-|  +-----------+      +----------------+       +----------------+    |
-|  | GIS token |      | Drive Service  |       | Gemini Service |    |
-|  | client    |      | (REST v3)      |       | (GenAI SDK)    |    |
-|  +-----+-----+      +-------+--------+       +-------+--------+    |
-+--------|--------------------|------------------------|-----------+
-         |                    |                        |
-         v                    v                        v
-  accounts.google.com   googleapis.com/drive   generativelanguage.googleapis.com
-  (OAuth consent)        (appDataFolder)        (gemini-2.5-flash)
+```mermaid
+flowchart TB
+    subgraph Browser["Browser (SPA) — React Router v7 (SPA mode) · Tailwind v4 · shadcn/ui"]
+        direction TB
+        subgraph UI["UI / State layer"]
+            direction LR
+            Auth["Auth (GIS OAuth2)"]
+            Domain["Domain / State<br/>(projects, manifest)"]
+            Settings["Settings (BYOK)<br/>Gemini API key in localStorage"]
+        end
+        subgraph Services["Services layer"]
+            direction LR
+            TokenClient["GIS token client"]
+            DriveSvc["Drive Service<br/>(REST v3)"]
+            GeminiSvc["Gemini Service<br/>(GenAI SDK)"]
+        end
+        Auth --> TokenClient
+        Domain --> DriveSvc
+        Settings --> GeminiSvc
+    end
+
+    TokenClient -- "OAuth consent / token" --> GAuth["accounts.google.com"]
+    DriveSvc -- "access token · manifest + files" --> GDrive["googleapis.com/drive<br/>(appDataFolder + visible folder)"]
+    GeminiSvc -- "API key" --> GGemini["generativelanguage.googleapis.com<br/>(gemini-2.5-flash)"]
+
+    classDef google fill:#e8f0fe,stroke:#4285f4,color:#1a237e;
+    class GAuth,GDrive,GGemini google;
 ```
 
 Key property: **no first-party backend exists**. The three external dependencies are all
