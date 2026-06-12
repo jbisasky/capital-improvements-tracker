@@ -1,12 +1,12 @@
 # High-Level Design (HLD): Serverless Capital Improvements & Tax Deduction Tracker
 
-**Status:** Draft v0.1 — for review
+**Status:** v1.0 — decisions locked, ready to build
 **Author:** Devin (on behalf of @jbisasky)
 **Last updated:** 2026-06-12
 
 > This document captures the architecture and design *intent* before any code is written.
-> Sections tagged **[OPEN]** depend on decisions still being gathered from the owner. Where a
-> decision is needed to keep moving, a **recommended default** is stated and clearly marked.
+> All previously open questions have been resolved with the owner; see the **Decisions Log**
+> in §13. Implementation should follow the choices recorded here.
 
 ---
 
@@ -90,7 +90,7 @@ codebase where dependencies will be swapped over time.
 | Styling | Tailwind v4 (Oxide/Rust engine) | v4 changes config (CSS-first `@theme`, no `tailwind.config.js` required). shadcn/ui has a v4-compatible track — pin versions. |
 | Components | shadcn/ui + Radix | Copied-in components (not a dependency) → good for longevity (you own the code). |
 | Language | TypeScript strict | `strict: true`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`. Lint rule banning `any`. |
-| Validation | **[OPEN]** zod (recommended) | Runtime validation of manifest + API payloads. Critical because Drive data and AI output are untrusted at parse time. |
+| Validation | **zod** (decided) | Runtime validation of manifest + API payloads. Critical because Drive data and AI output are untrusted at parse time. |
 | Auth | Google Identity Services (token model) | Browser-only; see §5 for the token-lifetime caveat. |
 | AI | `@google/genai` SDK, `gemini-2.5-flash` | Multimodal (image + PDF). BYOK key from `localStorage`. |
 
@@ -100,37 +100,15 @@ codebase where dependencies will be swapped over time.
 
 ### 4.1 Storage location
 - Primary index: `appDataFolder/manifest.json` (hidden, per-user, per-app Drive space).
-- Document files: uploaded to Drive; referenced by `fileId` in each project's `attachments`.
-  - **[OPEN]** Whether attachments live in `appDataFolder` (hidden) or a **visible** Drive
-    folder. See §7 risk on longevity. *Recommended:* visible folder via `drive.file` scope so
-    the user can always find their own documents even if this app disappears.
+- Document files: stored in a **user-visible Drive folder** (decision B6), created/managed via
+  the `drive.file` scope, and referenced by `fileId` in each project's `attachments`. This
+  keeps receipts findable in the normal Drive UI even if this app disappears (longevity, §9).
+  Only the `manifest.json` index lives in the hidden `appDataFolder`.
 
-### 4.2 Manifest schema (as specified, with proposed refinements)
+### 4.2 Manifest schema (canonical)
 
-The work order schema is the baseline:
-
-```jsonc
-{
-  "version": "1.0",
-  "lastUpdated": "ISO-8601-Timestamp",
-  "summary": { "totalDeductions": 0.00 },
-  "projects": [
-    {
-      "id": "string-uuid",
-      "title": "string",
-      "completionDate": "YYYY-MM-DD",
-      "totalCost": 0.00,
-      "taxDeductibleAmount": 0.00,
-      "irsJustification": "string",
-      "attachments": [
-        { "fileId": "google-drive-file-id", "filename": "string", "mimeType": "string" }
-      ]
-    }
-  ]
-}
-```
-
-**Proposed refinements [OPEN — pending §7/C9 decision]:**
+The **cost-basis-aware** schema below is the canonical model (decision C9). The work order's
+original single-`taxDeductibleAmount` shape is retained only as a migration source.
 
 ```jsonc
 {
@@ -161,12 +139,17 @@ The work order schema is the baseline:
 }
 ```
 
-The refinement exists because of the domain accuracy issue in §6 — keeping a single
-`taxDeductibleAmount` field conflates two very different tax mechanics.
+This model exists because of the domain accuracy issue in §6 — a single `taxDeductibleAmount`
+field conflates two very different tax mechanics.
 
-### 4.3 Concurrency & durability **[OPEN — recommend adopting]**
+> **Migration from the work order baseline:** `version: "1.0"` → `schemaVersion: 1`;
+> `summary.totalDeductions` is split into `totalCostBasisAdded` + `totalDeductible`; each
+> project's `taxDeductibleAmount` maps to `deductibleAmount` with `taxTreatment: "unknown"`
+> until reclassified.
+
+### 4.3 Concurrency & durability (decision B4)
 A single `manifest.json` over 20 years is a single point of failure and a multi-device write
-hazard. Recommended safeguards:
+hazard, so the following safeguards are **adopted**:
 - **Optimistic concurrency:** read the Drive file's `headRevisionId`/ETag; on write, verify it
   hasn't changed (conditional update). On conflict, re-read, merge, retry.
 - **Backups:** before each write, copy current manifest to a rotating `manifest.bak.N.json`.
@@ -182,31 +165,29 @@ hazard. Recommended safeguards:
 2. GIS **token client** requests an OAuth2 **access token** with scopes (see §5.3).
 3. Access token held **in memory only** (per work order). Used as a Bearer token for Drive.
 
-### 5.2 The critical caveat **[OPEN — needs owner decision A1]**
+### 5.2 Token model & lifecycle (decision A1)
 Pure browser GIS uses the **implicit/token model**, which returns a **short-lived access
-token (~1 hour) and NO refresh token**. Consequences:
-- Token cannot be silently renewed indefinitely without user interaction; GIS supports
-  *silent* re-request (`prompt: ''`) while the Google session is alive, which we should use to
-  refresh before expiry.
-- Holding token in memory only ⇒ **full re-auth on page refresh / new tab**.
+token (~1 hour) and NO refresh token**. **Adopted approach:**
+- Hold the access token **in memory only**.
+- Proactively perform a **silent re-request** (`prompt: ''`) shortly before expiry while the
+  Google session is alive.
+- Accept **full re-auth on hard page refresh / new tab** (acceptable UX tradeoff for the
+  stronger security posture).
 
-**Recommended default:** in-memory token + proactive silent re-auth shortly before expiry;
-accept re-login on hard refresh. If that UX is too aggressive, the alternative is persisting
-the token (sessionStorage) — weaker security, still no true refresh token. *Confirm A1.*
+### 5.3 Scopes (decision A3)
+- `https://www.googleapis.com/auth/drive.appdata` — hidden app data, for `manifest.json`.
+- `https://www.googleapis.com/auth/drive.file` — for the user-visible attachments folder this
+  app creates/manages. Scoped to app-created files only; avoids full-`drive` over-permissioning.
 
-### 5.3 Scopes **[OPEN — A3]**
-- `https://www.googleapis.com/auth/drive.appdata` (hidden app data) — required for manifest.
-- *Recommended add:* `https://www.googleapis.com/auth/drive.file` so attachments can live in a
-  user-visible folder (longevity). Minimizes scope vs. full `drive`.
-
-### 5.4 OAuth client config **[OPEN — A2]**
+### 5.4 OAuth client config (decision A2 — provision new)
 Requires a Google Cloud project with an **OAuth Client ID** whose **Authorized JavaScript
-origins** exactly match the hosting domain (see §8). Owner to confirm whether one exists or
-needs provisioning (I can document the exact steps).
+origins** exactly match the hosting domain(s) — both the `*.pages.dev` URL and any future
+custom domain (see §8). No client exists yet; provisioning steps will be documented in the
+repo (a `docs/google-cloud-setup.md` to be added during P1).
 
 ---
 
-## 6. Tax Domain Modeling — important accuracy note **[OPEN — C9]**
+## 6. Tax Domain Modeling — important accuracy note (decision C9: cost-basis-aware)
 
 The work order frames everything as `taxDeductibleAmount` / `totalDeductions`. For a
 **personal residence**, this is usually **not** how it works (IRS Pub 523/530):
@@ -218,14 +199,11 @@ The work order frames everything as `taxDeductibleAmount` / `totalDeductions`. F
   (e.g. §25C/§25D), medically necessary improvements (as itemized medical expense, net of
   value added), and the business-use-of-home / rental allocation portion.
 
-**Design implication:** model both mechanics explicitly (see `taxTreatment`,
-`costBasisAdjustment`, `deductibleAmount` in §4.2) and have the AI + UI classify each project
-rather than assuming everything is "deductible." This avoids giving the user a misleading
-"total deductions" number that could cause a filing error.
-
-**Decision needed:** adopt cost-basis-aware model (recommended) vs. keep literal "deductions"
-framing from the work order. Either way: the app should display a clear disclaimer that it is
-not tax advice.
+**Adopted:** model both mechanics explicitly (see `taxTreatment`, `costBasisAdjustment`,
+`deductibleAmount` in §4.2) and have the AI + UI classify each project rather than assuming
+everything is "deductible." This avoids giving the user a misleading "total deductions" number
+that could cause a filing error. The app must also display a clear disclaimer that it is **not
+tax advice**.
 
 ---
 
@@ -240,38 +218,51 @@ not tax advice.
    *before* being written to the manifest, with the `confidence` score surfaced.
 5. On confirm: attachment uploaded to Drive, manifest updated (§4.3 safeguards).
 
-### 7.2 Inputs **[OPEN — C7]**
-Need to confirm expected document types (phone photos, scanned multi-page PDFs, emailed
-receipts). This drives whether we send inline base64 vs. Gemini File API and how we chunk
-multi-page PDFs.
+### 7.2 Inputs (decision C7: images + PDFs)
+Supported inputs: **phone photos / scanned images and PDFs** (including multi-page invoices).
+Small files are sent inline (base64); larger files use the Gemini **File API**. Multi-page
+PDFs are passed as a single document where the model supports it, else split per page.
 
-### 7.3 BYOK key handling **[OPEN — D11]**
+### 7.3 BYOK key handling (decision D11: add CSP + warning)
 Key stored in `localStorage` per work order. Risk: any XSS can read it (and the access token).
-Mitigations to consider: strict CSP, no third-party scripts, optional session-only mode, and a
-clear in-UI warning. Note: client-side "encryption" of the key offers limited real protection
-since the decrypt path is also in the client.
+**Adopted mitigations:** a strict **CSP** (real response header via Cloudflare Pages `_headers`,
+see §8), no third-party script tags, an in-UI **warning** about the key being stored locally,
+and an optional **session-only mode** (hold the key in memory for the session instead of
+`localStorage`). Note: client-side "encryption" of the key offers limited real protection since
+the decrypt path is also in the client.
 
 ---
 
-## 8. Hosting & Deployment **[OPEN — D10]**
+## 8. Hosting & Deployment (decision D10: Cloudflare Pages)
 
-Static output can be hosted anywhere that serves files. *Recommended default:* **GitHub Pages**
-(free, durable, matches the personal-GitHub setup). Considerations:
-- SPA fallback routing (404 → index.html) for client-side routes.
-- OAuth **Authorized JavaScript origins** must match the Pages domain (and any custom domain).
-- **CSP** allowing only Google endpoints + self; this is the main XSS mitigation for §7.3.
-- CI: GitHub Actions build + deploy to Pages.
+Source of truth stays on **GitHub**; the static build is deployed to **Cloudflare Pages**
+(free tier, global CDN). Cloudflare Pages was chosen over GitHub Pages specifically because it
+can serve **real HTTP response headers** — required for the strict CSP in §7.3/§10 (GitHub
+Pages can only do a weaker `<meta http-equiv>` CSP).
+
+- **Domain:** default `*.pages.dev` subdomain (e.g. `capital-improvements-tracker.pages.dev`);
+  a **custom domain** can be attached later at no cost (Cloudflare Registrar or external DNS).
+  The `pages.dev` URL remains a permanent fallback.
+- **Security headers:** a `_headers` file ships the CSP (self + Google endpoints only), HSTS,
+  `X-Content-Type-Options`, `Referrer-Policy`, and frame-ancestors lockdown.
+- **SPA routing:** native single-page fallback (serve `index.html` for unmatched client routes).
+- **OAuth origins:** register **both** the `pages.dev` URL and any custom domain as Authorized
+  JavaScript origins (§5.4).
+- **CI/CD:** Cloudflare Pages builds directly from the GitHub repo on push to `main`
+  (preview deployments for PRs).
 
 ---
 
-## 9. Longevity (20-year) Strategy **[OPEN — D13]**
+## 9. Longevity (20-year) Strategy (decision D13: include if feasible)
 
 - **Pin & vendor** dependencies; commit lockfile; prefer shadcn (owned code) over heavy libs.
 - Minimize runtime dependencies; avoid services that can disappear (other than Google core).
-- Consider **PWA/offline** so the app keeps working if hosting lapses (cached shell + Drive).
-- Document the Google Cloud project / OAuth client so it can be recreated.
-- Provide **data export** (download manifest + a human-readable CSV/PDF) so data is never
-  trapped — especially important if attachments live in hidden `appDataFolder`.
+- **PWA/offline** (adopted for v1 if feasible): cached app shell so the UI keeps working even
+  if hosting lapses; Drive sync resumes when back online.
+- Document the Google Cloud project / OAuth client (`docs/google-cloud-setup.md`) so it can be
+  recreated.
+- Provide **data export** (decision B5): download `manifest.json` + a human-readable CSV/PDF so
+  data is never trapped. (Attachments already live in a visible Drive folder per §4.1.)
 
 ---
 
@@ -298,8 +289,10 @@ Static output can be hosted anywhere that serves files. *Recommended default:* *
 
 ## 12. Phased Roadmap (proposed)
 
-1. **P0 — Skeleton:** RR7 SPA scaffold, Tailwind v4 + shadcn, strict TS config, CI to Pages.
-2. **P1 — Auth:** GIS sign-in, token lifecycle (§5), settings + BYOK storage.
+1. **P0 — Skeleton:** RR7 SPA scaffold, Tailwind v4 + shadcn, strict TS config, Cloudflare
+   Pages deploy + `_headers` CSP.
+2. **P1 — Auth:** GIS sign-in, token lifecycle (§5), settings + BYOK storage,
+   `docs/google-cloud-setup.md`.
 3. **P2 — Storage:** Drive service, manifest read/write with concurrency + backups (§4.3).
 4. **P3 — Projects CRUD:** list/detail/create/edit, money/date handling, summary totals.
 5. **P4 — AI extraction:** Gemini multimodal + structured output + human review step.
@@ -308,25 +301,27 @@ Static output can be hosted anywhere that serves files. *Recommended default:* *
 
 ---
 
-## 13. Open Questions (consolidated)
+## 13. Decisions Log
 
-| # | Area | Question | Recommended default |
+All questions resolved with the owner on 2026-06-12.
+
+| # | Area | Question | Decision |
 | --- | --- | --- | --- |
-| A1 | Auth | Accept ~1h token + silent re-auth + re-login on refresh? | Yes (in-memory) |
-| A2 | Auth | Existing Google OAuth Client ID, or provision new? | Document provisioning |
-| A3 | Auth | `drive.appdata` only, or also `drive.file`? | Add `drive.file` |
-| B4 | Storage | Add optimistic concurrency + backups to single manifest? | Yes |
-| B5 | Storage | Need human-visible copy/export given hidden folder? | Yes (export) |
-| B6 | Storage | Attachments in `appDataFolder` or visible folder? | Visible folder |
-| C7 | AI | What document types/inputs to support? | Images + PDFs |
-| C8 | AI | Require human review before saving extracted values? | Yes |
-| C9 | Tax | Cost-basis-aware model vs literal "deductions"? | Cost-basis-aware |
-| D10 | Hosting | Hosting target? | GitHub Pages |
-| D11 | Security | BYOK key in localStorage acceptable as-is? | Add CSP + warning |
-| D12 | Scope | Single account or multi-account? | Single |
-| D13 | Longevity | PWA/offline + vendored deps in v1? | Yes if feasible |
+| A1 | Auth | ~1h token + silent re-auth + re-login on refresh? | **Yes — in-memory token** |
+| A2 | Auth | Existing Google OAuth Client ID, or provision new? | **Provision new; document setup** |
+| A3 | Auth | `drive.appdata` only, or also `drive.file`? | **Add `drive.file`** |
+| B4 | Storage | Optimistic concurrency + backups on the manifest? | **Yes** |
+| B5 | Storage | Human-visible export given hidden folder? | **Yes — manifest + CSV/PDF** |
+| B6 | Storage | Attachments in `appDataFolder` or visible folder? | **Visible Drive folder** |
+| C7 | AI | Which document inputs? | **Images + PDFs** |
+| C8 | AI | Human review before saving extracted values? | **Yes** |
+| C9 | Tax | Cost-basis-aware model vs literal "deductions"? | **Cost-basis-aware** |
+| D10 | Hosting | Hosting target? | **Cloudflare Pages** (source on GitHub) |
+| D11 | Security | BYOK key in localStorage acceptable as-is? | **Add CSP + warning + session-only option** |
+| D12 | Scope | Single account or multi-account? | **Single account** |
+| D13 | Longevity | PWA/offline + vendored deps in v1? | **Yes if feasible** |
 
 ---
 
-*This is a living design document. Once the open questions are resolved, sections will be
-updated and the [OPEN] tags removed.*
+*This is a living design document. As implementation proceeds, sections will be refined and
+this log updated if any decision is revisited.*
