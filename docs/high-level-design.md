@@ -298,6 +298,11 @@ No data migration is ever required. Treat the host as swappable infrastructure.
   minimal/pinned deps, SRI where applicable.
 - Access token in memory only; BYOK key in `localStorage` (see §7.3 tradeoff).
 - All traffic over HTTPS directly to Google; no proxy.
+- **Runaway-usage failsafes:** because there's no backend to throttle calls, a bug (e.g. a
+  render/`useEffect` loop) could burn API quota or Gemini tokens fast. The design mandates
+  layered client guards — a per-gesture call budget, a global frequency circuit breaker, per-API
+  rate limiters/breakers, bounded retries, and a daily/session AI spend budget — plus
+  provider-side quota caps and API-key restrictions. Specified in LLD §13.
 
 ---
 

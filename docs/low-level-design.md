@@ -23,6 +23,7 @@
 10. [Error taxonomy & user messaging](#10-error-taxonomy--user-messaging)
 11. [Concurrency edge cases](#11-concurrency-edge-cases)
 12. [Security handshake details](#12-security-handshake-details)
+13. [Runaway-usage failsafes (API/token budget protection)](#13-runaway-usage-failsafes-apitoken-budget-protection)
 
 ---
 
@@ -60,6 +61,9 @@ retry policy in §1.5.
   (conflict → domain-level resolution), `412` (precondition → CAS retry path, §6).
 - **`401` is special:** triggers a single silent token refresh (§4.4), then **one** replay of
   the original request. A second `401` surfaces `AUTH_REQUIRED`.
+- **Retries never self-retrigger unbounded:** the attempt cap is hard, and the whole retry path
+  sits behind the runaway-usage failsafes in §13 (per-gesture budget, global breaker, per-API
+  breaker), so a pathological retry/loop is contained rather than burning quota.
 
 ### 1.6 Idempotency
 Mutations carry a client-generated `operationId` (UUID) recorded in an in-memory in-flight set so
@@ -517,6 +521,10 @@ cleaned up (or reconciled) on next successful manifest load.
 | `API_KEY_INVALID` | Gemini 400 | no | "Check your AI Studio key in Settings" |
 | `QUOTA` | 429 | backoff | "AI quota reached — try later" |
 | `DRIVE_QUOTA` | Drive 403 storage | no | "Your Google Drive is full" |
+| `LOOP_GUARD_TRIPPED` | per-gesture budget (§13.2) | no | "Something looped unexpectedly — action stopped" (diagnostics) |
+| `CIRCUIT_OPEN` | global/endpoint breaker (§13.3–4) | after cooldown + manual resume | "Paused requests to protect your quota — resume?" |
+| `RATE_LIMITED_LOCAL` | token bucket (§13.4) | auto (delayed) | usually silent; brief "slowing down" if sustained |
+| `AI_BUDGET_EXCEEDED` | spend budget (§13.5) | next reset / override | "Daily AI limit reached — raise limit or try tomorrow" |
 
 Every `AppError` carries `{ code, httpStatus?, cause?, operationId? }`; user messages never leak
 tokens, keys, or raw payloads.
@@ -549,6 +557,112 @@ tokens, keys, or raw payloads.
   `object-src 'none'`; `base-uri 'self'`; plus HSTS and `X-Content-Type-Options: nosniff`.
 - **No third-party scripts** beyond Google Identity Services; dependencies pinned (longevity).
 - **Scope minimization:** `drive.file` (not full `drive`) so the app can only see files it created.
+
+---
+
+## 13. Runaway-usage failsafes (API/token budget protection)
+
+A bug — a bad `useEffect` dependency array, a render loop, a retry that re-triggers itself, an
+event handler firing in a tight loop — can hammer the Drive or Gemini endpoints and burn quota
+(or, for Gemini, real tokens/$) in seconds. Because there is **no backend to throttle on our
+behalf**, all guards live in the client, layered defense-in-depth, and are complemented by
+**provider-side quotas** the owner configures. **No raw `fetch` to a Google endpoint is allowed
+outside the guarded `httpFetch` pipeline** (enforced by lint rule + code review), so every call
+passes through these checks.
+
+### 13.1 Guard layers (summary)
+
+| # | Guard | Scope | Trips when | Effect |
+| --- | --- | --- | --- | --- |
+| 1 | **Per-gesture call budget** | per user action | calls for one gesture exceed `K` (e.g. 8) | abort gesture, log `LOOP_GUARD_TRIPPED` (this is the primary anti-loop net) |
+| 2 | **Global frequency breaker** | whole app | > `N` calls within window `W` (e.g. 30 calls / 10 s) | open circuit, halt all outbound calls for cooldown, show fatal banner |
+| 3 | **Token-bucket rate limiter** | per API (Drive, Gemini, FileAPI) | sustained rate exceeds refill | queue/delay or reject with `RATE_LIMITED_LOCAL` |
+| 4 | **Per-endpoint circuit breaker** | per API | `F` consecutive failures (e.g. 5) | open for cooldown `C`, then half-open probe |
+| 5 | **Retry cap** (see §1.5) | per request | attempts > 5 | stop; never self-retrigger |
+| 6 | **Idempotency / in-flight dedup** (see §1.6) | per operation | same `operationId` already running | coalesce, no new call |
+| 7 | **Daily + session spend/quota budget** | per app, persisted | calls or estimated tokens exceed cap | block further AI calls until reset / user override |
+| 8 | **AbortController on unmount/nav** | per component | route change / unmount | cancel in-flight, prevent zombie loops |
+
+### 13.2 Per-gesture call budget (primary anti-loop net)
+Every user-initiated action runs inside a `withCallBudget(label, K, fn)` scope. Each guarded
+request decrements a counter bound to the current gesture via async context. Exceeding `K`
+indicates a logic bug (a loop), not legitimate use, so the whole gesture is aborted and surfaced.
+
+```ts
+const r = await withCallBudget("extractReceipt", 8, async () => {
+  // any guarded API calls here share the budget of 8
+});
+// if budget exceeded → Result.err(LOOP_GUARD_TRIPPED), nothing further is sent
+```
+
+This directly contains the classic React failure mode where a component re-renders and re-fires a
+request every render: the budget is exhausted almost immediately and the cascade stops instead of
+running unbounded.
+
+### 13.3 Global frequency circuit breaker
+A process-wide sliding-window counter trips a hard kill-switch if call frequency is implausibly
+high regardless of source.
+
+```mermaid
+flowchart TD
+    A[guarded request] --> B{breaker OPEN?}
+    B -- yes --> X[reject: CIRCUIT_OPEN, show fatal banner]
+    B -- no --> C[record timestamp in sliding window W]
+    C --> D{count in W > N?}
+    D -- yes --> E[OPEN breaker for cooldown, cancel queued/in-flight]
+    E --> X
+    D -- no --> F[allow request → httpFetch]
+    F --> G{success?}
+    G -- no, repeated --> H[per-endpoint breaker may OPEN §13.4]
+    G -- yes --> I[Result.ok]
+```
+
+When the global breaker opens it is **sticky**: it requires either the cooldown to elapse *and* a
+manual user "resume" click (so a runaway loop can't immediately re-trip in a tight cycle). The
+event is logged with the recent call stack/labels to aid debugging.
+
+### 13.4 Per-endpoint circuit breaker + token bucket
+- **Token bucket** per API: e.g. Gemini bucket = capacity 5, refill 1/2 s; Drive bucket =
+  capacity 10, refill 2/s. Requests take a token or wait (bounded) / reject.
+- **Circuit breaker** per API: after `F` consecutive failures → `OPEN` for cooldown `C` (e.g.
+  30 s), then `HALF_OPEN` allows a single probe; success → `CLOSED`, failure → `OPEN` again.
+  This prevents retry storms against a failing endpoint.
+
+### 13.5 Spend / token budget (Gemini specifically)
+Gemini responses include `usageMetadata` (`promptTokenCount`, `candidatesTokenCount`,
+`totalTokenCount`). We accumulate:
+- a **session counter** (in memory) and a **rolling daily counter** (persisted in `localStorage`,
+  keyed by UTC date), for both *request count* and *estimated tokens*.
+- Configurable caps (sane defaults, editable in Settings), e.g. `maxAiCallsPerDay`,
+  `maxAiTokensPerDay`, `maxAiCallsPerSession`.
+- On reaching a cap → `AI_BUDGET_EXCEEDED`: further extractions are blocked with a clear message
+  and an explicit, deliberate "raise limit / override for today" action (no silent bypass).
+
+```ts
+interface UsageBudget {
+  maxAiCallsPerSession: number;   // e.g. 50
+  maxAiCallsPerDay: number;       // e.g. 200
+  maxAiTokensPerDay: number;      // e.g. 2_000_000
+}
+```
+
+### 13.6 Provider-side limits (defense in depth — owner configures)
+Client guards can be bypassed by a determined bug or a tampered build, so the **authoritative**
+ceiling is set at Google:
+- **AI Studio / Generative Language API quotas:** set requests-per-minute and requests-per-day
+  limits on the project/key in the Google Cloud console (Quotas page). The free tier already
+  enforces RPM/RPD caps; explicit lower caps add headroom safety.
+- **API key restrictions:** restrict the BYOK key to the Generative Language API only, and add an
+  **HTTP referrer restriction** to the app's domain(s) so a leaked key can't be used elsewhere.
+- **Drive API quotas:** Drive enforces per-user rate limits; our backoff (§1.5) + breaker (§13.4)
+  cooperate with `429`/`403 rateLimitExceeded` responses rather than fighting them.
+- These steps will be included in `docs/google-cloud-setup.md`.
+
+### 13.7 Observability
+Every trip (`LOOP_GUARD_TRIPPED`, `CIRCUIT_OPEN`, `AI_BUDGET_EXCEEDED`, `RATE_LIMITED_LOCAL`) is
+recorded to an in-app diagnostics log (ring buffer) with timestamp, label, and counters, viewable
+in Settings → Diagnostics. This makes a runaway-loop bug obvious and debuggable after the fact
+without external telemetry.
 
 ---
 
