@@ -24,6 +24,7 @@
 11. [Concurrency edge cases](#11-concurrency-edge-cases)
 12. [Security handshake details](#12-security-handshake-details)
 13. [Runaway-usage failsafes (API/token budget protection)](#13-runaway-usage-failsafes-apitoken-budget-protection)
+14. [Testing & CI](#14-testing--ci)
 
 ---
 
@@ -663,6 +664,194 @@ Every trip (`LOOP_GUARD_TRIPPED`, `CIRCUIT_OPEN`, `AI_BUDGET_EXCEEDED`, `RATE_LI
 recorded to an in-app diagnostics log (ring buffer) with timestamp, label, and counters, viewable
 in Settings → Diagnostics. This makes a runaway-loop bug obvious and debuggable after the fact
 without external telemetry.
+
+---
+
+## 14. Testing & CI
+
+Two tools cover the full testing pyramid: **Vitest** (unit / component) and **Playwright** (E2E).
+Both run in a single GitHub Actions workflow on every push and PR.
+
+### 14.1 Test pyramid overview
+
+| Layer | Tool | Scope | Location | Runs against |
+| --- | --- | --- | --- | --- |
+| Unit | Vitest | Pure functions, domain logic, utilities | Colocated `*.test.ts` next to source | In-process (no browser) |
+| Component | Vitest + Testing Library | React components in isolation | Colocated `*.test.tsx` next to source | jsdom / happy-dom |
+| E2E | Playwright | Full user flows across pages | `e2e/*.spec.ts` (top-level) | Real browser against dev server |
+
+### 14.2 Vitest — unit & component tests
+
+Vitest shares the Vite config (`vite.config.ts`), so path aliases, TypeScript transforms, and
+plugins work without extra setup.
+
+```ts
+// vitest.config.ts (extends vite.config.ts)
+import { defineConfig, mergeConfig } from "vitest/config";
+import viteConfig from "./vite.config";
+
+export default mergeConfig(viteConfig, defineConfig({
+  test: {
+    globals: true,
+    environment: "jsdom",
+    include: ["src/**/*.test.{ts,tsx}"],
+    coverage: {
+      provider: "v8",
+      include: ["src/**"],
+      exclude: ["src/**/*.test.*", "src/test/**"],
+    },
+  },
+}));
+```
+
+**What to unit-test (high value):**
+- `src/domain/` — tax-treatment logic, cost-basis calculations, IRS rules. These are pure
+  functions with well-defined inputs/outputs.
+- `src/lib/money.ts` — integer-cents ↔ decimal-dollar conversions, rounding.
+- `Result` helpers — mapping, chaining, error narrowing.
+- Zod schemas (`§2`) — round-trip parse/serialize, reject malformed input.
+- Retry/backoff logic (`§1.5`) — deterministic with a fake clock.
+- Budget/circuit-breaker state machines (`§13`) — transition coverage.
+
+**What to component-test:**
+- Forms (add/edit project) — field validation, `taxTreatment` driving which amount fields
+  are emphasized, zod error surfacing.
+- AI extraction review — confidence badges render, editing a field clears the AI marker.
+- State coverage (`§7 matrix`) — loading/empty/error states render the correct UI.
+
+**Mocking strategy (unit/component):**
+- Google APIs (Drive, GIS) → mock at the `httpFetch` wrapper boundary (`vi.mock`);
+  never call real Google endpoints in unit tests.
+- Gemini API → mock `extractFromDocument` service; feed canned extraction responses.
+- `localStorage` → use Vitest's jsdom environment (provides `localStorage` natively).
+
+### 14.3 Playwright — E2E tests
+
+Playwright drives a real Chromium browser against the Vite dev server. Tests exercise full
+user flows as described in the UI/UX design doc §6.
+
+```ts
+// playwright.config.ts
+import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "e2e",
+  use: {
+    baseURL: "http://localhost:5173",
+    screenshot: "only-on-failure",
+    trace: "retain-on-failure",
+  },
+  webServer: {
+    command: "npm run dev",
+    port: 5173,
+    reuseExistingServer: !process.env.CI,
+  },
+  projects: [
+    { name: "chromium", use: { browserName: "chromium" } },
+  ],
+});
+```
+
+**E2E test inventory (maps to UI/UX §6 flows):**
+
+| Spec file | Flow | Key assertions |
+| --- | --- | --- |
+| `landing.spec.ts` | Sign-in page loads, Google button visible | Privacy bullets, disclaimer present |
+| `onboarding.spec.ts` | First-run → BYOK prompt → empty dashboard | Guided state, AI features gated without key |
+| `add-from-receipt.spec.ts` | Upload → AI extract → review → save | Fields prefilled, confidence shown, saved to project list |
+| `add-manual.spec.ts` | Manual form entry → save | Validation fires, project appears in list |
+| `project-crud.spec.ts` | Create, read, update, delete | List updates, detail view correct, delete confirms |
+| `settings.spec.ts` | BYOK entry, budget config, theme toggle | Key masked, test ping, budget limits persist |
+| `export.spec.ts` | Export manifest / CSV | Download triggers with correct content |
+| `error-states.spec.ts` | Auth expiry, Drive conflict, AI budget exceeded | Banners/dialogs render, recovery actions work |
+
+**Mocking external APIs in E2E:**
+
+Since the app is 100% client-side, all external calls (Google OAuth, Drive, Gemini) are
+intercepted at the network level using Playwright's `page.route()`:
+
+```ts
+// e2e/fixtures/mock-google.ts
+await page.route("**/googleapis.com/drive/**", (route) => {
+  route.fulfill({ json: mockDriveResponse });
+});
+await page.route("**/generativelanguage.googleapis.com/**", (route) => {
+  route.fulfill({ json: mockGeminiExtraction });
+});
+```
+
+This keeps E2E tests deterministic, fast, and free of real API credentials in CI.
+
+### 14.4 GitHub Actions CI workflow
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+on: [push, pull_request]
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npx vitest run --coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+```
+
+All three jobs run in parallel. PR merge requires all to pass (branch protection rule).
+
+### 14.5 Test file conventions
+
+- **Unit/component tests** live next to the file they test: `src/domain/tax.ts` →
+  `src/domain/tax.test.ts`. This makes coverage gaps obvious at a glance.
+- **E2E tests** live in a top-level `e2e/` directory since they span multiple routes/components.
+- **Test utilities and fixtures** (mock data, helpers) live in `src/test/` (for Vitest) and
+  `e2e/fixtures/` (for Playwright).
+- Naming: `*.test.ts` for Vitest, `*.spec.ts` for Playwright — keeps the two layers
+  unambiguous and allows separate glob patterns.
+
+### 14.6 What is NOT tested (and why)
+
+- **Real Google OAuth flow** — GIS consent is an interactive redirect to `accounts.google.com`;
+  not feasible to automate without test account credentials. Mocked in E2E.
+- **Real Gemini API calls in CI** — would require a BYOK key as a CI secret and would be
+  non-deterministic (model output varies). Mocked with canned responses.
+- **Contract tests** — overkill for a single SPA calling stable third-party APIs (Google Drive v3,
+  Generative Language API). The mock shapes in E2E serve as de-facto consumer contracts;
+  breaking changes from Google are caught by version-pinned API paths and release notes.
 
 ---
 
