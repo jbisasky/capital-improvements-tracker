@@ -33,6 +33,7 @@ durable, low-maintenance personal ledger that survives for ~20 years without any
 
 - [High-Level Design](docs/high-level-design.md) — architecture, data model, flows, risks, roadmap.
 - [Low-Level Design](docs/low-level-design.md) — granular handshaking: API calls, sequence diagrams, data contracts, retry/error model.
+- [Google Cloud Setup](docs/google-cloud-setup.md) — one-time runbook: enable APIs, OAuth consent + Client ID, BYOK key restrictions, quota caps.
 
 ## License
 

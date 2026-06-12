@@ -656,7 +656,7 @@ ceiling is set at Google:
   **HTTP referrer restriction** to the app's domain(s) so a leaked key can't be used elsewhere.
 - **Drive API quotas:** Drive enforces per-user rate limits; our backoff (§1.5) + breaker (§13.4)
   cooperate with `429`/`403 rateLimitExceeded` responses rather than fighting them.
-- These steps will be included in `docs/google-cloud-setup.md`.
+- These steps are in the runbook [`docs/google-cloud-setup.md`](google-cloud-setup.md).
 
 ### 13.7 Observability
 Every trip (`LOOP_GUARD_TRIPPED`, `CIRCUIT_OPEN`, `AI_BUDGET_EXCEEDED`, `RATE_LIMITED_LOCAL`) is

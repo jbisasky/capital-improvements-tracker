@@ -190,8 +190,8 @@ token (~1 hour) and NO refresh token**. **Adopted approach:**
 ### 5.4 OAuth client config (decision A2 — provision new)
 Requires a Google Cloud project with an **OAuth Client ID** whose **Authorized JavaScript
 origins** exactly match the hosting domain(s) — both the `*.pages.dev` URL and any future
-custom domain (see §8). No client exists yet; provisioning steps will be documented in the
-repo (a `docs/google-cloud-setup.md` to be added during P1).
+custom domain (see §8). No client exists yet; provisioning steps are in the runbook
+[`docs/google-cloud-setup.md`](google-cloud-setup.md).
 
 ---
 
@@ -283,8 +283,8 @@ No data migration is ever required. Treat the host as swappable infrastructure.
 - Minimize runtime dependencies; avoid services that can disappear (other than Google core).
 - **PWA/offline** (adopted for v1 if feasible): cached app shell so the UI keeps working even
   if hosting lapses; Drive sync resumes when back online.
-- Document the Google Cloud project / OAuth client (`docs/google-cloud-setup.md`) so it can be
-  recreated.
+- Document the Google Cloud project / OAuth client
+  ([`docs/google-cloud-setup.md`](google-cloud-setup.md)) so it can be recreated.
 - Provide **data export** (decision B5): download `manifest.json` + a human-readable CSV/PDF so
   data is never trapped. (Attachments already live in a visible Drive folder per §4.1.)
 
