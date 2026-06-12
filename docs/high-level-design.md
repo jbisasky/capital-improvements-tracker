@@ -61,6 +61,10 @@ flowchart TB
 Key property: **no first-party backend exists**. The three external dependencies are all
 Google services the user already trusts, contacted directly from the browser.
 
+> The granular handshaking behind each edge above (exact API calls, sequence diagrams,
+> retry/CAS protocols, data contracts) is specified in the companion
+> [Low-Level Design](low-level-design.md).
+
 ### 2.1 Layered module map (proposed)
 
 ```

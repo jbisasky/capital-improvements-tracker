@@ -1,0 +1,556 @@
+# Low-Level Design (LLD): Serverless Capital Improvements & Tax Deduction Tracker
+
+**Status:** Draft v0.1 — companion to [`high-level-design.md`](high-level-design.md)
+**Author:** Devin (on behalf of @jbisasky)
+**Last updated:** 2026-06-12
+
+> This document specifies the **granular handshaking** behind each edge of the §2 architecture
+> flowchart in the HLD: exact API calls, headers, request/response shapes, ordering, retries,
+> error handling, and the data contracts. It is implementation-facing. Where Google's public
+> behavior is version-sensitive (GIS, Drive v3, Generative Language API), the contract is
+> stated and any race/ambiguity is called out explicitly so it is handled in code, not assumed.
+
+## Table of contents
+1. [Conventions, primitives & cross-cutting concerns](#1-conventions-primitives--cross-cutting-concerns)
+2. [Data contracts (TypeScript + zod)](#2-data-contracts-typescript--zod)
+3. [App bootstrap sequence](#3-app-bootstrap-sequence)
+4. [Auth handshake — GIS token client](#4-auth-handshake--gis-token-client)
+5. [Drive: appData bootstrap & manifest read](#5-drive-appdata-bootstrap--manifest-read)
+6. [Drive: manifest write (compare-and-swap + backups)](#6-drive-manifest-write-compare-and-swap--backups)
+7. [Drive: attachment upload (resumable)](#7-drive-attachment-upload-resumable)
+8. [AI extraction — Gemini multimodal](#8-ai-extraction--gemini-multimodal)
+9. [End-to-end: "add project from a receipt"](#9-end-to-end-add-project-from-a-receipt)
+10. [Error taxonomy & user messaging](#10-error-taxonomy--user-messaging)
+11. [Concurrency edge cases](#11-concurrency-edge-cases)
+12. [Security handshake details](#12-security-handshake-details)
+
+---
+
+## 1. Conventions, primitives & cross-cutting concerns
+
+### 1.1 Result type (no thrown errors across layer boundaries)
+Service methods return a discriminated `Result<T>` rather than throwing, so callers must handle
+failure explicitly (strict TS, zero `any`).
+
+```ts
+type Ok<T> = { ok: true; value: T };
+type Err<E extends AppError = AppError> = { ok: false; error: E };
+type Result<T, E extends AppError = AppError> = Ok<T> | Err<E>;
+```
+
+### 1.2 Money
+All monetary values are stored and computed as **integer cents** (`number` of cents) internally
+to avoid floating-point drift; the JSON manifest serializes them as decimal dollars at the I/O
+boundary only. See `Money` helpers in `lib/money.ts`.
+
+### 1.3 Time
+Timestamps are ISO-8601 UTC strings produced by `new Date().toISOString()`. Dates (e.g.
+`completionDate`) are `YYYY-MM-DD` local-date strings with no timezone.
+
+### 1.4 HTTP client
+A single typed `httpFetch` wrapper centralizes: auth header injection, timeout (`AbortController`,
+default 30s), JSON (de)serialization, and mapping of HTTP status → `AppError`. It implements the
+retry policy in §1.5.
+
+### 1.5 Retry & backoff policy
+- **Retryable:** `408`, `429`, `500`, `502`, `503`, `504`, and network errors.
+- **Strategy:** exponential backoff with full jitter, base 500 ms, factor 2, max 5 attempts,
+  cap 8 s. Honor `Retry-After` header when present (overrides computed delay).
+- **Never retried:** `400`, `403` (except rate-limit-shaped 403s from Google), `404`, `409`
+  (conflict → domain-level resolution), `412` (precondition → CAS retry path, §6).
+- **`401` is special:** triggers a single silent token refresh (§4.4), then **one** replay of
+  the original request. A second `401` surfaces `AUTH_REQUIRED`.
+
+### 1.6 Idempotency
+Mutations carry a client-generated `operationId` (UUID) recorded in an in-memory in-flight set so
+double-submits (e.g. double-click) are coalesced. Drive writes are made idempotent via the
+compare-and-swap precondition in §6.
+
+---
+
+## 2. Data contracts (TypeScript + zod)
+
+Runtime validation (`zod`) guards **every** untrusted boundary: Drive file contents and Gemini
+output. Parsing failure is a first-class `Result` error, never a crash.
+
+```ts
+import { z } from "zod";
+
+export const Attachment = z.object({
+  fileId: z.string().min(1),
+  filename: z.string().min(1),
+  mimeType: z.string().min(1),
+  sizeBytes: z.number().int().nonnegative(),
+});
+
+export const TaxTreatment = z.enum([
+  "capital_improvement", "repair", "deductible", "credit", "unknown",
+]);
+
+export const Project = z.object({
+  id: z.string().uuid(),
+  title: z.string().min(1),
+  completionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  totalCost: z.number().nonnegative(),          // dollars at I/O boundary
+  taxTreatment: TaxTreatment,
+  costBasisAdjustment: z.number().nonnegative(),
+  deductibleAmount: z.number().nonnegative(),
+  irsJustification: z.string(),
+  confidence: z.number().min(0).max(1),
+  attachments: z.array(Attachment),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const Manifest = z.object({
+  schemaVersion: z.literal(1),
+  lastUpdated: z.string().datetime(),
+  summary: z.object({
+    totalCostBasisAdded: z.number().nonnegative(),
+    totalDeductible: z.number().nonnegative(),
+  }),
+  projects: z.array(Project),
+});
+
+export type Manifest = z.infer<typeof Manifest>;
+export type Project = z.infer<typeof Project>;
+```
+
+The AI extraction output uses a **separate, looser** schema (the model never writes ids/timestamps;
+those are app-assigned after the human-review step):
+
+```ts
+export const ExtractionResult = z.object({
+  title: z.string().min(1),
+  completionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  totalCost: z.number().nonnegative().nullable(),
+  suggestedTreatment: TaxTreatment,
+  costBasisAdjustment: z.number().nonnegative().nullable(),
+  deductibleAmount: z.number().nonnegative().nullable(),
+  irsJustification: z.string(),
+  vendor: z.string().nullable(),
+  confidence: z.number().min(0).max(1),
+});
+```
+
+---
+
+## 3. App bootstrap sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant App as SPA (RR7)
+    participant LS as localStorage
+    participant GIS as GIS script
+    participant Drive as Drive API
+
+    U->>App: open app URL
+    App->>App: render shell, mount router
+    App->>LS: read byok_key, session prefs
+    App->>GIS: load gsi/client script (async, deferred)
+    GIS-->>App: onload → initTokenClient(config)
+    App->>App: auth state = "unauthenticated"
+    Note over App: No token in storage (in-memory only) ⇒ always start signed out
+    U->>App: click "Sign in with Google"
+    App->>GIS: requestAccessToken({ prompt: 'consent' first run })
+    GIS-->>App: { access_token, expires_in, scope }
+    App->>App: auth state = "authenticated", schedule silent refresh
+    App->>Drive: bootstrap manifest (see §5)
+    Drive-->>App: Manifest (validated)
+    App->>U: render dashboard
+```
+
+Key invariants:
+- The token is **never** read from or written to storage; a refresh always starts cold.
+- The BYOK key *is* read from `localStorage` at boot (unless session-only mode is active).
+- Manifest bootstrap is gated on a valid token; if absent, the UI shows the signed-out state.
+
+---
+
+## 4. Auth handshake — GIS token client
+
+### 4.1 Initialization
+```ts
+const tokenClient = google.accounts.oauth2.initTokenClient({
+  client_id: GOOGLE_CLIENT_ID,
+  scope: [
+    "https://www.googleapis.com/auth/drive.appdata",
+    "https://www.googleapis.com/auth/drive.file",
+  ].join(" "),
+  prompt: "",                 // default to silent; escalate per call
+  callback: onTokenResponse,  // success path
+  error_callback: onTokenError,
+});
+```
+
+### 4.2 Token response contract
+On success GIS invokes `callback` with:
+```jsonc
+{
+  "access_token": "ya29....",
+  "token_type": "Bearer",
+  "expires_in": 3599,          // seconds (~1h); NO refresh_token in this flow
+  "scope": "...drive.appdata ...drive.file"
+}
+```
+We store in memory: `{ accessToken, grantedScopes: Set<string>, expiresAt: Date.now() + (expires_in-60)*1000 }`.
+The 60 s safety margin triggers refresh *before* hard expiry.
+
+### 4.3 Auth state machine
+```mermaid
+stateDiagram-v2
+    [*] --> Unauthenticated
+    Unauthenticated --> Authenticating: requestAccessToken(prompt='consent')
+    Authenticating --> Authenticated: callback(token)
+    Authenticating --> Unauthenticated: error_callback(access_denied)
+    Authenticated --> Refreshing: expiry-60s timer OR 401 from API
+    Refreshing --> Authenticated: callback(token) [silent prompt='']
+    Refreshing --> NeedsInteraction: error_callback(consent_required / no session)
+    NeedsInteraction --> Authenticating: user re-clicks sign-in
+    Authenticated --> Unauthenticated: sign out (revoke)
+```
+
+### 4.4 Silent refresh
+- A timer fires at `expiresAt - now`. It calls `tokenClient.requestAccessToken({ prompt: "" })`.
+- If the Google session is alive and consent already granted → new token via `callback`, no UI.
+- If GIS calls `error_callback` with a recoverable reason (e.g. `interaction_required`) → state →
+  `NeedsInteraction`; in-flight API calls are parked and a non-blocking "session expired, click to
+  continue" affordance is shown.
+- **Scope verification:** after every token response, assert all required scopes are present in
+  `scope`; partial grants (user unchecked a box) → `INSUFFICIENT_SCOPE` with a re-consent CTA.
+
+### 4.5 Sign-out
+```ts
+google.accounts.oauth2.revoke(accessToken, () => { /* clear in-memory auth */ });
+```
+Revocation is best-effort; local state is cleared regardless.
+
+### 4.6 Mid-operation 401 handling (interaction with §1.5)
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Svc as Drive/Gemini Service
+    participant H as httpFetch
+    participant Auth as Auth module
+    participant API as Google API
+
+    Svc->>H: request(withAuth)
+    H->>API: GET/POST ... Authorization: Bearer <token>
+    API-->>H: 401 Unauthorized
+    H->>Auth: ensureFreshToken()
+    Auth->>Auth: silent requestAccessToken(prompt='')
+    alt refresh ok
+        Auth-->>H: new token
+        H->>API: replay original request (once)
+        API-->>H: 200 OK
+        H-->>Svc: Result.ok
+    else refresh fails
+        Auth-->>H: AUTH_REQUIRED
+        H-->>Svc: Result.err(AUTH_REQUIRED)
+        Note over Svc: operation parked; UI prompts re-auth, then resumes
+    end
+```
+
+---
+
+## 5. Drive: appData bootstrap & manifest read
+
+The index (`manifest.json`) lives in the hidden `appDataFolder`; attachments live in a visible
+folder (§7). Bootstrap resolves or creates the manifest, then downloads + validates + migrates.
+
+### 5.1 Locate the manifest
+```http
+GET https://www.googleapis.com/drive/v3/files
+      ?spaces=appDataFolder
+      &q=name = 'manifest.json' and trashed = false
+      &fields=files(id,name,headRevisionId,modifiedTime,size,md5Checksum)
+Authorization: Bearer <token>
+```
+- 0 results → first run; create (§5.3).
+- 1 result → capture `{ fileId, headRevisionId, modifiedTime }` as the **read token** for CAS.
+- >1 results → anomaly (duplicate manifests). Resolution: pick the most recently `modifiedTime`,
+  log `MANIFEST_DUPLICATE`, and surface a one-time repair prompt (merge + delete extras).
+
+### 5.2 Download + validate + migrate
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App
+    participant Drive as Drive API
+
+    App->>Drive: GET files?spaces=appDataFolder&q=name='manifest.json'
+    Drive-->>App: { id, headRevisionId, modifiedTime }
+    App->>Drive: GET files/{id}?alt=media
+    Drive-->>App: raw JSON bytes
+    App->>App: JSON.parse (guarded)
+    App->>App: detect version → migrate to schemaVersion=1 if needed
+    App->>App: Manifest.safeParse(zod)
+    alt valid
+        App->>App: cache { manifest, fileId, headRevisionId }
+    else invalid
+        App->>App: load newest backup (manifest.bak.N.json) and retry
+        App->>App: if all fail → READ_CORRUPT, offer restore/export
+    end
+```
+
+Migration is a forward-only registry keyed by detected shape:
+```ts
+const migrations: Record<string, (raw: unknown) => Manifest> = {
+  "legacy-1.0": migrateLegacyV1ToV1, // splits totalDeductions, maps taxDeductibleAmount→deductibleAmount, treatment='unknown'
+};
+```
+
+### 5.3 First-run create
+```http
+POST https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart
+Authorization: Bearer <token>
+Content-Type: multipart/related; boundary=...
+
+--...
+Content-Type: application/json; charset=UTF-8
+{ "name": "manifest.json", "parents": ["appDataFolder"], "mimeType": "application/json" }
+--...
+Content-Type: application/json
+{ "schemaVersion": 1, "lastUpdated": "<now>", "summary": {"totalCostBasisAdded":0,"totalDeductible":0}, "projects": [] }
+--...--
+```
+Response yields the new `fileId` + `headRevisionId`, cached for subsequent CAS writes.
+
+---
+
+## 6. Drive: manifest write (compare-and-swap + backups)
+
+> **Important Drive caveat:** Drive API v3 does not expose a transactional conditional-write on
+> file *content*. We therefore implement an application-level **compare-and-swap (CAS)** using
+> `headRevisionId`: re-read the head revision immediately before writing and abort if it changed
+> since our cached read token. A small race window remains between the check and the update; it is
+> acceptable for a single-user app across a few devices, and is further mitigated by backups and
+> a retry/merge loop. (If stronger guarantees are ever needed, move to a per-write lock file or a
+> monotonically increasing `revision` field validated server-side via an Apps Script — out of
+> scope for v1.)
+
+### 6.1 Write protocol
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App
+    participant Drive as Drive API
+
+    App->>App: mutate in-memory manifest, recompute summary, bump lastUpdated
+    App->>Drive: GET files/{id}?fields=headRevisionId   (re-read head)
+    Drive-->>App: headRevisionId_current
+    alt headRevisionId_current == cached
+        App->>Drive: copy current content → manifest.bak.(N+1).json (rotate, keep last K=5)
+        App->>Drive: PATCH upload/files/{id}?uploadType=media  (new JSON body)
+        Drive-->>App: { headRevisionId_new }
+        App->>App: cache headRevisionId = headRevisionId_new
+        App-->>App: Result.ok
+    else changed (conflict)
+        App->>Drive: GET files/{id}?alt=media  (fetch remote)
+        App->>App: 3-way merge (base=cached, ours=local, theirs=remote) by project id
+        App->>App: re-run CAS (bounded retries, e.g. 3)
+        Note over App: unresolvable field-level conflict → surface CONFLICT to user with diff
+    end
+```
+
+### 6.2 Backup rotation
+- Before each successful write, the **current** remote content is duplicated to
+  `manifest.bak.{n}.json` in `appDataFolder` (Drive `files.copy` or re-upload).
+- Keep the most recent `K = 5`; delete older `.bak.` files. Backups are validated on creation.
+
+### 6.3 Merge rules (conflict)
+- Project set is keyed by `id`. Adds from both sides union. 
+- A project present on both sides: take the one with the newer `updatedAt`; if equal but differing,
+  mark `CONFLICT` and present a field-level diff (no silent data loss).
+- `summary` is **derived**, always recomputed post-merge (never merged directly).
+
+---
+
+## 7. Drive: attachment upload (resumable)
+
+Attachments use the **resumable** upload protocol (robust to flaky mobile networks) into a
+user-visible folder created/owned by the app via `drive.file`.
+
+### 7.1 Ensure the visible folder
+On first attachment: look up (or create) a folder named e.g. `Capital Improvements (App Data)`:
+```http
+POST https://www.googleapis.com/drive/v3/files
+{ "name": "Capital Improvements (App Data)", "mimeType": "application/vnd.google-apps.folder" }
+```
+Cache the folder id in the manifest (`settings.attachmentsFolderId`, added to schema) so it is
+discoverable across devices.
+
+### 7.2 Resumable handshake
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App
+    participant Drive as Drive API
+
+    App->>Drive: POST upload/drive/v3/files?uploadType=resumable<br/>(metadata: name, parents=[folderId])
+    Drive-->>App: 200, Location: <session_uri>, x-guploader-uploadid
+    loop chunks (e.g. 8 MiB, multiple of 256 KiB)
+        App->>Drive: PUT <session_uri><br/>Content-Range: bytes start-end/total
+        alt more remains
+            Drive-->>App: 308 Resume Incomplete (Range: bytes=0-end)
+        else last chunk
+            Drive-->>App: 200/201 { id, name, mimeType, size }
+        end
+    end
+    App->>App: push Attachment{fileId,filename,mimeType,sizeBytes} into project
+    App->>App: persist manifest (§6)
+```
+- **Resume after interruption:** query the session URI with `Content-Range: bytes */total` to get
+  the last received byte (via `Range` header in the `308`), then continue.
+- **Cleanup on cancel:** `DELETE <session_uri>` aborts the session.
+- A file is only referenced in the manifest **after** the upload returns a final `fileId`, so a
+  failed upload never leaves a dangling reference.
+
+---
+
+## 8. AI extraction — Gemini multimodal
+
+Direct browser → `generativelanguage.googleapis.com` using the BYOK key. Small docs go inline;
+large docs use the File API.
+
+### 8.1 Decision: inline vs File API
+- If `sizeBytes <= 15 MiB` (conservative vs the ~20 MiB request cap) → inline base64.
+- Else → upload via File API first, reference by `file_uri`.
+
+### 8.2 Inline extraction request
+```http
+POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=<BYOK>
+Content-Type: application/json
+
+{
+  "contents": [{
+    "role": "user",
+    "parts": [
+      { "text": "<extraction prompt: classify treatment per IRS Pub 523, return JSON>" },
+      { "inline_data": { "mime_type": "application/pdf", "data": "<base64>" } }
+    ]
+  }],
+  "generationConfig": {
+    "temperature": 0,
+    "response_mime_type": "application/json",
+    "response_schema": { /* JSON-schema mirror of ExtractionResult */ }
+  }
+}
+```
+
+### 8.3 File API path (large docs)
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App
+    participant Files as File API
+    participant Gen as generateContent
+
+    App->>Files: POST upload/v1beta/files (resumable, ?key=BYOK)
+    Files-->>App: { file: { uri, name, state: "PROCESSING" } }
+    loop until ACTIVE
+        App->>Files: GET v1beta/{name}?key=BYOK
+        Files-->>App: { state }
+    end
+    App->>Gen: generateContent(parts=[{text},{file_data:{file_uri,mime_type}}])
+    Gen-->>App: candidates[0].content.parts[0].text (JSON)
+    App->>App: JSON.parse → ExtractionResult.safeParse(zod)
+```
+
+### 8.4 Response handling
+- Read `candidates[0].content.parts[0].text`; `JSON.parse`; `ExtractionResult.safeParse`.
+- On `finishReason !== "STOP"` (e.g. `SAFETY`, `MAX_TOKENS`) → `EXTRACTION_INCOMPLETE`, fall back
+  to manual entry with the raw text shown.
+- `confidence` from the model is advisory; the UI **always** routes through human review (§9) —
+  no extracted dollar amount is persisted without explicit user confirmation (decision C8).
+- **Errors:** `400 API_KEY_INVALID` → settings CTA; `429 RESOURCE_EXHAUSTED` → backoff + "quota"
+  message; `403` → key-permission message. The BYOK key is never logged.
+
+---
+
+## 9. End-to-end: "add project from a receipt"
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant App
+    participant Gem as Gemini
+    participant Drive as Drive API
+
+    U->>App: choose file(s)
+    App->>App: validate type/size; preview
+    App->>Gem: extract (inline or File API, §8)
+    Gem-->>App: ExtractionResult (validated)
+    App->>U: REVIEW screen (prefilled, confidence badges, editable)
+    U->>App: correct fields, confirm treatment, submit
+    App->>App: assign id, createdAt/updatedAt; build Project
+    App->>Drive: resumable upload attachment(s) (§7) → fileId(s)
+    App->>Drive: manifest CAS write (§6) with new project
+    Drive-->>App: ok (headRevisionId_new)
+    App->>App: recompute summary; update cache
+    App->>U: success; project appears in list
+    Note over App,Drive: If CAS conflict → merge+retry; if upload fails → no manifest ref written
+```
+
+Ordering rationale: **attachments first, manifest last.** This guarantees the manifest never
+references a `fileId` that doesn't exist. If the manifest write ultimately fails after a
+successful upload, the orphaned Drive file is recorded in an in-memory "pending GC" list and
+cleaned up (or reconciled) on next successful manifest load.
+
+---
+
+## 10. Error taxonomy & user messaging
+
+| `AppError.code` | Origin | Retry? | User-facing message / action |
+| --- | --- | --- | --- |
+| `NETWORK` | fetch/timeout | yes (§1.5) | "Connection issue — retrying…" |
+| `AUTH_REQUIRED` | 2× 401 / refresh fail | no | "Session expired — sign in to continue" |
+| `INSUFFICIENT_SCOPE` | partial consent | no | "Re-grant Drive access" (re-consent) |
+| `READ_CORRUPT` | zod parse fail (+backups fail) | no | "Couldn't read your data — restore backup / export" |
+| `MANIFEST_DUPLICATE` | >1 manifest | no | one-time repair flow |
+| `CONFLICT` | CAS unresolved | manual | field-level diff, user picks |
+| `UPLOAD_FAILED` | resumable error | yes | "Upload failed — retry" |
+| `EXTRACTION_INCOMPLETE` | finishReason≠STOP | no | "Couldn't read this doc — enter manually" |
+| `API_KEY_INVALID` | Gemini 400 | no | "Check your AI Studio key in Settings" |
+| `QUOTA` | 429 | backoff | "AI quota reached — try later" |
+| `DRIVE_QUOTA` | Drive 403 storage | no | "Your Google Drive is full" |
+
+Every `AppError` carries `{ code, httpStatus?, cause?, operationId? }`; user messages never leak
+tokens, keys, or raw payloads.
+
+---
+
+## 11. Concurrency edge cases
+
+- **Two devices editing simultaneously:** both pass the initial read; one writes first and bumps
+  `headRevisionId`; the second's pre-write re-read detects the change → merge path (§6.3).
+- **Tab refresh mid-write:** token is in-memory, so a refresh aborts the in-flight op; nothing is
+  half-written because the manifest write is a single atomic Drive update (content replaced wholly).
+- **Attachment uploaded but manifest write fails:** orphan tracked in pending-GC (see §9).
+- **Clock skew between devices:** `updatedAt` ties are resolved by surfacing a conflict rather than
+  trusting wall-clock ordering.
+- **Backup write fails but main write would succeed:** abort the write (fail-safe: never lose the
+  prior good state) and report `UPLOAD_FAILED`.
+
+---
+
+## 12. Security handshake details
+
+- **Token:** in memory only; injected as `Authorization: Bearer` per request; never persisted,
+  logged, or placed in URLs.
+- **BYOK key:** sent only as the `?key=` query param to `generativelanguage.googleapis.com` over
+  HTTPS; redacted from all logs/telemetry; session-only mode keeps it out of `localStorage`.
+- **CSP (Cloudflare `_headers`):** `default-src 'self'`; `connect-src` limited to
+  `https://www.googleapis.com https://generativelanguage.googleapis.com https://accounts.google.com`;
+  `script-src 'self' https://accounts.google.com/gsi/client`; `frame-src https://accounts.google.com`;
+  `object-src 'none'`; `base-uri 'self'`; plus HSTS and `X-Content-Type-Options: nosniff`.
+- **No third-party scripts** beyond Google Identity Services; dependencies pinned (longevity).
+- **Scope minimization:** `drive.file` (not full `drive`) so the app can only see files it created.
+
+---
+
+*Companion to the HLD. As implementation proceeds, request/response examples will be reconciled
+against the live Google API behavior and any deviations recorded here.*

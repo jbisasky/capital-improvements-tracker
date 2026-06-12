@@ -32,6 +32,7 @@ durable, low-maintenance personal ledger that survives for ~20 years without any
 ## Documentation
 
 - [High-Level Design](docs/high-level-design.md) — architecture, data model, flows, risks, roadmap.
+- [Low-Level Design](docs/low-level-design.md) — granular handshaking: API calls, sequence diagrams, data contracts, retry/error model.
 
 ## License
 
