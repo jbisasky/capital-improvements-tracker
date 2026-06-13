@@ -4,6 +4,7 @@ import { ArrowLeft, Pencil, Trash2, FileText, AlertCircle } from "lucide-react";
 import { useStorage } from "@/services/storage-context";
 import { cn } from "@/lib/utils";
 import { type TaxTreatment } from "@/domain/schemas";
+import { useRoutePrefix } from "@/hooks/use-route-prefix";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -25,6 +26,7 @@ const TREATMENT_LABELS: Record<TaxTreatment, string> = {
 export function ProjectDetailPage(): ReactElement {
   const { id } = useParams();
   const navigate = useNavigate();
+  const prefix = useRoutePrefix();
   const { manifest, loading, deleteProject, getDocAssessment } = useStorage();
 
   if (loading || !manifest) {
@@ -39,7 +41,7 @@ export function ProjectDetailPage(): ReactElement {
   if (!project) {
     return (
       <div className="space-y-4">
-        <Link to="/projects" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+        <Link to={`${prefix}/projects`} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
           <ArrowLeft className="size-4" /> Back to projects
         </Link>
         <p className="text-muted-foreground">Project not found.</p>
@@ -53,13 +55,13 @@ export function ProjectDetailPage(): ReactElement {
     if (!id) return;
     const result = await deleteProject(id);
     if (result.ok) {
-      void navigate("/projects");
+      void navigate(`${prefix}/projects`);
     }
   }
 
   return (
     <div className="space-y-6">
-      <Link to="/projects" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+      <Link to={`${prefix}/projects`} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
         <ArrowLeft className="size-4" /> Back to projects
       </Link>
 
@@ -72,7 +74,7 @@ export function ProjectDetailPage(): ReactElement {
         </div>
         <div className="flex gap-2">
           <Link
-            to={`/projects/${project.id}/edit`}
+            to={`${prefix}/projects/${project.id}/edit`}
             className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
           >
             <Pencil className="size-3.5" /> Edit

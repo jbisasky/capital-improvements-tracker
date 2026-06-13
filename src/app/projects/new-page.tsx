@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { useStorage } from "@/services/storage-context";
 import { ProjectForm, type ProjectFormData } from "@/app/projects/project-form";
 import { type Project } from "@/domain/schemas";
+import { useRoutePrefix } from "@/hooks/use-route-prefix";
 
 function formToProject(data: ProjectFormData): Project {
   const now = new Date().toISOString();
@@ -37,20 +38,21 @@ function formToProject(data: ProjectFormData): Project {
 
 export function ProjectNewPage(): ReactElement {
   const navigate = useNavigate();
+  const prefix = useRoutePrefix();
   const { addProject } = useStorage();
 
   function handleSubmit(data: ProjectFormData): void {
     const project = formToProject(data);
     void addProject(project).then((result) => {
       if (result.ok) {
-        void navigate(`/projects/${project.id}`);
+        void navigate(`${prefix}/projects/${project.id}`);
       }
     });
   }
 
   return (
     <div className="space-y-6">
-      <Link to="/projects" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+      <Link to={`${prefix}/projects`} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
         <ArrowLeft className="size-4" /> Back to projects
       </Link>
       <h1 className="text-2xl font-semibold">Add New Project</h1>

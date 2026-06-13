@@ -5,6 +5,7 @@ import { useStorage } from "@/services/storage-context";
 import { cn } from "@/lib/utils";
 import { type DocStatus } from "@/domain/doc-completeness";
 import { type TaxTreatment } from "@/domain/schemas";
+import { useRoutePrefix } from "@/hooks/use-route-prefix";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -40,6 +41,7 @@ type FilterStatus = "all" | DocStatus;
 
 export function ProjectsListPage(): ReactElement {
   const { manifest, loading, getDocAssessment } = useStorage();
+  const prefix = useRoutePrefix();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
 
@@ -78,7 +80,7 @@ export function ProjectsListPage(): ReactElement {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Projects</h1>
         <Link
-          to="/projects/new"
+          to={`${prefix}/projects/new`}
           className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
         >
           <Plus className="size-4" />
@@ -124,7 +126,7 @@ export function ProjectsListPage(): ReactElement {
             return (
               <Link
                 key={project.id}
-                to={`/projects/${project.id}`}
+                to={`${prefix}/projects/${project.id}`}
                 className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-muted/50"
               >
                 <div className="flex items-center gap-3 overflow-hidden">

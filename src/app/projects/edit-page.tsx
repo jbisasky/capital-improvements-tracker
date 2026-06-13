@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { useStorage } from "@/services/storage-context";
 import { ProjectForm, type ProjectFormData } from "@/app/projects/project-form";
 import { type Project } from "@/domain/schemas";
+import { useRoutePrefix } from "@/hooks/use-route-prefix";
 
 function projectToForm(project: Project): ProjectFormData {
   return {
@@ -58,6 +59,7 @@ function formToUpdatedProject(original: Project, data: ProjectFormData): Project
 export function ProjectEditPage(): ReactElement {
   const { id } = useParams();
   const navigate = useNavigate();
+  const prefix = useRoutePrefix();
   const { manifest, loading, updateProject } = useStorage();
 
   if (loading || !manifest) {
@@ -68,7 +70,7 @@ export function ProjectEditPage(): ReactElement {
   if (!project) {
     return (
       <div className="space-y-4">
-        <Link to="/projects" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+        <Link to={`${prefix}/projects`} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
           <ArrowLeft className="size-4" /> Back to projects
         </Link>
         <p className="text-muted-foreground">Project not found.</p>
@@ -81,14 +83,14 @@ export function ProjectEditPage(): ReactElement {
     const updated = formToUpdatedProject(project, data);
     void updateProject(id, updated).then((result) => {
       if (result.ok) {
-        void navigate(`/projects/${id}`);
+        void navigate(`${prefix}/projects/${id}`);
       }
     });
   }
 
   return (
     <div className="space-y-6">
-      <Link to={`/projects/${project.id}`} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+      <Link to={`${prefix}/projects/${project.id}`} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
         <ArrowLeft className="size-4" /> Back to project
       </Link>
       <h1 className="text-2xl font-semibold">Edit: {project.title}</h1>

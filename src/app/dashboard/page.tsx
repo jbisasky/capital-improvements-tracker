@@ -4,6 +4,7 @@ import { DollarSign, FolderOpen, AlertCircle, CheckCircle2 } from "lucide-react"
 import { useStorage } from "@/services/storage-context";
 import { cn } from "@/lib/utils";
 import { type DocStatus } from "@/domain/doc-completeness";
+import { useRoutePrefix } from "@/hooks/use-route-prefix";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -29,6 +30,7 @@ function StatusDot({ status }: { status: DocStatus }): ReactElement {
 
 export function DashboardPage(): ReactElement {
   const { manifest, loading, getDocAssessment } = useStorage();
+  const prefix = useRoutePrefix();
 
   if (loading || !manifest) {
     return (
@@ -112,7 +114,7 @@ export function DashboardPage(): ReactElement {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">Recent Projects</h2>
           <Link
-            to="/projects"
+            to={`${prefix}/projects`}
             className="text-sm text-primary hover:underline"
           >
             View all →
@@ -129,7 +131,7 @@ export function DashboardPage(): ReactElement {
               return (
                 <Link
                   key={project.id}
-                  to={`/projects/${project.id}`}
+                  to={`${prefix}/projects/${project.id}`}
                   className="flex items-center justify-between p-4 transition-colors hover:bg-muted/50"
                 >
                   <div className="flex items-center gap-3">
