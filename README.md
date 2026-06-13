@@ -8,7 +8,7 @@ No backend. No proxy. All network requests go **directly from your browser to
 Google's endpoints**. Your tokens, API key, and documents never touch a third-party
 server.
 
-![Landing page](https://app.devin.ai/attachments/b68937d4-ec89-427d-8423-a533833e77ee/landing.png)
+![Landing page](docs/screenshots/landing.png)
 
 ## Why this exists
 
@@ -29,19 +29,19 @@ This app is a durable, low-maintenance personal ledger that:
 <details>
 <summary>Dashboard — summary cards, documentation health, recent projects</summary>
 
-![Dashboard](https://app.devin.ai/attachments/65bfb250-7ada-43ee-8635-28ff2588297a/dashboard.png)
+![Dashboard](docs/screenshots/dashboard.png)
 </details>
 
 <details>
 <summary>Projects list — search, filter by documentation status, doc health badges</summary>
 
-![Projects list](https://app.devin.ai/attachments/0e7e0434-cddb-41a0-a1de-f12d63cf5de9/projects-list.png)
+![Projects list](docs/screenshots/projects-list.png)
 </details>
 
 <details>
 <summary>Project detail — IRS fields, documentation health score, attachments</summary>
 
-![Project detail](https://app.devin.ai/attachments/f75dbeb8-5c9e-49c3-8500-da788c0e2cf9/project-detail.png)
+![Project detail](docs/screenshots/project-detail.png)
 </details>
 
 ## Features
