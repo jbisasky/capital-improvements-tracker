@@ -561,7 +561,86 @@ cleaned up (or reconciled) on next successful manifest load.
 
 ---
 
-## 10. Error taxonomy & user messaging
+## 10. Documentation completeness checker
+
+A pure domain function that evaluates whether a project has sufficient documentation for IRS
+substantiation. No I/O — runs against the in-memory `Project` object after every save and on
+dashboard/list render.
+
+### 10.1 Assessment function
+
+```ts
+type DocStatus = "complete" | "partial" | "incomplete";
+
+interface DocAssessment {
+  status: DocStatus;
+  missing: string[];        // fields the IRS would expect — not yet filled
+  recommended: string[];    // optional fields that strengthen audit defense
+  score: number;            // 0–100 percentage for progress indicator
+}
+
+function assessDocumentation(
+  project: Project,
+  propertyType: PropertyType | undefined,
+): DocAssessment { /* ... */ }
+```
+
+### 10.2 Rules by treatment type
+
+Each `taxTreatment` has a required-field set and a recommended-field set. The checker
+evaluates which are present (non-empty / non-null) to produce the status:
+
+| Treatment | Required (must have for "complete") | Recommended (improves defense) |
+| --- | --- | --- |
+| `capital_improvement` | title, completionDate, totalCost, ≥1 attachment, irsJustification, vendorName | category, paymentMethod, permitNumber, notes |
+| `repair` | title, completionDate, totalCost, ≥1 attachment | vendorName, category, paymentMethod |
+| `deductible` | title, completionDate, totalCost, ≥1 attachment, irsJustification | vendorName, category, paymentMethod |
+| `credit` | title, completionDate, totalCost, ≥1 attachment, energyCreditType, vendorName | permitNumber, notes (manufacturer cert as attachment) |
+| `unknown` | title, completionDate, totalCost | (everything else — nudge user to classify) |
+
+**Additional rules by property type:**
+- If `propertyType === "rental"` and treatment is `capital_improvement`:
+  add `usefulLifeYears` + `depreciationStartDate` to required.
+- If `propertyType === "home_office"`:
+  add `sqftAffected` to required (needed for Form 8829 allocation).
+- If `vendorTin` is present and amount ≥ $600:
+  mark as "1099-ready" (informational badge).
+
+### 10.3 Status thresholds
+
+```
+score = (filledRequiredFields / totalRequiredFields) × 100
+
+complete   = score === 100  (all required fields present)
+partial    = score >= 50    (some required fields present)
+incomplete = score < 50     (most required fields missing)
+```
+
+### 10.4 UI integration
+
+- **Project list:** colored dot badge (🟢 / 🟡 / 🔴) next to each project title.
+- **Project detail:** "Documentation health" card showing status + missing/recommended lists.
+- **Dashboard:** summary line: "X of Y projects have complete documentation" with a link to
+  filter the list by incomplete.
+- **Post-save nudge:** after saving a project in `incomplete` state, a non-blocking toast:
+  "Tip: adding [first missing field] would strengthen this record for tax purposes."
+- **Export:** the CSV/PDF export includes a `documentationStatus` column so the user (or their
+  CPA) can see which projects need attention at a glance.
+
+### 10.5 Design principles
+
+- **Never blocking:** incomplete documentation never prevents saving or using the app.
+  The checker is advisory — a nudge, not a gate.
+- **Contextual:** rules adapt based on `taxTreatment` and `propertyType`. A simple repair
+  needs less documentation than a $50K kitchen remodel claimed as a capital improvement.
+- **Progressive:** users can start with just a receipt and fill in details over time.
+  The indicator rewards progress without punishing initial quick-capture.
+- **No false alarms:** `unknown` treatment only requires the bare minimum — the main nudge
+  is to classify the treatment, not to fill 12 fields.
+
+---
+
+## 11. Error taxonomy & user messaging
 
 | `AppError.code` | Origin | Retry? | User-facing message / action |
 | --- | --- | --- | --- |
@@ -586,7 +665,7 @@ tokens, keys, or raw payloads.
 
 ---
 
-## 11. Concurrency edge cases
+## 12. Concurrency edge cases
 
 - **Two devices editing simultaneously:** both pass the initial read; one writes first and bumps
   `headRevisionId`; the second's pre-write re-read detects the change → merge path (§6.3).
@@ -600,7 +679,7 @@ tokens, keys, or raw payloads.
 
 ---
 
-## 12. Security handshake details
+## 13. Security handshake details
 
 - **Token:** in memory only; injected as `Authorization: Bearer` per request; never persisted,
   logged, or placed in URLs.
@@ -613,7 +692,7 @@ tokens, keys, or raw payloads.
 - **No third-party scripts** beyond Google Identity Services; dependencies pinned (longevity).
 - **Scope minimization:** `drive.file` (not full `drive`) so the app can only see files it created.
 
-### 12.1 Additional security hardening
+### 13.1 Additional security hardening
 
 **Content injection prevention:**
 - `dangerouslySetInnerHTML` is banned (enforced by ESLint rule). All user-supplied content
@@ -627,7 +706,7 @@ tokens, keys, or raw payloads.
   Re-enter it in Settings."
 - Configurable expiry in Settings: **7 days / 30 days (default) / 90 days / Never**.
 - The expiry period is stored in `localStorage` alongside the key.
-- "Session-only" mode (§12 above) overrides this entirely — key never reaches `localStorage`.
+- "Session-only" mode (§13 above) overrides this entirely — key never reaches `localStorage`.
 
 ```ts
 interface ByokStorage {
@@ -666,7 +745,7 @@ interface ByokStorage {
 
 ---
 
-## 13. Runaway-usage failsafes (API/token budget protection)
+## 14. Runaway-usage failsafes (API/token budget protection)
 
 A bug — a bad `useEffect` dependency array, a render loop, a retry that re-triggers itself, an
 event handler firing in a tight loop — can hammer the Drive or Gemini endpoints and burn quota
@@ -772,7 +851,7 @@ without external telemetry.
 
 ---
 
-## 14. Testing & CI
+## 15. Testing & CI
 
 Two tools cover the full testing pyramid: **Vitest** (unit / component) and **Playwright** (E2E).
 Both run in a single GitHub Actions workflow on every push and PR.
@@ -960,7 +1039,7 @@ All three jobs run in parallel. PR merge requires all to pass (branch protection
 
 ---
 
-## 15. Demo mode
+## 16. Demo mode
 
 The landing page offers a **"See a demo"** button (HLD D14) that drops the user into a
 read-only sandbox with no authentication required. This section specifies how it works.
@@ -1067,7 +1146,7 @@ everything.
 
 ---
 
-## 16. Scalability & limits
+## 17. Scalability & limits
 
 A 20-year single-user app will accumulate data. This section specifies the hard limits and
 graceful-degradation strategies so the app never silently breaks as data grows.

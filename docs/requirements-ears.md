@@ -43,6 +43,7 @@
 25. [Diagnostics](#25-diagnostics)
 26. [About page](#26-about-page)
 27. [Scalability & limits](#27-scalability--limits)
+28. [Documentation completeness](#28-documentation-completeness)
 
 ---
 
@@ -479,6 +480,28 @@
 | SCALE-14 | Ubiquitous | All `localStorage.setItem()` calls shall be wrapped in a try/catch for `QuotaExceededError`. |
 | SCALE-15 | If-then | If a `QuotaExceededError` occurs when storing non-critical data (theme, usage counters), then the app shall silently degrade to in-memory storage for the session. |
 | SCALE-16 | If-then | If a `QuotaExceededError` occurs when storing the BYOK key, then the app shall display a warning: "Browser storage is full — key will only persist for this session" and fall back to in-memory. |
+
+---
+
+## 28. Documentation completeness
+
+| ID | Type | Requirement |
+| --- | --- | --- |
+| DOC-01 | Ubiquitous | The app shall evaluate each project's documentation completeness as a pure domain function based on `taxTreatment`, `propertyType`, and which optional fields are filled. |
+| DOC-02 | Ubiquitous | Each project shall display a documentation status badge: complete (green), partial (yellow), or incomplete (red). |
+| DOC-03 | Ubiquitous | The completeness score shall be calculated as: (filled required fields / total required fields) × 100. Complete = 100%, partial ≥ 50%, incomplete < 50%. |
+| DOC-04 | Ubiquitous | Required fields for `capital_improvement` shall be: title, completionDate, totalCost, ≥1 attachment, irsJustification, and vendorName. |
+| DOC-05 | Ubiquitous | Required fields for `repair` shall be: title, completionDate, totalCost, and ≥1 attachment. |
+| DOC-06 | Ubiquitous | Required fields for `credit` shall be: title, completionDate, totalCost, ≥1 attachment, energyCreditType, and vendorName. |
+| DOC-07 | Ubiquitous | Required fields for `unknown` shall be only: title, completionDate, and totalCost (the nudge is to classify the treatment). |
+| DOC-08 | State-driven | While the property type is `rental` and treatment is `capital_improvement`, the required set shall additionally include `usefulLifeYears` and `depreciationStartDate`. |
+| DOC-09 | State-driven | While the property type is `home_office`, the required set shall additionally include `sqftAffected`. |
+| DOC-10 | Ubiquitous | The project detail view shall include a "Documentation health" card showing status, missing required fields, and recommended optional fields. |
+| DOC-11 | Ubiquitous | The dashboard shall display a summary: "X of Y projects have complete documentation" with a link to filter the project list by incomplete status. |
+| DOC-12 | Event-driven | When the user saves a project in `incomplete` status, the app shall display a non-blocking toast: "Tip: adding [first missing field] would strengthen this record for tax purposes." |
+| DOC-13 | Ubiquitous | Incomplete documentation shall never prevent saving a project. The checker is advisory only — a nudge, not a gate. |
+| DOC-14 | Ubiquitous | The CSV/PDF export shall include a `documentationStatus` column (complete/partial/incomplete) for each project. |
+| DOC-15 | Ubiquitous | The project list shall support filtering by documentation status (complete / partial / incomplete). |
 
 ---
 
