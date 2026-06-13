@@ -45,6 +45,7 @@
 27. [Scalability & limits](#27-scalability--limits)
 28. [Documentation completeness](#28-documentation-completeness)
 29. [Analytics](#29-analytics)
+30. [Observability (OpenTelemetry)](#30-observability-opentelemetry)
 
 ---
 
@@ -358,7 +359,7 @@
 | --- | --- | --- |
 | SEC-01 | Ubiquitous | The access token shall be held in memory only; it shall be injected as `Authorization: Bearer` per request and never persisted, logged, or placed in URLs. |
 | SEC-02 | Ubiquitous | The BYOK key shall be sent only as the `?key=` query parameter to `generativelanguage.googleapis.com` over HTTPS and shall be redacted from all logs/telemetry. |
-| SEC-03 | Ubiquitous | The app shall serve a strict Content Security Policy (CSP) via Cloudflare Pages `_headers`: `default-src 'self'`; `connect-src` limited to Google API endpoints + `https://plausible.io`; `script-src 'self'` + GIS client + `https://plausible.io`; `object-src 'none'`; `base-uri 'self'`; plus HSTS and `X-Content-Type-Options: nosniff`. |
+| SEC-03 | Ubiquitous | The app shall serve a strict Content Security Policy (CSP) via Cloudflare Pages `_headers`: `default-src 'self'`; `connect-src` limited to Google API endpoints + `https://plausible.io` + `https://api.honeycomb.io`; `script-src 'self'` + GIS client + `https://plausible.io`; `object-src 'none'`; `base-uri 'self'`; plus HSTS and `X-Content-Type-Options: nosniff`. |
 | SEC-04 | Ubiquitous | The app shall include no third-party scripts beyond Google Identity Services and Plausible Analytics (§29). |
 | SEC-05 | Ubiquitous | OAuth scope shall be minimized: `drive.file` (not full `drive`) so the app can only access files it created. |
 | SEC-06 | Where-optional | Where the user enables "session-only" mode, the BYOK key shall be held in memory only and not persisted to `localStorage`. |
@@ -528,6 +529,30 @@
 | ANLYT-15 | Ubiquitous | The CSP (`_headers`) shall include `https://plausible.io` in both `script-src` and `connect-src` directives. |
 | ANLYT-16 | If-then | If the Plausible script fails to load (ad blocker, network error), then all analytics calls shall silently no-op without affecting app functionality. |
 | ANLYT-17 | Ubiquitous | In local development (`localhost`), analytics events shall be silently discarded (Plausible ignores non-matching domains by default). |
+
+---
+
+## 30. Observability (OpenTelemetry)
+
+| ID | Type | Requirement |
+| --- | --- | --- |
+| OTEL-01 | Ubiquitous | The app shall use the OpenTelemetry browser SDK (`@opentelemetry/sdk-trace-web`) for performance and reliability observability, exporting traces to Honeycomb via OTLP/HTTP. |
+| OTEL-02 | Ubiquitous | All OTel initialization shall be encapsulated in a single module (`src/services/telemetry.ts`) so the exporter backend can be swapped without touching feature code. |
+| OTEL-03 | Ubiquitous | OTel spans and attributes shall contain no PII, no financial data, no project titles, no attachment contents, and no user-identifying information. Only operational metrics (latency, status codes, error types, retry counts, resource names) are permitted. |
+| OTEL-04 | Ubiquitous | The app shall auto-instrument: document load timing, user interaction latency, `fetch()` calls (URL path only, no query params), and long tasks (> 50 ms). |
+| OTEL-05 | Event-driven | When the app performs a Drive manifest read, the operation shall be wrapped in a `drive.manifest.read` span with `drive.file_id` and `http.status_code` attributes. |
+| OTEL-06 | Event-driven | When the app performs a Drive manifest write (CAS), the operation shall be wrapped in a `drive.manifest.write` span with `cas.retry_count` and `http.status_code` attributes. |
+| OTEL-07 | Event-driven | When the app performs an AI extraction via Gemini, the operation shall be wrapped in an `ai.extraction` span with `ai.model`, `file.type`, and `ai.confidence` attributes. |
+| OTEL-08 | Event-driven | When the app performs an attachment upload, the operation shall be wrapped in a `drive.attachment.upload` span with `file.type`, `file.size_bytes`, and `http.status_code` attributes. |
+| OTEL-09 | Event-driven | When the app performs a token refresh, the operation shall be wrapped in an `auth.token.refresh` span with an `auth.method` attribute (`silent` or `interactive`). |
+| OTEL-10 | Ubiquitous | The CSP (`_headers`) shall include `https://api.honeycomb.io` in the `connect-src` directive. |
+| OTEL-11 | Ubiquitous | The Honeycomb ingest API key shall be a write-only (ingest-only) key embedded as a build-time environment variable (`VITE_HONEYCOMB_API_KEY`). |
+| OTEL-12 | Ubiquitous | In production, traces shall be head-sampled at 10% (`TraceIdRatioBasedSampler(0.1)`) to stay within Honeycomb's free tier. The sampling rate shall be configurable via `VITE_OTEL_SAMPLE_RATE`. |
+| OTEL-13 | Ubiquitous | Spans shall be batched via `BatchSpanProcessor` to minimize network overhead (default: flush every 5 s or 512 spans). |
+| OTEL-14 | If-then | If `VITE_HONEYCOMB_API_KEY` is not set, then `initTelemetry()` shall silently no-op — no spans are created or exported, and the app functions normally. |
+| OTEL-15 | Ubiquitous | The OTel SDK shall be initialized asynchronously after the app shell renders, so it does not impact LCP or FID. |
+| OTEL-16 | Ubiquitous | The `fetch` instrumentation shall ignore requests to `plausible.io` to avoid tracing analytics pings. |
+| OTEL-17 | Ubiquitous | Unit tests shall use the OTel API's default no-op tracer. Integration tests may use an in-memory exporter to assert span creation and attributes. |
 
 ---
 

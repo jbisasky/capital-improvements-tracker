@@ -29,6 +29,7 @@
 16. [Demo mode](#16-demo-mode)
 17. [Scalability & limits](#17-scalability--limits)
 18. [Analytics (Plausible)](#18-analytics-plausible)
+19. [Observability (OpenTelemetry + Honeycomb)](#19-observability-opentelemetry--honeycomb)
 
 ---
 
@@ -689,7 +690,7 @@ tokens, keys, or raw payloads.
 - **BYOK key:** sent only as the `?key=` query param to `generativelanguage.googleapis.com` over
   HTTPS; redacted from all logs/telemetry; session-only mode keeps it out of `localStorage`.
 - **CSP (Cloudflare `_headers`):** `default-src 'self'`; `connect-src` limited to
-  `https://www.googleapis.com https://generativelanguage.googleapis.com https://accounts.google.com https://plausible.io`;
+  `https://www.googleapis.com https://generativelanguage.googleapis.com https://accounts.google.com https://plausible.io https://api.honeycomb.io`;
   `script-src 'self' https://accounts.google.com/gsi/client https://plausible.io`; `frame-src https://accounts.google.com`;
   `object-src 'none'`; `base-uri 'self'`; plus HSTS and `X-Content-Type-Options: nosniff`.
 - **No third-party scripts** beyond Google Identity Services and Plausible Analytics (§18); dependencies pinned (longevity).
@@ -1343,6 +1344,178 @@ compatible with React Router's navigation.
 - **Opt-out:** Plausible respects the browser's `localStorage.setItem('plausible_ignore', 'true')`
   flag. Developers can set this to exclude their own visits.
 - **Testing:** Unit tests mock `window.plausible` to assert events fire with correct names/props.
+
+---
+
+## 19. Observability (OpenTelemetry + Honeycomb)
+
+### 19.1 Purpose & scope
+
+OpenTelemetry provides **performance and reliability observability** — complementary to
+Plausible's usage analytics (§18). The two systems are orthogonal:
+
+| Concern | Tool | Example question |
+| --- | --- | --- |
+| **Usage** (who/what/how many) | Plausible | "How many people exported JSON this week?" |
+| **Performance** (how fast/reliable) | OTel → Honeycomb | "What's the P95 latency of Drive manifest writes?" |
+
+**Privacy boundary:** OTel spans and attributes shall contain **no PII, no financial data,
+no project titles, no attachment contents, and no user-identifying information**. Only
+operational metrics: latency, status codes, error types, retry counts, resource names
+(e.g. "Drive:manifest-write", not the manifest content).
+
+### 19.2 SDK & auto-instrumentation
+
+The browser SDK is initialized once at app boot via a dedicated module:
+
+```ts
+// src/services/telemetry.ts
+
+import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { Resource } from '@opentelemetry/resources';
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
+import { registerInstrumentations } from '@opentelemetry/instrumentation';
+import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
+
+const HONEYCOMB_ENDPOINT = 'https://api.honeycomb.io/v1/traces';
+
+export function initTelemetry(apiKey: string): void {
+  if (!apiKey) return; // silently no-op if not configured
+
+  const exporter = new OTLPTraceExporter({
+    url: HONEYCOMB_ENDPOINT,
+    headers: { 'x-honeycomb-team': apiKey },
+  });
+
+  const provider = new WebTracerProvider({
+    resource: new Resource({
+      [ATTR_SERVICE_NAME]: 'capital-tracker-web',
+      [ATTR_SERVICE_VERSION]: import.meta.env.VITE_APP_VERSION ?? 'dev',
+    }),
+    spanProcessors: [new BatchSpanProcessor(exporter)],
+  });
+
+  provider.register();
+
+  registerInstrumentations({
+    instrumentations: [
+      getWebAutoInstrumentations({
+        '@opentelemetry/instrumentation-document-load': {},
+        '@opentelemetry/instrumentation-user-interaction': {},
+        '@opentelemetry/instrumentation-fetch': {
+          // Only trace calls to Google APIs & Honeycomb, not Plausible or other origins
+          ignoreUrls: [/plausible\.io/],
+        },
+        '@opentelemetry/instrumentation-xml-http-request': { enabled: false },
+      }),
+    ],
+  });
+}
+```
+
+**Auto-instrumented signals:**
+
+| Plugin | What it captures |
+| --- | --- |
+| `instrumentation-document-load` | Full page load waterfall: DNS, TCP, TTFB, DOM interactive, LCP |
+| `instrumentation-user-interaction` | Click-to-response latency (e.g. "click Save → API call → render complete") |
+| `instrumentation-fetch` | Every `fetch()` call: URL (path only, no query params), method, status, duration, retry count |
+| `instrumentation-long-task` | Main-thread blocking > 50 ms (jank detection) |
+
+### 19.3 Custom spans
+
+In addition to auto-instrumentation, manual spans wrap key business flows:
+
+```ts
+import { trace } from '@opentelemetry/api';
+
+const tracer = trace.getTracer('capital-tracker');
+
+// Example: wrapping the AI extraction flow
+const span = tracer.startSpan('ai.extraction', {
+  attributes: { 'ai.model': 'gemini-2.5-flash', 'file.type': 'image/jpeg' },
+});
+try {
+  const result = await extractFromReceipt(file);
+  span.setAttribute('ai.confidence', result.confidence);
+  span.setStatus({ code: SpanStatusCode.OK });
+} catch (e) {
+  span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+} finally {
+  span.end();
+}
+```
+
+**Recommended custom spans:**
+
+| Span name | Attributes | Wraps |
+| --- | --- | --- |
+| `drive.manifest.read` | `drive.file_id`, `http.status_code` | Manifest fetch from Drive |
+| `drive.manifest.write` | `drive.file_id`, `http.status_code`, `cas.retry_count` | CAS write (§6) |
+| `drive.attachment.upload` | `file.type`, `file.size_bytes`, `http.status_code` | Resumable upload (§7) |
+| `ai.extraction` | `ai.model`, `file.type`, `ai.confidence` | Gemini multimodal call (§8) |
+| `auth.token.refresh` | `auth.method` (`silent` / `interactive`) | GIS token refresh (§4.4) |
+| `storage.crud` | `operation` (`add` / `update` / `delete`), `project.treatment` | In-memory CRUD operations |
+
+**Privacy rule for attributes:** Only categorical values (status codes, error types, treatment
+categories, file MIME types, confidence buckets). Never: project IDs, titles, amounts, user
+emails, API keys, file names, or attachment contents.
+
+### 19.4 CSP update
+
+Add Honeycomb's OTLP endpoint to `connect-src` in the Cloudflare Pages `_headers`:
+
+```
+connect-src https://www.googleapis.com https://generativelanguage.googleapis.com https://accounts.google.com https://plausible.io https://api.honeycomb.io;
+```
+
+No `script-src` change needed — the OTel SDK is bundled locally (npm package), not loaded
+from a CDN.
+
+### 19.5 Honeycomb API key management
+
+The Honeycomb ingest API key is **write-only** (it can only send telemetry, not read it) and
+is **not a secret in the same category as BYOK** — it doesn't grant access to user data. It
+is embedded in the built JavaScript bundle as a build-time environment variable:
+
+```
+VITE_HONEYCOMB_API_KEY=hcaik_xxxxxxxxxxxx
+```
+
+This is the standard pattern for browser observability (same as how GA4, Sentry, and DataDog
+embed their ingest keys client-side). The key is scoped to a single Honeycomb environment
+with ingest-only permissions.
+
+### 19.6 Sampling & budget
+
+To control telemetry volume and stay within Honeycomb's free tier (20M events/month):
+
+- **Head-based sampling:** `TraceIdRatioBasedSampler(0.1)` in production (sample 10% of traces).
+  In development, sample 100% (`AlwaysOnSampler`).
+- **BatchSpanProcessor** buffers spans and flushes in batches (default: every 5s or 512 spans),
+  minimizing network overhead.
+- **Long-task spans** are always sampled (they indicate performance problems worth investigating).
+- The sampling rate is configurable via `VITE_OTEL_SAMPLE_RATE` (default `0.1`).
+
+### 19.7 Development & testing
+
+- **Local dev:** If `VITE_HONEYCOMB_API_KEY` is unset, `initTelemetry()` is a no-op — no spans
+  are created or exported. Developers can set the key in `.env.local` to send traces during
+  development.
+- **Console exporter (optional):** For local debugging, swap the OTLP exporter for
+  `ConsoleSpanExporter` to see spans in the browser DevTools console.
+- **Testing:** Unit tests mock the OTel API (`trace.getTracer()` returns a no-op tracer by
+  default). Integration tests can assert that specific spans are created with correct
+  attributes by using an in-memory exporter.
+
+### 19.8 Bundle impact
+
+The OTel browser SDK (tree-shaken with auto-instrumentations) adds approximately **30–50 KB**
+(gzipped) to the production bundle. This is loaded asynchronously after the critical rendering
+path, so it does not impact LCP or FID. The `initTelemetry()` call is deferred to after the
+app shell renders.
 
 ---
 
