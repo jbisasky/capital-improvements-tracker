@@ -32,7 +32,7 @@ projects, receipts, and summary totals) — no Google sign-in or API key require
 prospective users explore the full UI and understand the app's value proposition before committing
 to auth. The demo environment uses static fixture data baked into the build and bypasses all
 Drive/Gemini calls. A persistent banner indicates "Demo mode — sign in to use your own data."
-Specified in LLD §15.
+Specified in LLD §16.
 
 ---
 
@@ -338,7 +338,7 @@ No data migration is ever required. Treat the host as swappable infrastructure.
   render/`useEffect` loop) could burn API quota or Gemini tokens fast. The design mandates
   layered client guards — a per-gesture call budget, a global frequency circuit breaker, per-API
   rate limiters/breakers, bounded retries, and a daily/session AI spend budget — plus
-  provider-side quota caps and API-key restrictions. Specified in LLD §13.
+  provider-side quota caps and API-key restrictions. Specified in LLD §14.
 
 ---
 
@@ -353,7 +353,7 @@ No data migration is ever required. Treat the host as swappable infrastructure.
   responses — deterministic and credential-free in CI.
 - **Type safety:** `tsc --noEmit` + ESLint `no-explicit-any` in CI gate.
 - **CI:** GitHub Actions — lint/typecheck, Vitest, and Playwright jobs run in parallel on every
-  push/PR. Branch protection requires all three to pass. Full specification in LLD §14.
+  push/PR. Branch protection requires all three to pass. Full specification in LLD §15.
 
 ---
 

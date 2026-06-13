@@ -20,12 +20,14 @@
 7. [Drive: attachment upload (resumable)](#7-drive-attachment-upload-resumable)
 8. [AI extraction — Gemini multimodal](#8-ai-extraction--gemini-multimodal)
 9. [End-to-end: "add project from a receipt"](#9-end-to-end-add-project-from-a-receipt)
-10. [Error taxonomy & user messaging](#10-error-taxonomy--user-messaging)
-11. [Concurrency edge cases](#11-concurrency-edge-cases)
-12. [Security handshake details](#12-security-handshake-details)
-13. [Runaway-usage failsafes (API/token budget protection)](#13-runaway-usage-failsafes-apitoken-budget-protection)
-14. [Testing & CI](#14-testing--ci)
-15. [Demo mode](#15-demo-mode)
+10. [Documentation completeness checker](#10-documentation-completeness-checker)
+11. [Error taxonomy & user messaging](#11-error-taxonomy--user-messaging)
+12. [Concurrency edge cases](#12-concurrency-edge-cases)
+13. [Security handshake details](#13-security-handshake-details)
+14. [Runaway-usage failsafes (API/token budget protection)](#14-runaway-usage-failsafes-apitoken-budget-protection)
+15. [Testing & CI](#15-testing--ci)
+16. [Demo mode](#16-demo-mode)
+17. [Scalability & limits](#17-scalability--limits)
 
 ---
 
@@ -71,7 +73,7 @@ status → `AppError`. It implements the retry policy in §1.5.
 - **`401` is special:** triggers a single silent token refresh (§4.4), then **one** replay of
   the original request. A second `401` surfaces `AUTH_REQUIRED`.
 - **Retries never self-retrigger unbounded:** the attempt cap is hard, and the whole retry path
-  sits behind the runaway-usage failsafes in §13 (per-gesture budget, global breaker, per-API
+  sits behind the runaway-usage failsafes in §14 (per-gesture budget, global breaker, per-API
   breaker), so a pathological retry/loop is contained rather than burning quota.
 
 ### 1.6 Idempotency
@@ -344,7 +346,7 @@ sequenceDiagram
     App->>Drive: GET files/{id}?alt=media
     Drive-->>App: raw JSON bytes
     App->>App: JSON.parse (guarded)
-    App->>App: detect version → migrate to schemaVersion=1 if needed
+    App->>App: detect version → migrate to schemaVersion=2 if needed
     App->>App: Manifest.safeParse(zod)
     alt valid
         App->>App: cache { manifest, fileId, headRevisionId }
@@ -372,7 +374,7 @@ Content-Type: application/json; charset=UTF-8
 { "name": "manifest.json", "parents": ["appDataFolder"], "mimeType": "application/json" }
 --...
 Content-Type: application/json
-{ "schemaVersion": 1, "lastUpdated": "<now>", "summary": {"totalCostBasisAdded":0,"totalDeductible":0}, "projects": [] }
+{ "schemaVersion": 2, "lastUpdated": "<now>", "summary": {"totalCostBasisAdded":0,"totalDeductible":0}, "projects": [] }
 --...--
 ```
 Response yields the new `fileId` + `headRevisionId`, cached for subsequent CAS writes.
@@ -655,10 +657,10 @@ incomplete = score < 50     (most required fields missing)
 | `API_KEY_INVALID` | Gemini 400 | no | "Check your AI Studio key in Settings" |
 | `QUOTA` | 429 | backoff | "AI quota reached — try later" |
 | `DRIVE_QUOTA` | Drive 403 storage | no | "Your Google Drive is full" |
-| `LOOP_GUARD_TRIPPED` | per-gesture budget (§13.2) | no | "Something looped unexpectedly — action stopped" (diagnostics) |
-| `CIRCUIT_OPEN` | global/endpoint breaker (§13.3–4) | after cooldown + manual resume | "Paused requests to protect your quota — resume?" |
-| `RATE_LIMITED_LOCAL` | token bucket (§13.4) | auto (delayed) | usually silent; brief "slowing down" if sustained |
-| `AI_BUDGET_EXCEEDED` | spend budget (§13.5) | next reset / override | "Daily AI limit reached — raise limit or try tomorrow" |
+| `LOOP_GUARD_TRIPPED` | per-gesture budget (§14.2) | no | "Something looped unexpectedly — action stopped" (diagnostics) |
+| `CIRCUIT_OPEN` | global/endpoint breaker (§14.3–4) | after cooldown + manual resume | "Paused requests to protect your quota — resume?" |
+| `RATE_LIMITED_LOCAL` | token bucket (§14.4) | auto (delayed) | usually silent; brief "slowing down" if sustained |
+| `AI_BUDGET_EXCEEDED` | spend budget (§14.5) | next reset / override | "Daily AI limit reached — raise limit or try tomorrow" |
 
 Every `AppError` carries `{ code, httpStatus?, cause?, operationId? }`; user messages never leak
 tokens, keys, or raw payloads.
@@ -755,7 +757,7 @@ behalf**, all guards live in the client, layered defense-in-depth, and are compl
 outside the guarded `httpFetch` pipeline** (enforced by lint rule + code review), so every call
 passes through these checks.
 
-### 13.1 Guard layers (summary)
+### 14.1 Guard layers (summary)
 
 | # | Guard | Scope | Trips when | Effect |
 | --- | --- | --- | --- | --- |
@@ -768,7 +770,7 @@ passes through these checks.
 | 7 | **Daily + session spend/quota budget** | per app, persisted | calls or estimated tokens exceed cap | block further AI calls until reset / user override |
 | 8 | **AbortController on unmount/nav** | per component | route change / unmount | cancel in-flight, prevent zombie loops |
 
-### 13.2 Per-gesture call budget (primary anti-loop net)
+### 14.2 Per-gesture call budget (primary anti-loop net)
 Every user-initiated action runs inside a `withCallBudget(label, K, fn)` scope. Each guarded
 request decrements a counter bound to the current gesture via async context. Exceeding `K`
 indicates a logic bug (a loop), not legitimate use, so the whole gesture is aborted and surfaced.
@@ -784,7 +786,7 @@ This directly contains the classic React failure mode where a component re-rende
 request every render: the budget is exhausted almost immediately and the cascade stops instead of
 running unbounded.
 
-### 13.3 Global frequency circuit breaker
+### 14.3 Global frequency circuit breaker
 A process-wide sliding-window counter trips a hard kill-switch if call frequency is implausibly
 high regardless of source.
 
@@ -798,7 +800,7 @@ flowchart TD
     E --> X
     D -- no --> F[allow request → httpFetch]
     F --> G{success?}
-    G -- no, repeated --> H[per-endpoint breaker may OPEN §13.4]
+    G -- no, repeated --> H[per-endpoint breaker may OPEN §14.4]
     G -- yes --> I[Result.ok]
 ```
 
@@ -806,14 +808,14 @@ When the global breaker opens it is **sticky**: it requires either the cooldown 
 manual user "resume" click (so a runaway loop can't immediately re-trip in a tight cycle). The
 event is logged with the recent call stack/labels to aid debugging.
 
-### 13.4 Per-endpoint circuit breaker + token bucket
+### 14.4 Per-endpoint circuit breaker + token bucket
 - **Token bucket** per API: e.g. Gemini bucket = capacity 5, refill 1/2 s; Drive bucket =
   capacity 10, refill 2/s. Requests take a token or wait (bounded) / reject.
 - **Circuit breaker** per API: after `F` consecutive failures → `OPEN` for cooldown `C` (e.g.
   30 s), then `HALF_OPEN` allows a single probe; success → `CLOSED`, failure → `OPEN` again.
   This prevents retry storms against a failing endpoint.
 
-### 13.5 Spend / token budget (Gemini specifically)
+### 14.5 Spend / token budget (Gemini specifically)
 Gemini responses include `usageMetadata` (`promptTokenCount`, `candidatesTokenCount`,
 `totalTokenCount`). We accumulate:
 - a **session counter** (in memory) and a **rolling daily counter** (persisted in `localStorage`,
@@ -831,7 +833,7 @@ interface UsageBudget {
 }
 ```
 
-### 13.6 Provider-side limits (defense in depth — owner configures)
+### 14.6 Provider-side limits (defense in depth — owner configures)
 Client guards can be bypassed by a determined bug or a tampered build, so the **authoritative**
 ceiling is set at Google:
 - **AI Studio / Generative Language API quotas:** set requests-per-minute and requests-per-day
@@ -839,11 +841,11 @@ ceiling is set at Google:
   enforces RPM/RPD caps; explicit lower caps add headroom safety.
 - **API key restrictions:** restrict the BYOK key to the Generative Language API only, and add an
   **HTTP referrer restriction** to the app's domain(s) so a leaked key can't be used elsewhere.
-- **Drive API quotas:** Drive enforces per-user rate limits; our backoff (§1.5) + breaker (§13.4)
+- **Drive API quotas:** Drive enforces per-user rate limits; our backoff (§1.5) + breaker (§14.4)
   cooperate with `429`/`403 rateLimitExceeded` responses rather than fighting them.
 - These steps are in the runbook [`docs/google-cloud-setup.md`](google-cloud-setup.md).
 
-### 13.7 Observability
+### 14.7 Observability
 Every trip (`LOOP_GUARD_TRIPPED`, `CIRCUIT_OPEN`, `AI_BUDGET_EXCEEDED`, `RATE_LIMITED_LOCAL`) is
 recorded to an in-app diagnostics log (ring buffer) with timestamp, label, and counters, viewable
 in Settings → Diagnostics. This makes a runaway-loop bug obvious and debuggable after the fact
@@ -856,7 +858,7 @@ without external telemetry.
 Two tools cover the full testing pyramid: **Vitest** (unit / component) and **Playwright** (E2E).
 Both run in a single GitHub Actions workflow on every push and PR.
 
-### 14.1 Test pyramid overview
+### 15.1 Test pyramid overview
 
 | Layer | Tool | Scope | Location | Runs against |
 | --- | --- | --- | --- | --- |
@@ -864,7 +866,7 @@ Both run in a single GitHub Actions workflow on every push and PR.
 | Component | Vitest + Testing Library | React components in isolation | Colocated `*.test.tsx` next to source | jsdom / happy-dom |
 | E2E | Playwright | Full user flows across pages | `e2e/*.spec.ts` (top-level) | Real browser against dev server |
 
-### 14.2 Vitest — unit & component tests
+### 15.2 Vitest — unit & component tests
 
 Vitest shares the Vite config (`vite.config.ts`), so path aliases, TypeScript transforms, and
 plugins work without extra setup.
@@ -895,7 +897,7 @@ export default mergeConfig(viteConfig, defineConfig({
 - `Result` helpers — mapping, chaining, error narrowing.
 - Zod schemas (`§2`) — round-trip parse/serialize, reject malformed input.
 - Retry/backoff logic (`§1.5`) — deterministic with a fake clock.
-- Budget/circuit-breaker state machines (`§13`) — transition coverage.
+- Budget/circuit-breaker state machines (`§14`) — transition coverage.
 
 **What to component-test:**
 - Forms (add/edit project) — field validation, `taxTreatment` driving which amount fields
@@ -909,7 +911,7 @@ export default mergeConfig(viteConfig, defineConfig({
 - Gemini API → mock `extractFromDocument` service; feed canned extraction responses.
 - `localStorage` → use Vitest's jsdom environment (provides `localStorage` natively).
 
-### 14.3 Playwright — E2E tests
+### 15.3 Playwright — E2E tests
 
 Playwright drives a real Chromium browser against the Vite dev server. Tests exercise full
 user flows as described in the UI/UX design doc §6.
@@ -966,7 +968,7 @@ await page.route("**/generativelanguage.googleapis.com/**", (route) => {
 
 This keeps E2E tests deterministic, fast, and free of real API credentials in CI.
 
-### 14.4 GitHub Actions CI workflow
+### 15.4 GitHub Actions CI workflow
 
 ```yaml
 # .github/workflows/ci.yml
@@ -1017,7 +1019,7 @@ jobs:
 
 All three jobs run in parallel. PR merge requires all to pass (branch protection rule).
 
-### 14.5 Test file conventions
+### 15.5 Test file conventions
 
 - **Unit/component tests** live next to the file they test: `src/domain/tax.ts` →
   `src/domain/tax.test.ts`. This makes coverage gaps obvious at a glance.
@@ -1027,7 +1029,7 @@ All three jobs run in parallel. PR merge requires all to pass (branch protection
 - Naming: `*.test.ts` for Vitest, `*.spec.ts` for Playwright — keeps the two layers
   unambiguous and allows separate glob patterns.
 
-### 14.6 What is NOT tested (and why)
+### 15.6 What is NOT tested (and why)
 
 - **Real Google OAuth flow** — GIS consent is an interactive redirect to `accounts.google.com`;
   not feasible to automate without test account credentials. Mocked in E2E.
@@ -1044,7 +1046,7 @@ All three jobs run in parallel. PR merge requires all to pass (branch protection
 The landing page offers a **"See a demo"** button (HLD D14) that drops the user into a
 read-only sandbox with no authentication required. This section specifies how it works.
 
-### 15.1 Activation & routing
+### 16.1 Activation & routing
 
 Clicking "See a demo" navigates to `/demo/dashboard`. All `/demo/*` routes mirror the
 authenticated routes (`/dashboard`, `/projects`, `/projects/:id`, `/settings`, `/export`) but
@@ -1057,7 +1059,7 @@ wrap them in a `DemoProvider` context instead of the real `AuthProvider` + `Driv
 "/dashboard"  → AuthShell (real AuthProvider + DriveProvider)
 ```
 
-### 15.2 Data layer — static fixtures
+### 16.2 Data layer — static fixtures
 
 Demo mode replaces all service calls with **static fixture data** bundled at build time:
 
@@ -1066,7 +1068,7 @@ Demo mode replaces all service calls with **static fixture data** bundled at bui
 import type { Manifest } from "../domain/manifest";
 
 export const DEMO_MANIFEST: Manifest = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   lastUpdated: "2025-06-01T00:00:00.000Z",
   summary: {
     totalCostBasisAdded: 42_300,
@@ -1092,7 +1094,7 @@ export const DEMO_MANIFEST: Manifest = {
 };
 ```
 
-### 15.3 DemoProvider context
+### 16.3 DemoProvider context
 
 ```ts
 interface DemoContext {
@@ -1111,7 +1113,7 @@ shows a toast: *"This is a demo — sign in to save your own data."* The fixture
 changes. The "Extract with AI" button shows a canned extraction result (pre-built fixture)
 rather than calling Gemini.
 
-### 15.4 Persistent demo banner
+### 16.4 Persistent demo banner
 
 A sticky top banner renders on all `/demo/*` routes:
 
@@ -1124,7 +1126,7 @@ A sticky top banner renders on all `/demo/*` routes:
 The banner is visually distinct (e.g. light blue background) so it's never confused with a
 real session. The "Sign in" link navigates back to `/`.
 
-### 15.5 What works vs. what doesn't in demo mode
+### 16.5 What works vs. what doesn't in demo mode
 
 | Feature | Demo behavior |
 | --- | --- |
@@ -1138,7 +1140,7 @@ real session. The "Sign in" link navigates back to `/`.
 | Theme toggle | Works (persisted in localStorage) |
 | Sign out | Navigates back to `/` |
 
-### 15.6 Bundle impact
+### 16.6 Bundle impact
 
 The fixture data is small (~2–5 KB JSON) and tree-shaken from the authenticated code path.
 No additional API clients or service logic is loaded — the demo provider short-circuits
@@ -1151,7 +1153,7 @@ everything.
 A 20-year single-user app will accumulate data. This section specifies the hard limits and
 graceful-degradation strategies so the app never silently breaks as data grows.
 
-### 16.1 Manifest size
+### 17.1 Manifest size
 
 The manifest is a single JSON file in Drive. Growth is linear with project count.
 
@@ -1174,7 +1176,7 @@ The manifest is a single JSON file in Drive. Growth is linear with project count
   UI paginates or virtualizes. A future migration could shard by year if needed — out of v1
   scope.
 
-### 16.2 Attachment limits
+### 17.2 Attachment limits
 
 | Limit | Value | Rationale |
 | --- | --- | --- |
@@ -1190,7 +1192,7 @@ The manifest is a single JSON file in Drive. Growth is linear with project count
 - MIME type validated on drop/select; unsupported types rejected with: "Unsupported file type.
   Use JPEG, PNG, WebP, HEIC, or PDF."
 
-### 16.3 Image compression before upload
+### 17.3 Image compression before upload
 
 Phone cameras produce 5–12 MB photos (12+ MP). For receipts and invoices, this resolution is
 overkill — the AI extraction and human review need legibility, not pixel-perfect reproduction.
@@ -1207,7 +1209,7 @@ overkill — the AI extraction and human review need legibility, not pixel-perfe
 - **PDFs are NOT compressed** — passed through as-is (re-compressing PDFs is lossy and complex).
 - **Progress shows post-compression size** so the user sees realistic upload estimates.
 
-### 16.4 Browser support
+### 17.4 Browser support
 
 | Browser | Minimum version | Notes |
 | --- | --- | --- |
@@ -1227,7 +1229,7 @@ longevity/minimal-deps principle.
 required API is missing, a static fallback page renders: "This app requires a modern browser.
 Please update Chrome, Firefox, or Safari to the latest version."
 
-### 16.5 localStorage quota handling
+### 17.5 localStorage quota handling
 
 `localStorage` has a browser-enforced limit (typically 5–10 MB per origin). The app uses it
 for: BYOK key (~50 bytes), theme preference (~10 bytes), daily AI usage counters (~100 bytes),

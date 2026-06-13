@@ -7,7 +7,7 @@
 > This document specifies **what the user sees and does**: the feature set, information
 > architecture, every screen (with wireframes), the core flows, and — critically — the
 > **non-happy-path states** (loading / empty / error / offline / conflict / auth-expired /
-> budget-exceeded) mapped to the error taxonomy in [LLD §10](low-level-design.md#10-error-taxonomy--user-messaging).
+> budget-exceeded) mapped to the error taxonomy in [LLD §11](low-level-design.md#11-error-taxonomy--user-messaging).
 > Built with shadcn/ui (Radix) + Tailwind v4; mobile-first because receipts are captured on phones.
 
 ## Table of contents
@@ -181,7 +181,7 @@ Persistent elements:
 </details>
 
 - **Primary CTA:** "Sign in with Google." **Secondary CTA:** "See a demo" — navigates to
-  `/demo/dashboard` with pre-populated fixture data (HLD D14, LLD §15). No auth required.
+  `/demo/dashboard` with pre-populated fixture data (HLD D14, LLD §16). No auth required.
 - Below the fold: privacy explainer + what you'll need (Google account, an AI
   Studio key). Error inline if GIS init fails (origin mismatch → friendly "config issue" note).
 
@@ -279,7 +279,7 @@ Two entry modes that converge on the same form:
 - Field-level validation (zod-mirrored). `taxTreatment` drives which amount fields are emphasized
   (capital → cost-basis; credit/deductible → deductible amount).
 - Save = attachments-first, manifest-last (LLD §9). Button shows progress; disabled while a budget
-  or circuit guard is tripped (LLD §13) with an inline reason.
+  or circuit guard is tripped (LLD §14) with an inline reason.
 
 ### 5.5 AI extraction review (modal/step)
 
@@ -375,7 +375,7 @@ Two entry modes that converge on the same form:
 
 </details>
 - BYOK warning is explicit (decision D11). "Test" pings Gemini with a trivial call (counts against
-  budget). Budgets back LLD §13.5; "used today" reflects the persisted counter.
+  budget). Budgets back LLD §14.5; "used today" reflects the persisted counter.
 
 ### 5.8 Export (`/export`)
 
@@ -401,7 +401,7 @@ Two entry modes that converge on the same form:
 </details>
 
 ### 5.9 Diagnostics (`/settings/diagnostics`)
-- Read-only ring-buffer log (LLD §13.7): timestamped events incl. `LOOP_GUARD_TRIPPED`,
+- Read-only ring-buffer log (LLD §14.7): timestamped events incl. `LOOP_GUARD_TRIPPED`,
   `CIRCUIT_OPEN`, `AI_BUDGET_EXCEEDED`, sync conflicts. "Copy log" (redacted) for support.
 
 ### 5.10 About (`/about`)
@@ -455,7 +455,7 @@ sequenceDiagram
 
 ## 7. State coverage matrix
 
-Every data-bearing screen must implement these. Mapped to LLD §10 codes where applicable.
+Every data-bearing screen must implement these. Mapped to LLD §11 codes where applicable.
 
 | State | Where | UX |
 | --- | --- | --- |
