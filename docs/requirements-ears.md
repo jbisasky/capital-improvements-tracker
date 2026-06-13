@@ -29,13 +29,14 @@
 11. [Settings](#11-settings)
 12. [Demo mode](#12-demo-mode)
 13. [Error handling & resilience](#13-error-handling--resilience)
-14. [Runaway-usage failsafes](#14-runaway-usage-failsafes)
-15. [Security](#15-security)
-16. [Responsive & mobile](#16-responsive--mobile)
-17. [Accessibility](#17-accessibility)
-18. [Testing & CI](#18-testing--ci)
-19. [Hosting & deployment](#19-hosting--deployment)
-20. [Longevity](#20-longevity)
+14. [Loading & perceived performance](#14-loading--perceived-performance)
+15. [Runaway-usage failsafes](#15-runaway-usage-failsafes)
+16. [Security](#16-security)
+17. [Responsive & mobile](#17-responsive--mobile)
+18. [Accessibility](#18-accessibility)
+19. [Testing & CI](#19-testing--ci)
+20. [Hosting & deployment](#20-hosting--deployment)
+21. [Longevity](#21-longevity)
 
 ---
 
@@ -248,7 +249,29 @@
 
 ---
 
-## 14. Runaway-usage failsafes
+## 14. Loading & perceived performance
+
+| ID | Type | Requirement |
+| --- | --- | --- |
+| PERF-01 | Ubiquitous | The app shall categorize every async operation into a response-time tier: Instant (< 100 ms), Acknowledged (100 ms – 1 s), Working (1 – 5 s), Long (5 – 15 s), or Very long (> 15 s), and apply the corresponding indicator strategy. |
+| PERF-02 | State-driven | While data is loading for an initial page render (dashboard, project list, project detail), the app shall display **skeleton placeholders** shaped like the real content (cards, rows, detail blocks), not spinners. |
+| PERF-03 | State-driven | While a discrete user-initiated action is in progress (save, extract, test API key), the app shall display a **spinner or button-progress state** with a text label (e.g. "Saving…", "Extracting…", "Testing…"). |
+| PERF-04 | Ubiquitous | Loading indicators shall be scoped to the region that is waiting; the app shall never block the full screen. The global shell (nav, top bar, footer) shall remain interactive during any loading state. |
+| PERF-05 | State-driven | While the AI extraction operation is running (expected 3–8 s for inline, 8–30 s for File API), the app shall display a labeled overlay on the form area with a **Cancel** button. |
+| PERF-06 | Event-driven | When the user clicks Cancel on any in-progress operation, the app shall call `AbortController.abort()` on all in-flight requests for that operation and restore the pre-operation UI state. |
+| PERF-07 | Ubiquitous | Any operation expected to exceed 3 seconds shall provide a Cancel affordance. |
+| PERF-08 | State-driven | While the AI extraction uses the File API path (expected 8–30 s), the app shall display **stepped progress messages** ("Uploading file… → Processing… → Extracting…") with an elapsed timer. |
+| PERF-09 | Event-driven | When a save operation succeeds, the new or updated project shall appear immediately in the list with a subtle "syncing" indicator (pulse dot) before the CAS write round-trip confirms (optimistic update). |
+| PERF-10 | If-then | If a CAS write fails after an optimistic row was shown, then the app shall revert the optimistic row and display an error toast. |
+| PERF-11 | If-then | If an operation completes in less than 300 ms, then the skeleton or spinner shall be held for a minimum of 300 ms total to avoid a jarring flash of loading state. |
+| PERF-12 | Event-driven | When the user clicks "Sign in with Google" and GIS returns a token, the app shall transition from the landing page to a **skeleton dashboard** (shimmer cards + rows) while the manifest loads. |
+| PERF-13 | Event-driven | When the user clicks "Save" on a project form, the button shall change to "Saving…" with an inline spinner and become disabled until the operation completes or fails. |
+| PERF-14 | Event-driven | When the user clicks "Test" for the BYOK key, the button shall change to "Testing…" with a spinner, then display the result inline (✓ Valid / ✗ Invalid). |
+| PERF-15 | State-driven | While filters or data are loading on the projects list, filter controls shall be disabled to prevent interaction with stale state. |
+
+---
+
+## 15. Runaway-usage failsafes
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -265,7 +288,7 @@
 
 ---
 
-## 15. Security
+## 16. Security
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -278,7 +301,7 @@
 
 ---
 
-## 16. Responsive & mobile
+## 17. Responsive & mobile
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -290,7 +313,7 @@
 
 ---
 
-## 17. Accessibility
+## 18. Accessibility
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -302,7 +325,7 @@
 
 ---
 
-## 18. Testing & CI
+## 19. Testing & CI
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -317,7 +340,7 @@
 
 ---
 
-## 19. Hosting & deployment
+## 20. Hosting & deployment
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -329,7 +352,7 @@
 
 ---
 
-## 20. Longevity
+## 21. Longevity
 
 | ID | Type | Requirement |
 | --- | --- | --- |
