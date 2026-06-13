@@ -8,7 +8,11 @@ No backend. No proxy. All network requests go **directly from your browser to
 Google's endpoints**. Your tokens, API key, and documents never touch a third-party
 server.
 
-![Landing page](docs/screenshots/landing.png)
+<p>
+  <img src="docs/screenshots/landing.png" alt="Landing page mockup" width="209" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/mobile-dashboard.png" alt="Mobile dashboard mockup" width="209" />
+</p>
 
 ## Why this exists
 
