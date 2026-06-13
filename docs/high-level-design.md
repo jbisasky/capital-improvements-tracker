@@ -330,10 +330,15 @@ No data migration is ever required. Treat the host as swappable infrastructure.
 
 - No central server ⇒ no server-side credential exposure surface.
 - Threats concentrate in the browser: **XSS** (would expose access token + BYOK key) and
-  **supply-chain** (malicious dependency). Mitigations: strict CSP, no third-party script tags,
-  minimal/pinned deps, SRI where applicable.
+  **supply-chain** (malicious dependency). Mitigations: strict CSP, no third-party script tags
+  beyond GIS and Plausible, minimal/pinned deps, SRI where applicable.
 - Access token in memory only; BYOK key in `localStorage` (see §7.3 tradeoff).
 - All traffic over HTTPS directly to Google; no proxy.
+- **Analytics:** Plausible Analytics (cloud) — no cookies, no cross-site tracking,
+  GDPR-compliant without a consent banner. Chosen over Google Analytics to avoid leaking
+  behavioral metadata to ad networks, consistent with the app's zero-third-party-data-leakage
+  posture. Custom events track aggregate funnel metrics (demo → sign-in → project created)
+  with no PII. See LLD §18 for integration details.
 - **Runaway-usage failsafes:** because there's no backend to throttle calls, a bug (e.g. a
   render/`useEffect` loop) could burn API quota or Gemini tokens fast. The design mandates
   layered client guards — a per-gesture call budget, a global frequency circuit breaker, per-API
