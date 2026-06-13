@@ -220,6 +220,8 @@
 | SET-06 | Event-driven | When the user checks "Session-only," the app shall hold the key in memory only and not persist it to `localStorage`. |
 | SET-07 | Ubiquitous | The usage limits section shall display configurable caps: `maxAiCallsPerDay`, `maxAiTokensPerDay`, `maxAiCallsPerSession`, and current "Used today" count. |
 | SET-08 | Ubiquitous | The appearance section shall provide three options: System, Light, Dark. The selection shall be persisted in `localStorage`. |
+| SET-09 | Ubiquitous | The settings page shall display a "Key expiry" selector with options: 7 days, 30 days (default), 90 days, Never. The selection controls how long the BYOK key persists in `localStorage` before auto-deletion. |
+| SET-10 | Event-driven | When the user clicks "Clear all data from this device," the app shall wipe all local state and redirect to the landing page (see SEC-13/SEC-14). |
 
 ---
 
@@ -350,6 +352,15 @@
 | SEC-06 | Where-optional | Where the user enables "session-only" mode, the BYOK key shall be held in memory only and not persisted to `localStorage`. |
 | SEC-07 | Ubiquitous | The app shall apply Subresource Integrity (SRI) hashes to any externally loaded scripts (e.g. GIS client) where the CDN supports it. |
 | SEC-08 | Ubiquitous | The BYOK API key shall be restricted (in Google Cloud console) to the Generative Language API only, with an HTTP referrer restriction to the app's domain(s). This shall be documented in `docs/google-cloud-setup.md`. |
+| SEC-09 | Ubiquitous | The codebase shall ban `dangerouslySetInnerHTML` via ESLint rule. All user-supplied content (project titles, descriptions, AI-extracted values) shall be rendered through React's default escaping only. |
+| SEC-10 | Ubiquitous | The BYOK key input shall use `autocomplete="off"` and `type="password"` to prevent browser autofill and shoulder-surfing. |
+| SEC-11 | Event-driven | When the app boots and finds a stored BYOK key whose `storedAt` timestamp exceeds the configured expiry window (default 30 days), it shall delete the key and prompt: "Your API key expired from local storage (security policy). Re-enter it in Settings." |
+| SEC-12 | Ubiquitous | The BYOK key expiry shall be configurable in Settings: 7 days, 30 days (default), 90 days, or Never. |
+| SEC-13 | Event-driven | When the user clicks "Clear all data from this device" in Settings, the app shall wipe all `localStorage` entries, delete service worker caches (`caches.delete()`), clear in-memory auth state, and redirect to the landing page. |
+| SEC-14 | Event-driven | When the user triggers "Clear all data," the app shall display a confirmation dialog: "This will sign you out and remove your API key from this browser. Your data in Google Drive is not affected." |
+| SEC-15 | Event-driven | After receiving an access token from GIS, the app shall verify that the token's `aud` (audience) matches the app's OAuth client ID; if mismatched, the token shall be discarded and `AUTH_REQUIRED` surfaced. |
+| SEC-16 | Ubiquitous | The CSP shall include `frame-ancestors 'none'` to prevent clickjacking (the app shall never be embeddable in an iframe). |
+| SEC-17 | Ubiquitous | The CI pipeline shall run `npm audit --audit-level=high`; critical or high vulnerabilities shall fail the build. |
 
 ---
 

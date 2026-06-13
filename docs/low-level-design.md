@@ -567,6 +567,57 @@ tokens, keys, or raw payloads.
 - **No third-party scripts** beyond Google Identity Services; dependencies pinned (longevity).
 - **Scope minimization:** `drive.file` (not full `drive`) so the app can only see files it created.
 
+### 12.1 Additional security hardening
+
+**Content injection prevention:**
+- `dangerouslySetInnerHTML` is banned (enforced by ESLint rule). All user-supplied content
+  (project titles, descriptions, AI-extracted values) is rendered through React's default
+  escaping. This prevents XSS from a tampered manifest or a prompt-injected Gemini response.
+
+**BYOK key auto-expiry:**
+- When storing the BYOK key, a `storedAt` ISO timestamp is persisted alongside it.
+- On app boot, if `storedAt` is older than the configured expiry window, the key is deleted
+  and the user is prompted: "Your API key expired from local storage (security policy).
+  Re-enter it in Settings."
+- Configurable expiry in Settings: **7 days / 30 days (default) / 90 days / Never**.
+- The expiry period is stored in `localStorage` alongside the key.
+- "Session-only" mode (§12 above) overrides this entirely — key never reaches `localStorage`.
+
+```ts
+interface ByokStorage {
+  key: string;        // the encrypted... no — plain key (CSP + origin isolation is the guard)
+  storedAt: string;   // ISO-8601 UTC
+  expiryDays: 7 | 30 | 90 | null; // null = never
+}
+```
+
+**Clear all local data:**
+- Settings → "Clear all data from this device" button wipes:
+  - `localStorage` (BYOK key, theme, usage counters, offline manifest cache)
+  - Service worker cache (via `caches.delete()`)
+  - In-memory auth state (equivalent to sign-out)
+- Confirmation dialog: "This will sign you out and remove your API key from this browser.
+  Your data in Google Drive is not affected."
+- After wipe, redirect to the landing page.
+
+**BYOK input hygiene:**
+- The API key `<input>` uses `autocomplete="off"` and `type="password"` to prevent browser
+  autofill and shoulder-surfing.
+
+**Dependency audit in CI:**
+- The GitHub Actions CI workflow includes `npm audit --audit-level=high` as a non-blocking
+  warning step. Critical/high CVEs fail the build.
+- Dependabot or Renovate is configured for automated dependency update PRs.
+
+**OAuth `aud` verification:**
+- After receiving a token from GIS, the app verifies the token info endpoint confirms the
+  `aud` (audience) matches the app's OAuth client ID. This prevents token confusion attacks
+  where an attacker tricks the app into accepting a token issued for a different client.
+
+**Clickjacking:**
+- CSP `frame-ancestors 'none'` (already in `_headers`) prevents the app from being embedded
+  in any iframe. This is the modern replacement for `X-Frame-Options: DENY`.
+
 ---
 
 ## 13. Runaway-usage failsafes (API/token budget protection)
