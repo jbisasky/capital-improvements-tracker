@@ -5,6 +5,7 @@ import { useStorage } from "@/services/storage-context";
 import { ProjectForm, type ProjectFormData } from "@/app/projects/project-form";
 import { type Project } from "@/domain/schemas";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
+import { trackProjectEdited } from "@/services/analytics";
 
 function projectToForm(project: Project): ProjectFormData {
   return {
@@ -83,6 +84,7 @@ export function ProjectEditPage(): ReactElement {
     const updated = formToUpdatedProject(project, data);
     void updateProject(id, updated).then((result) => {
       if (result.ok) {
+        trackProjectEdited();
         void navigate(`${prefix}/projects/${id}`);
       }
     });

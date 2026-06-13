@@ -5,6 +5,7 @@ import { useStorage } from "@/services/storage-context";
 import { ProjectForm, type ProjectFormData } from "@/app/projects/project-form";
 import { type Project } from "@/domain/schemas";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
+import { trackProjectCreated } from "@/services/analytics";
 
 function formToProject(data: ProjectFormData): Project {
   const now = new Date().toISOString();
@@ -45,6 +46,7 @@ export function ProjectNewPage(): ReactElement {
     const project = formToProject(data);
     void addProject(project).then((result) => {
       if (result.ok) {
+        trackProjectCreated(project.taxTreatment);
         void navigate(`${prefix}/projects/${project.id}`);
       }
     });

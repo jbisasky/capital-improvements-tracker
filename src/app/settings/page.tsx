@@ -1,6 +1,7 @@
 import { type ReactElement, useState } from "react";
 import { useStorage } from "@/services/storage-context";
 import { type PropertyType } from "@/domain/schemas";
+import { trackClearAllData } from "@/services/analytics";
 
 const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: "primary_residence", label: "Primary Residence" },
@@ -33,6 +34,7 @@ export function SettingsPage(): ReactElement {
   }
 
   function handleClearData(): void {
+    trackClearAllData();
     localStorage.clear();
     setShowClearConfirm(false);
     window.location.reload();

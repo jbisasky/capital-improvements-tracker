@@ -1,6 +1,7 @@
 import { type ReactElement, useState } from "react";
 import { Download } from "lucide-react";
 import { useStorage } from "@/services/storage-context";
+import { trackExport } from "@/services/analytics";
 
 type ExportFormat = "json" | "csv";
 
@@ -61,6 +62,7 @@ export function ExportPage(): ReactElement {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+    trackExport(format);
   }
 
   if (loading) {
