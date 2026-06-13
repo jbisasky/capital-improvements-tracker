@@ -25,6 +25,15 @@ Build a production-grade, **100% serverless, client-side SPA** that:
 - Filing taxes or integrating with tax software.
 - Authoritative tax advice — the app records and assists, it does not replace a CPA.
 
+### Demo mode (decision D14)
+The landing page includes a **"See a demo"** button alongside the Google sign-in CTA. It drops
+the user into a **read-only, pre-populated sandbox** with realistic sample data (e.g. a few
+projects, receipts, and summary totals) — no Google sign-in or API key required. This lets
+prospective users explore the full UI and understand the app's value proposition before committing
+to auth. The demo environment uses static fixture data baked into the build and bypasses all
+Drive/Gemini calls. A persistent banner indicates "Demo mode — sign in to use your own data."
+Specified in LLD §15.
+
 ---
 
 ## 2. Architecture Overview
@@ -306,13 +315,18 @@ No data migration is ever required. Treat the host as swappable infrastructure.
 
 ---
 
-## 11. Testing Strategy (proposed)
+## 11. Testing Strategy
 
-- **Unit:** `domain/` tax logic + money/date utils (pure, high coverage).
-- **Contract:** zod schemas validate manifest + AI output; fixtures for malformed data.
-- **Service mocks:** Drive + Gemini clients mocked for feature tests.
-- **E2E:** Playwright smoke test of sign-in (mock), create project, extraction review, persist.
+- **Unit / component:** **Vitest** (shares the Vite transform pipeline). Colocated `*.test.ts`
+  files next to source. Covers `domain/` tax logic, money/date utils, zod schemas, budget/breaker
+  state machines, and component rendering with Testing Library.
+- **E2E:** **Playwright** against the Vite dev server. Top-level `e2e/*.spec.ts`. Covers full
+  user flows: onboarding, add-from-receipt, project CRUD, settings, export, error states.
+  External APIs (Google OAuth, Drive, Gemini) are intercepted via `page.route()` with canned
+  responses — deterministic and credential-free in CI.
 - **Type safety:** `tsc --noEmit` + ESLint `no-explicit-any` in CI gate.
+- **CI:** GitHub Actions — lint/typecheck, Vitest, and Playwright jobs run in parallel on every
+  push/PR. Branch protection requires all three to pass. Full specification in LLD §14.
 
 ---
 
@@ -349,6 +363,9 @@ All questions resolved with the owner on 2026-06-12.
 | D11 | Security | BYOK key in localStorage acceptable as-is? | **Add CSP + warning + session-only option** |
 | D12 | Scope | Single account or multi-account? | **Single account** |
 | D13 | Longevity | PWA/offline + vendored deps in v1? | **Yes if feasible** |
+| D14 | Onboarding | "See a demo" on landing page? | **Yes — static demo mode** |
+| D15 | HTTP | HTTP client library choice? | **Native `fetch` only — no Axios** |
+| D16 | Testing | Test framework choices? | **Vitest (unit/component) + Playwright (E2E)** |
 
 ---
 

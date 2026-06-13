@@ -24,6 +24,8 @@
 11. [Concurrency edge cases](#11-concurrency-edge-cases)
 12. [Security handshake details](#12-security-handshake-details)
 13. [Runaway-usage failsafes (API/token budget protection)](#13-runaway-usage-failsafes-apitoken-budget-protection)
+14. [Testing & CI](#14-testing--ci)
+15. [Demo mode](#15-demo-mode)
 
 ---
 
@@ -49,9 +51,16 @@ Timestamps are ISO-8601 UTC strings produced by `new Date().toISOString()`. Date
 `completionDate`) are `YYYY-MM-DD` local-date strings with no timezone.
 
 ### 1.4 HTTP client
-A single typed `httpFetch` wrapper centralizes: auth header injection, timeout (`AbortController`,
-default 30s), JSON (de)serialization, and mapping of HTTP status → `AppError`. It implements the
-retry policy in §1.5.
+A single typed `httpFetch` wrapper around the **native `fetch` API** centralizes: auth header
+injection, timeout (`AbortController`, default 30s), JSON (de)serialization, and mapping of HTTP
+status → `AppError`. It implements the retry policy in §1.5.
+
+> **No Axios (or any third-party HTTP client).** The browser-native `fetch` API covers every
+> requirement (streaming, `AbortController`, `Headers`, `FormData` for multipart uploads).
+> Adding Axios would introduce a redundant abstraction layer, extra bundle weight (~13 kB min),
+> and a second set of interceptor/transform conventions to maintain. All HTTP concerns live in
+> the single `httpFetch` wrapper — keeping the dependency surface minimal and the behavior
+> fully visible in one place.
 
 ### 1.5 Retry & backoff policy
 - **Retryable:** `408`, `429`, `500`, `502`, `503`, `504`, and network errors.
@@ -663,6 +672,301 @@ Every trip (`LOOP_GUARD_TRIPPED`, `CIRCUIT_OPEN`, `AI_BUDGET_EXCEEDED`, `RATE_LI
 recorded to an in-app diagnostics log (ring buffer) with timestamp, label, and counters, viewable
 in Settings → Diagnostics. This makes a runaway-loop bug obvious and debuggable after the fact
 without external telemetry.
+
+---
+
+## 14. Testing & CI
+
+Two tools cover the full testing pyramid: **Vitest** (unit / component) and **Playwright** (E2E).
+Both run in a single GitHub Actions workflow on every push and PR.
+
+### 14.1 Test pyramid overview
+
+| Layer | Tool | Scope | Location | Runs against |
+| --- | --- | --- | --- | --- |
+| Unit | Vitest | Pure functions, domain logic, utilities | Colocated `*.test.ts` next to source | In-process (no browser) |
+| Component | Vitest + Testing Library | React components in isolation | Colocated `*.test.tsx` next to source | jsdom / happy-dom |
+| E2E | Playwright | Full user flows across pages | `e2e/*.spec.ts` (top-level) | Real browser against dev server |
+
+### 14.2 Vitest — unit & component tests
+
+Vitest shares the Vite config (`vite.config.ts`), so path aliases, TypeScript transforms, and
+plugins work without extra setup.
+
+```ts
+// vitest.config.ts (extends vite.config.ts)
+import { defineConfig, mergeConfig } from "vitest/config";
+import viteConfig from "./vite.config";
+
+export default mergeConfig(viteConfig, defineConfig({
+  test: {
+    globals: true,
+    environment: "jsdom",
+    include: ["src/**/*.test.{ts,tsx}"],
+    coverage: {
+      provider: "v8",
+      include: ["src/**"],
+      exclude: ["src/**/*.test.*", "src/test/**"],
+    },
+  },
+}));
+```
+
+**What to unit-test (high value):**
+- `src/domain/` — tax-treatment logic, cost-basis calculations, IRS rules. These are pure
+  functions with well-defined inputs/outputs.
+- `src/lib/money.ts` — integer-cents ↔ decimal-dollar conversions, rounding.
+- `Result` helpers — mapping, chaining, error narrowing.
+- Zod schemas (`§2`) — round-trip parse/serialize, reject malformed input.
+- Retry/backoff logic (`§1.5`) — deterministic with a fake clock.
+- Budget/circuit-breaker state machines (`§13`) — transition coverage.
+
+**What to component-test:**
+- Forms (add/edit project) — field validation, `taxTreatment` driving which amount fields
+  are emphasized, zod error surfacing.
+- AI extraction review — confidence badges render, editing a field clears the AI marker.
+- State coverage (`§7 matrix`) — loading/empty/error states render the correct UI.
+
+**Mocking strategy (unit/component):**
+- Google APIs (Drive, GIS) → mock at the `httpFetch` wrapper boundary (`vi.mock`);
+  never call real Google endpoints in unit tests.
+- Gemini API → mock `extractFromDocument` service; feed canned extraction responses.
+- `localStorage` → use Vitest's jsdom environment (provides `localStorage` natively).
+
+### 14.3 Playwright — E2E tests
+
+Playwright drives a real Chromium browser against the Vite dev server. Tests exercise full
+user flows as described in the UI/UX design doc §6.
+
+```ts
+// playwright.config.ts
+import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "e2e",
+  use: {
+    baseURL: "http://localhost:5173",
+    screenshot: "only-on-failure",
+    trace: "retain-on-failure",
+  },
+  webServer: {
+    command: "npm run dev",
+    port: 5173,
+    reuseExistingServer: !process.env.CI,
+  },
+  projects: [
+    { name: "chromium", use: { browserName: "chromium" } },
+  ],
+});
+```
+
+**E2E test inventory (maps to UI/UX §6 flows):**
+
+| Spec file | Flow | Key assertions |
+| --- | --- | --- |
+| `landing.spec.ts` | Sign-in page loads, Google button visible | Privacy bullets, disclaimer present |
+| `onboarding.spec.ts` | First-run → BYOK prompt → empty dashboard | Guided state, AI features gated without key |
+| `add-from-receipt.spec.ts` | Upload → AI extract → review → save | Fields prefilled, confidence shown, saved to project list |
+| `add-manual.spec.ts` | Manual form entry → save | Validation fires, project appears in list |
+| `project-crud.spec.ts` | Create, read, update, delete | List updates, detail view correct, delete confirms |
+| `settings.spec.ts` | BYOK entry, budget config, theme toggle | Key masked, test ping, budget limits persist |
+| `export.spec.ts` | Export manifest / CSV | Download triggers with correct content |
+| `error-states.spec.ts` | Auth expiry, Drive conflict, AI budget exceeded | Banners/dialogs render, recovery actions work |
+
+**Mocking external APIs in E2E:**
+
+Since the app is 100% client-side, all external calls (Google OAuth, Drive, Gemini) are
+intercepted at the network level using Playwright's `page.route()`:
+
+```ts
+// e2e/fixtures/mock-google.ts
+await page.route("**/googleapis.com/drive/**", (route) => {
+  route.fulfill({ json: mockDriveResponse });
+});
+await page.route("**/generativelanguage.googleapis.com/**", (route) => {
+  route.fulfill({ json: mockGeminiExtraction });
+});
+```
+
+This keeps E2E tests deterministic, fast, and free of real API credentials in CI.
+
+### 14.4 GitHub Actions CI workflow
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+on: [push, pull_request]
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npx vitest run --coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+```
+
+All three jobs run in parallel. PR merge requires all to pass (branch protection rule).
+
+### 14.5 Test file conventions
+
+- **Unit/component tests** live next to the file they test: `src/domain/tax.ts` →
+  `src/domain/tax.test.ts`. This makes coverage gaps obvious at a glance.
+- **E2E tests** live in a top-level `e2e/` directory since they span multiple routes/components.
+- **Test utilities and fixtures** (mock data, helpers) live in `src/test/` (for Vitest) and
+  `e2e/fixtures/` (for Playwright).
+- Naming: `*.test.ts` for Vitest, `*.spec.ts` for Playwright — keeps the two layers
+  unambiguous and allows separate glob patterns.
+
+### 14.6 What is NOT tested (and why)
+
+- **Real Google OAuth flow** — GIS consent is an interactive redirect to `accounts.google.com`;
+  not feasible to automate without test account credentials. Mocked in E2E.
+- **Real Gemini API calls in CI** — would require a BYOK key as a CI secret and would be
+  non-deterministic (model output varies). Mocked with canned responses.
+- **Contract tests** — overkill for a single SPA calling stable third-party APIs (Google Drive v3,
+  Generative Language API). The mock shapes in E2E serve as de-facto consumer contracts;
+  breaking changes from Google are caught by version-pinned API paths and release notes.
+
+---
+
+## 15. Demo mode
+
+The landing page offers a **"See a demo"** button (HLD D14) that drops the user into a
+read-only sandbox with no authentication required. This section specifies how it works.
+
+### 15.1 Activation & routing
+
+Clicking "See a demo" navigates to `/demo/dashboard`. All `/demo/*` routes mirror the
+authenticated routes (`/dashboard`, `/projects`, `/projects/:id`, `/settings`, `/export`) but
+wrap them in a `DemoProvider` context instead of the real `AuthProvider` + `DriveProvider`.
+
+```ts
+// Simplified route structure
+"/"           → Landing (sign-in + "See a demo" CTA)
+"/demo/*"     → DemoShell (DemoProvider wrapping real UI components)
+"/dashboard"  → AuthShell (real AuthProvider + DriveProvider)
+```
+
+### 15.2 Data layer — static fixtures
+
+Demo mode replaces all service calls with **static fixture data** bundled at build time:
+
+```ts
+// src/demo/fixtures.ts
+import type { Manifest } from "../domain/manifest";
+
+export const DEMO_MANIFEST: Manifest = {
+  schemaVersion: 1,
+  lastUpdated: "2025-06-01T00:00:00.000Z",
+  summary: {
+    totalCostBasisAdded: 42_300,
+    totalDeductible: 1_200,
+  },
+  projects: [
+    {
+      id: "demo-001",
+      title: "New roof",
+      completionDate: "2025-04-12",
+      totalCost: 18_000,
+      taxTreatment: "capital_improvement",
+      costBasisAdjustment: 18_000,
+      deductibleAmount: 0,
+      irsJustification: "Full tear-off and replacement of existing shingle roof.",
+      confidence: 0.92,
+      attachments: [/* demo file stubs */],
+      createdAt: "2025-04-14T10:00:00.000Z",
+      updatedAt: "2025-04-14T10:00:00.000Z",
+    },
+    // ... 3–5 more sample projects spanning different tax treatments
+  ],
+};
+```
+
+### 15.3 DemoProvider context
+
+```ts
+interface DemoContext {
+  isDemo: true;
+  manifest: Manifest;          // DEMO_MANIFEST (read-only)
+  user: { email: "demo@example.com"; name: "Demo User" };
+}
+```
+
+The `DemoProvider` supplies the same context shape as the real providers, so all existing
+UI components (dashboard cards, project list, detail view, settings) render identically —
+they read from context and don't care whether the data came from Drive or a fixture.
+
+**Mutations are no-ops with feedback:** Any write action (create, edit, delete, save settings)
+shows a toast: *"This is a demo — sign in to save your own data."* The fixture data never
+changes. The "Extract with AI" button shows a canned extraction result (pre-built fixture)
+rather than calling Gemini.
+
+### 15.4 Persistent demo banner
+
+A sticky top banner renders on all `/demo/*` routes:
+
+```
+┌──────────────────────────────────────────────────────┐
+│ 🔍 Demo mode — exploring with sample data.  [Sign in to use your own data →] │
+└──────────────────────────────────────────────────────┘
+```
+
+The banner is visually distinct (e.g. light blue background) so it's never confused with a
+real session. The "Sign in" link navigates back to `/`.
+
+### 15.5 What works vs. what doesn't in demo mode
+
+| Feature | Demo behavior |
+| --- | --- |
+| Dashboard summary cards | Rendered from fixture data |
+| Projects list + detail | Fully browsable (read-only) |
+| Search & filter | Works against fixture data |
+| Add / edit / delete | Toast: "Sign in to save" |
+| AI extraction | Shows canned extraction result |
+| Settings (BYOK, budgets) | Viewable; changes not persisted |
+| Export | Downloads the demo fixture as JSON/CSV |
+| Theme toggle | Works (persisted in localStorage) |
+| Sign out | Navigates back to `/` |
+
+### 15.6 Bundle impact
+
+The fixture data is small (~2–5 KB JSON) and tree-shaken from the authenticated code path.
+No additional API clients or service logic is loaded — the demo provider short-circuits
+everything.
 
 ---
 
