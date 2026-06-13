@@ -129,8 +129,16 @@ original single-`taxDeductibleAmount` shape is retained only as a migration sour
 
 ```jsonc
 {
-  "schemaVersion": 1,                  // integer for migration logic
+  "schemaVersion": 2,                  // integer for migration logic
   "lastUpdated": "ISO-8601",
+  "property": {                        // set once in Settings → "Your Property"
+    "address": "123 Main St",
+    "city": "Austin",
+    "state": "TX",
+    "zip": "78701",
+    "propertyType": "primary_residence", // | "rental" | "home_office" | "vacation"
+    "sqftTotal": 2400                  // optional — needed for home-office % calc
+  },
   "summary": {
     "totalCostBasisAdded": 0.00,       // sum of capital improvements (basis adjustments)
     "totalDeductible": 0.00            // sum of amounts that are *actually* deductible/credited
@@ -150,7 +158,21 @@ original single-`taxDeductibleAmount` shape is retained only as a migration sour
         { "fileId": "string", "filename": "string", "mimeType": "string", "sizeBytes": 0 }
       ],
       "createdAt": "ISO-8601",
-      "updatedAt": "ISO-8601"
+      "updatedAt": "ISO-8601",
+
+      // --- Optional IRS-relevant fields ---
+      "category": "roof",              // improvement type (roof, hvac, kitchen, etc.)
+      "vendorName": "ABC Roofing LLC", // contractor/vendor
+      "vendorTin": "12-3456789",       // EIN (optional — for 1099 if landlord)
+      "paymentMethod": "credit_card",  // cash | check | credit_card | financing | mixed
+      "datePaymentMade": "YYYY-MM-DD", // may differ from completionDate
+      "permitNumber": "BLD-2026-04521",// building permit reference
+      "usefulLifeYears": 27.5,         // depreciation period (rental property)
+      "depreciationStartDate": "YYYY-MM-DD", // "placed in service" date
+      "energyCreditType": "none",      // 25c_efficiency | 25d_solar | 45l | none
+      "safeHarborElection": false,     // IRS de minimis safe harbor
+      "sqftAffected": 200,             // for home-office deductions (Form 8829)
+      "notes": "Full roof replacement" // free-form audit notes
     }
   ]
 }
@@ -159,10 +181,11 @@ original single-`taxDeductibleAmount` shape is retained only as a migration sour
 This model exists because of the domain accuracy issue in §6 — a single `taxDeductibleAmount`
 field conflates two very different tax mechanics.
 
-> **Migration from the work order baseline:** `version: "1.0"` → `schemaVersion: 1`;
+> **Migration from the work order baseline:** `version: "1.0"` → `schemaVersion: 2`;
 > `summary.totalDeductions` is split into `totalCostBasisAdded` + `totalDeductible`; each
 > project's `taxDeductibleAmount` maps to `deductibleAmount` with `taxTreatment: "unknown"`
-> until reclassified.
+> until reclassified. The `property` field and optional IRS fields are added as empty/absent
+> (progressive enrichment — users fill them in over time).
 
 ### 4.3 Concurrency & durability (decision B4)
 A single `manifest.json` over 20 years is a single point of failure and a multi-device write

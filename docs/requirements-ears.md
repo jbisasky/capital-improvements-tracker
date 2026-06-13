@@ -92,17 +92,21 @@
 | DRV-02 | Ubiquitous | The app shall store user-uploaded attachments in a user-visible Drive folder named "Capital Improvements (App Data)" created via the `drive.file` scope. |
 | DRV-03 | Ubiquitous | The manifest shall conform to the `Manifest` zod schema (`schemaVersion`, `lastUpdated`, `summary`, `projects`). |
 | DRV-04 | Event-driven | When the manifest is read from Drive, the app shall validate it with `Manifest.safeParse(zod)` and surface `READ_CORRUPT` if validation fails. |
-| DRV-05 | Event-driven | When the manifest has a legacy schema shape, the app shall run forward-only migration functions to convert it to `schemaVersion: 1`. |
+| DRV-05 | Event-driven | When the manifest has a legacy schema shape, the app shall run forward-only migration functions to convert it to `schemaVersion: 2`. |
 | DRV-06 | Ubiquitous | The app shall implement application-level compare-and-swap (CAS) for manifest writes by caching `headRevisionId` on read and re-reading it immediately before each write. |
 | DRV-07 | Event-driven | When the pre-write `headRevisionId` does not match the cached value, the app shall fetch the remote manifest, attempt a 3-way merge by project `id`, and retry the CAS (up to 3 attempts). |
 | DRV-08 | If-then | If a field-level conflict cannot be auto-resolved during merge, then the app shall surface a `CONFLICT` diff dialog to the user with options: "Keep mine / Keep theirs / Merge." |
 | DRV-09 | Event-driven | Before each manifest write, the app shall copy the current remote content to a rotating backup (`manifest.bak.N.json`), keeping the most recent 5. |
 | DRV-10 | If-then | If the backup write fails, then the app shall abort the manifest write (fail-safe: never overwrite the last known-good state) and report `UPLOAD_FAILED`. |
-| DRV-11 | Event-driven | When no manifest is found on first run, the app shall create a new empty manifest in `appDataFolder` with `schemaVersion: 1` and an empty `projects` array. |
+| DRV-11 | Event-driven | When no manifest is found on first run, the app shall create a new empty manifest in `appDataFolder` with `schemaVersion: 2` and an empty `projects` array. |
 | DRV-12 | If-then | If more than one `manifest.json` is found in `appDataFolder`, then the app shall pick the most recently modified, log `MANIFEST_DUPLICATE`, and surface a one-time repair prompt. |
 | DRV-13 | Ubiquitous | The `summary` object (`totalCostBasisAdded`, `totalDeductible`) shall always be recomputed from the `projects` array after any mutation; it shall never be merged directly. |
 | DRV-14 | Event-driven | When a manifest read and all backups fail validation, the app shall surface `READ_CORRUPT` with an option to restore from backup or export raw data. |
 | DRV-15 | Event-driven | When a legacy-schema manifest is detected during boot, the app shall migrate it forward silently (no user interaction required) and display a brief toast: "Data updated to latest format." The original is preserved as a backup before migration. |
+| DRV-16 | Ubiquitous | The manifest shall support an optional top-level `property` field (`PropertyProfile`: address, city, state, zip, propertyType, sqftTotal) set via Settings → "Your Property." |
+| DRV-17 | Ubiquitous | Each project shall support optional IRS-relevant fields: `category`, `vendorName`, `vendorTin`, `paymentMethod`, `datePaymentMade`, `permitNumber`, `usefulLifeYears`, `depreciationStartDate`, `energyCreditType`, `safeHarborElection`, `sqftAffected`, `notes`. All shall be optional (nullable/absent) to keep the form simple for casual users. |
+| DRV-18 | Ubiquitous | The `PropertyProfile.propertyType` field shall be one of: `primary_residence`, `rental`, `home_office`, or `vacation`. |
+| DRV-19 | Ubiquitous | The `ImprovementCategory` field shall be one of: `roof`, `hvac`, `plumbing`, `electrical`, `landscaping`, `kitchen`, `bathroom`, `flooring`, `windows_doors`, `insulation`, `foundation`, `energy_efficiency`, `accessibility`, `security`, or `other`. |
 
 ---
 
@@ -118,6 +122,8 @@
 | PRJ-06 | State-driven | While the save operation is in progress, the save button shall display a progress indicator and be disabled. |
 | PRJ-07 | Ubiquitous | Mutations shall carry a client-generated `operationId` (UUID) to coalesce double-submits (e.g. double-click). |
 | PRJ-08 | State-driven | While a budget or circuit guard is tripped (LLD §13), the save button shall be disabled with an inline reason message. |
+| PRJ-09 | Ubiquitous | The project form shall include an expandable "IRS Details" section containing optional fields: category, vendor name, vendor TIN, payment method, date payment made, permit number, useful life, depreciation start date, energy credit type, safe harbor election, sq ft affected, and notes. |
+| PRJ-10 | Ubiquitous | All IRS detail fields shall be optional; the form shall be fully submittable with only the core required fields (title, date, cost, treatment). |
 
 ---
 
@@ -155,6 +161,7 @@
 | AI-10 | Ubiquitous | The BYOK key shall never be logged, displayed in plain text (except during entry), or included in error reports. |
 | AI-11 | Event-driven | When the user clicks "Discard" on the review screen, the app shall discard all extracted data and return to the form without saving. |
 | AI-12 | Event-driven | When the user clicks "Looks good → continue" on the review screen, the app shall transfer the confirmed values into the project form for final save. |
+| AI-13 | Ubiquitous | The AI extraction prompt shall also attempt to extract: `category` (improvement type), `vendorName`, `paymentMethod`, and `permitNumber` when visible on the receipt/invoice. These shall appear in the review screen alongside core fields. |
 
 ---
 
@@ -222,6 +229,9 @@
 | SET-08 | Ubiquitous | The appearance section shall provide three options: System, Light, Dark. The selection shall be persisted in `localStorage`. |
 | SET-09 | Ubiquitous | The settings page shall display a "Key expiry" selector with options: 7 days, 30 days (default), 90 days, Never. The selection controls how long the BYOK key persists in `localStorage` before auto-deletion. |
 | SET-10 | Event-driven | When the user clicks "Clear all data from this device," the app shall wipe all local state and redirect to the landing page (see SEC-13/SEC-14). |
+| SET-11 | Ubiquitous | The settings page shall include a "Your Property" section with fields: address, city, state (dropdown), ZIP, property type, and total sq ft (optional). |
+| SET-12 | Event-driven | When the user saves the property profile, the app shall write the `property` field to the manifest's top level. |
+| SET-13 | Ubiquitous | The property profile shall be set once and inherited by all projects (no per-project address in v1, per decision D12: single account). |
 
 ---
 

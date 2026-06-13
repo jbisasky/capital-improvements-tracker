@@ -100,6 +100,20 @@ export const TaxTreatment = z.enum([
   "capital_improvement", "repair", "deductible", "credit", "unknown",
 ]);
 
+export const ImprovementCategory = z.enum([
+  "roof", "hvac", "plumbing", "electrical", "landscaping", "kitchen",
+  "bathroom", "flooring", "windows_doors", "insulation", "foundation",
+  "energy_efficiency", "accessibility", "security", "other",
+]);
+
+export const PaymentMethod = z.enum([
+  "cash", "check", "credit_card", "financing", "mixed",
+]);
+
+export const EnergyCreditType = z.enum([
+  "25c_efficiency", "25d_solar", "45l", "none",
+]);
+
 export const Project = z.object({
   id: z.string().uuid(),
   title: z.string().min(1),
@@ -113,11 +127,39 @@ export const Project = z.object({
   attachments: z.array(Attachment),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+
+  // --- Optional IRS-relevant fields ---
+  category: ImprovementCategory.optional(),              // e.g. "roof", "hvac"
+  vendorName: z.string().optional(),                     // contractor/vendor business name
+  vendorTin: z.string().regex(/^\d{2}-\d{7}$/).optional(), // EIN format XX-XXXXXXX
+  paymentMethod: PaymentMethod.optional(),               // how the project was paid
+  datePaymentMade: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // may differ from completion
+  permitNumber: z.string().optional(),                   // building permit reference
+  usefulLifeYears: z.number().positive().optional(),     // for depreciation (e.g. 27.5)
+  depreciationStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // "placed in service"
+  energyCreditType: EnergyCreditType.optional(),         // IRS 25C/25D/45L
+  safeHarborElection: z.boolean().optional(),            // de minimis safe harbor ($2,500/$5,000)
+  sqftAffected: z.number().positive().optional(),        // for home office (Form 8829)
+  notes: z.string().optional(),                          // free-form audit notes
+});
+
+export const PropertyType = z.enum([
+  "primary_residence", "rental", "home_office", "vacation",
+]);
+
+export const PropertyProfile = z.object({
+  address: z.string().min(1),              // street address
+  city: z.string().min(1),
+  state: z.string().length(2),             // US state abbreviation
+  zip: z.string().regex(/^\d{5}(-\d{4})?$/), // 5 or 9 digit ZIP
+  propertyType: PropertyType,
+  sqftTotal: z.number().positive().optional(), // total home sq ft (for home-office %)
 });
 
 export const Manifest = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   lastUpdated: z.string().datetime(),
+  property: PropertyProfile.optional(),    // set once in Settings; inherited by all projects
   summary: z.object({
     totalCostBasisAdded: z.number().nonnegative(),
     totalDeductible: z.number().nonnegative(),
@@ -143,6 +185,10 @@ export const ExtractionResult = z.object({
   irsJustification: z.string(),
   vendor: z.string().nullable(),
   confidence: z.number().min(0).max(1),
+  // AI may also extract these from receipts:
+  category: ImprovementCategory.nullable().optional(),
+  paymentMethod: PaymentMethod.nullable().optional(),
+  permitNumber: z.string().nullable().optional(),
 });
 ```
 
