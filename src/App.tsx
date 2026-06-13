@@ -1,12 +1,9 @@
 import { type ReactElement } from "react";
+import { RouterProvider } from "react-router";
+import { router } from "@/app/router";
 
 function App(): ReactElement {
-  return (
-    <main>
-      <h1>Capital Improvements Tracker</h1>
-      <p>Setup complete. Strict TypeScript + ESLint enforced.</p>
-    </main>
-  );
+  return <RouterProvider router={router} />;
 }
 
 export default App;
