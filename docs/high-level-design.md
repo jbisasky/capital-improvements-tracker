@@ -290,8 +290,12 @@ No data migration is ever required. Treat the host as swappable infrastructure.
 
 - **Pin & vendor** dependencies; commit lockfile; prefer shadcn (owned code) over heavy libs.
 - Minimize runtime dependencies; avoid services that can disappear (other than Google core).
-- **PWA/offline** (adopted for v1 if feasible): cached app shell so the UI keeps working even
-  if hosting lapses; Drive sync resumes when back online.
+- **PWA/offline read-only** (v1): a service worker caches the app shell and the last-fetched
+  manifest so the UI loads and existing data is browsable even without connectivity or if
+  hosting lapses. Write operations (create/edit/delete/extract) are disabled with an inline
+  message while offline; they resume when connectivity returns. **Queued offline writes** (edit
+  while offline → sync on reconnect) are deferred to post-v1 due to conflict-resolution
+  complexity.
 - Document the Google Cloud project / OAuth client
   ([`docs/google-cloud-setup.md`](google-cloud-setup.md)) so it can be recreated.
 - Provide **data export** (decision B5): download `manifest.json` + a human-readable CSV/PDF so
@@ -340,7 +344,8 @@ No data migration is ever required. Treat the host as swappable infrastructure.
 4. **P3 — Projects CRUD:** list/detail/create/edit, money/date handling, summary totals.
 5. **P4 — AI extraction:** Gemini multimodal + structured output + human review step.
 6. **P5 — Tax model:** cost-basis vs deductible treatment, disclaimers, export.
-7. **P6 — Hardening:** CSP, PWA/offline, backups/export, longevity docs.
+7. **P6 — Hardening:** CSP, PWA/offline (read-only: service worker + cached manifest),
+   backups/export, longevity docs.
 
 ---
 
@@ -362,7 +367,7 @@ All questions resolved with the owner on 2026-06-12.
 | D10 | Hosting | Hosting target? | **Cloudflare Pages** (source on GitHub) |
 | D11 | Security | BYOK key in localStorage acceptable as-is? | **Add CSP + warning + session-only option** |
 | D12 | Scope | Single account or multi-account? | **Single account** |
-| D13 | Longevity | PWA/offline + vendored deps in v1? | **Yes if feasible** |
+| D13 | Longevity | PWA/offline + vendored deps in v1? | **Yes — offline read-only (service worker + cached manifest); queued writes post-v1** |
 | D14 | Onboarding | "See a demo" on landing page? | **Yes — static demo mode** |
 | D15 | HTTP | HTTP client library choice? | **Native `fetch` only — no Axios** |
 | D16 | Testing | Test framework choices? | **Vitest (unit/component) + Playwright (E2E)** |

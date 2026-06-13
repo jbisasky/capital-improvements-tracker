@@ -28,15 +28,20 @@
 10. [Export](#10-export)
 11. [Settings](#11-settings)
 12. [Demo mode](#12-demo-mode)
-13. [Error handling & resilience](#13-error-handling--resilience)
-14. [Loading & perceived performance](#14-loading--perceived-performance)
-15. [Runaway-usage failsafes](#15-runaway-usage-failsafes)
-16. [Security](#16-security)
-17. [Responsive & mobile](#17-responsive--mobile)
-18. [Accessibility](#18-accessibility)
-19. [Testing & CI](#19-testing--ci)
-20. [Hosting & deployment](#20-hosting--deployment)
-21. [Longevity](#21-longevity)
+13. [Onboarding & first-run](#13-onboarding--first-run)
+14. [Sync indicator](#14-sync-indicator)
+15. [Error handling & resilience](#15-error-handling--resilience)
+16. [Loading & perceived performance](#16-loading--perceived-performance)
+17. [Runaway-usage failsafes](#17-runaway-usage-failsafes)
+18. [PWA & offline](#18-pwa--offline)
+19. [Security](#19-security)
+20. [Responsive & mobile](#20-responsive--mobile)
+21. [Accessibility](#21-accessibility)
+22. [Testing & CI](#22-testing--ci)
+23. [Hosting & deployment](#23-hosting--deployment)
+24. [Longevity](#24-longevity)
+25. [Diagnostics](#25-diagnostics)
+26. [About page](#26-about-page)
 
 ---
 
@@ -96,6 +101,7 @@
 | DRV-12 | If-then | If more than one `manifest.json` is found in `appDataFolder`, then the app shall pick the most recently modified, log `MANIFEST_DUPLICATE`, and surface a one-time repair prompt. |
 | DRV-13 | Ubiquitous | The `summary` object (`totalCostBasisAdded`, `totalDeductible`) shall always be recomputed from the `projects` array after any mutation; it shall never be merged directly. |
 | DRV-14 | Event-driven | When a manifest read and all backups fail validation, the app shall surface `READ_CORRUPT` with an option to restore from backup or export raw data. |
+| DRV-15 | Event-driven | When a legacy-schema manifest is detected during boot, the app shall migrate it forward silently (no user interaction required) and display a brief toast: "Data updated to latest format." The original is preserved as a backup before migration. |
 
 ---
 
@@ -127,6 +133,8 @@
 | ATT-07 | If-then | If an attachment upload succeeds but the subsequent manifest write fails, then the app shall record the orphaned Drive file in an in-memory "pending GC" list for cleanup on the next successful manifest load. |
 | ATT-08 | Event-driven | When the user taps "view" on an attachment, the app shall open or display the file. When the user taps "download," the app shall trigger a download of the file from Drive. |
 | ATT-09 | Event-driven | When the user taps "remove" on an attachment, the app shall remove the attachment reference from the project and update the manifest. |
+| ATT-10 | Event-driven | When the user drags and drops a file onto the attachment zone, the app shall accept the file and begin the upload flow (same as selecting via the file picker). |
+| ATT-11 | Ubiquitous | The attachment zone shall provide visual feedback (border highlight, "Drop here" label) when a file is dragged over it. |
 
 ---
 
@@ -183,6 +191,8 @@
 | SRCH-02 | Event-driven | When the user selects a year filter, the app shall filter projects to those with `completionDate` in the selected year. |
 | SRCH-03 | Event-driven | When the user selects a treatment filter, the app shall filter projects to those with the selected `taxTreatment` value. |
 | SRCH-04 | State-driven | While filters produce zero results, the app shall display a friendly empty state with a "No projects match" message and a way to clear filters. |
+| SRCH-05 | Event-driven | When the user selects a sort option (date, cost, title, treatment), the app shall re-order the project list accordingly (ascending or descending). |
+| SRCH-06 | Ubiquitous | Search input shall be debounced (≥ 200 ms delay after last keystroke) to avoid excessive re-renders on large project lists. |
 
 ---
 
@@ -230,7 +240,32 @@
 
 ---
 
-## 13. Error handling & resilience
+## 13. Onboarding & first-run
+
+| ID | Type | Requirement |
+| --- | --- | --- |
+| ONB-01 | Event-driven | When a signed-in user has no BYOK key set, the app shall display a prompt: "Add your Gemini API key in Settings to enable AI extraction — or skip & enter projects manually." |
+| ONB-02 | State-driven | While no BYOK key is set, all AI extraction features ("Extract with AI" button) shall be disabled with a tooltip: "Requires a Gemini API key (Settings)." |
+| ONB-03 | State-driven | While no projects exist (first run after auth), the dashboard shall display an empty state with a one-card guided walkthrough and an "Add your first improvement" CTA. |
+| ONB-04 | Ubiquitous | The app shall be fully usable for manual project entry without a BYOK key (graceful degradation — AI features are optional). |
+| ONB-05 | Event-driven | When the user completes sign-in for the first time, the app shall create an empty manifest in Drive (LLD §5.3) and render the skeleton dashboard transitioning to the empty state. |
+| ONB-06 | Event-driven | When a user navigates to a deep link (e.g. `/projects/abc-123`) while unauthenticated, the app shall redirect to the landing page and, after successful sign-in, navigate to the originally requested route. |
+
+---
+
+## 14. Sync indicator
+
+| ID | Type | Requirement |
+| --- | --- | --- |
+| SYNC-01 | Ubiquitous | The app shall display a persistent sync indicator in the global shell with states: idle (●), syncing (⟳ animated), synced (● + timestamp), and error (● red). |
+| SYNC-02 | State-driven | While the app is performing a Drive read or write, the sync indicator shall show the "syncing" state (animated icon). |
+| SYNC-03 | Event-driven | When a Drive operation completes successfully, the sync indicator shall transition to "synced" and display the relative timestamp (e.g. "Synced 2m ago"). |
+| SYNC-04 | If-then | If a Drive operation fails, then the sync indicator shall show the error state (red) and become clickable to reveal details and a "Retry" button. |
+| SYNC-05 | Event-driven | When the user clicks the sync indicator in error state, the app shall display the last-sync details (timestamp, error message) and a manual retry action. |
+
+---
+
+## 15. Error handling & resilience
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -239,7 +274,7 @@
 | ERR-03 | Ubiquitous | The app shall never retry `400`, `403` (except rate-limit-shaped), `404`, `409` (conflict → domain resolution), or `412` (precondition → CAS path). |
 | ERR-04 | If-then | If the zod parse of a manifest read fails and all backups also fail, then the app shall display: "Couldn't read your data — restore backup / export." |
 | ERR-05 | State-driven | While data is loading, the app shall display skeleton cards/rows, not spinners. |
-| ERR-06 | State-driven | While the network is offline, the app shall display "You're offline — viewing last synced data" and disable write operations. |
+| ERR-06 | State-driven | While the network is offline, the app shall display "You're offline — viewing last synced data," allow read-only browsing of cached data, and disable all write operations (create, edit, delete, extract). |
 | ERR-07 | If-then | If a Drive upload fails, then the app shall display an inline retry affordance on the attachment. |
 | ERR-08 | If-then | If `AUTH_REQUIRED` is raised mid-operation, then the app shall display a non-blocking banner "Session expired — sign in to continue" and preserve in-flight form data. |
 | ERR-09 | If-then | If the user partially granted OAuth scopes (unchecked a box), then the app shall display `INSUFFICIENT_SCOPE` with a "Re-grant Drive access" CTA. |
@@ -249,7 +284,7 @@
 
 ---
 
-## 14. Loading & perceived performance
+## 16. Loading & perceived performance
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -271,7 +306,7 @@
 
 ---
 
-## 15. Runaway-usage failsafes
+## 17. Runaway-usage failsafes
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -288,7 +323,21 @@
 
 ---
 
-## 16. Security
+## 18. PWA & offline
+
+| ID | Type | Requirement |
+| --- | --- | --- |
+| PWA-01 | Ubiquitous | The app shall register a service worker that caches the app shell (HTML, JS, CSS) so the SPA loads even without network connectivity. |
+| PWA-02 | Ubiquitous | The service worker shall cache the last successfully fetched manifest in IndexedDB so project data is browsable offline. |
+| PWA-03 | State-driven | While the device is offline, the app shall allow read-only browsing of cached data (dashboard, project list, project detail, search/filter). |
+| PWA-04 | State-driven | While the device is offline, all write operations (create, edit, delete, extract, export to Drive) shall be disabled with an inline message: "You're offline — viewing last synced data." |
+| PWA-05 | Event-driven | When connectivity is restored, the app shall re-validate the cached manifest against Drive (fresh read) and re-enable write operations. |
+| PWA-06 | Ubiquitous | The service worker shall use a stale-while-revalidate strategy for the app shell, ensuring fast loads while silently updating in the background. |
+| PWA-07 | Event-driven | When a new version of the app is available (service worker detects updated assets), the app shall display a non-blocking notification: "Update available — refresh to get the latest version." |
+
+---
+
+## 19. Security
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -298,10 +347,12 @@
 | SEC-04 | Ubiquitous | The app shall include no third-party scripts beyond Google Identity Services. |
 | SEC-05 | Ubiquitous | OAuth scope shall be minimized: `drive.file` (not full `drive`) so the app can only access files it created. |
 | SEC-06 | Where-optional | Where the user enables "session-only" mode, the BYOK key shall be held in memory only and not persisted to `localStorage`. |
+| SEC-07 | Ubiquitous | The app shall apply Subresource Integrity (SRI) hashes to any externally loaded scripts (e.g. GIS client) where the CDN supports it. |
+| SEC-08 | Ubiquitous | The BYOK API key shall be restricted (in Google Cloud console) to the Generative Language API only, with an HTTP referrer restriction to the app's domain(s). This shall be documented in `docs/google-cloud-setup.md`. |
 
 ---
 
-## 17. Responsive & mobile
+## 20. Responsive & mobile
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -313,7 +364,7 @@
 
 ---
 
-## 18. Accessibility
+## 21. Accessibility
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -325,7 +376,7 @@
 
 ---
 
-## 19. Testing & CI
+## 22. Testing & CI
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -340,7 +391,7 @@
 
 ---
 
-## 20. Hosting & deployment
+## 23. Hosting & deployment
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -352,7 +403,7 @@
 
 ---
 
-## 21. Longevity
+## 24. Longevity
 
 | ID | Type | Requirement |
 | --- | --- | --- |
@@ -361,6 +412,28 @@
 | LONG-03 | Ubiquitous | The app shall minimize runtime dependencies; it shall avoid services that can disappear (other than Google core). |
 | LONG-04 | Ubiquitous | The Google Cloud project and OAuth client configuration shall be documented in `docs/google-cloud-setup.md` so it can be recreated. |
 | LONG-05 | Ubiquitous | The app shall provide data export (manifest.json + CSV/PDF) so data is never trapped in the app. |
+
+---
+
+## 25. Diagnostics
+
+| ID | Type | Requirement |
+| --- | --- | --- |
+| DIAG-01 | Ubiquitous | The app shall maintain an in-app diagnostics log as a ring buffer (fixed capacity, oldest entries evicted), recording guard trips, sync events, and errors with timestamps. |
+| DIAG-02 | Ubiquitous | The diagnostics page (`/settings/diagnostics`) shall display the ring buffer log entries in reverse chronological order (newest first). |
+| DIAG-03 | Event-driven | When the user clicks "Copy log," the app shall copy a redacted version of the log to the clipboard (tokens, keys, and file IDs removed). |
+| DIAG-04 | Ubiquitous | Each log entry shall include: timestamp, event code (e.g. `LOOP_GUARD_TRIPPED`, `CIRCUIT_OPEN`), label/context, and relevant counters. |
+| DIAG-05 | Ubiquitous | The diagnostics page shall be read-only; it shall not expose any controls that modify app state. |
+
+---
+
+## 26. About page
+
+| ID | Type | Requirement |
+| --- | --- | --- |
+| ABOUT-01 | Ubiquitous | The about page (`/about`) shall display: app version, the full "not tax advice" legal disclaimer, a privacy explainer ("Your data lives in your Google Drive. This app has no server."), and links to documentation. |
+| ABOUT-02 | Ubiquitous | The app version shall be derived from `package.json` version (injected at build time). |
+| ABOUT-03 | Ubiquitous | The privacy explainer shall describe what data is stored where (manifest in appDataFolder, attachments in visible folder, BYOK key in localStorage, token in memory only). |
 
 ---
 

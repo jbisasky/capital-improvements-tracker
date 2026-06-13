@@ -59,8 +59,10 @@
 | Resilience | Loading/empty/error states, conflict resolution UI, diagnostics log |
 | Disclaimers | "Not tax advice" persistent affordance |
 
+| Resilience | PWA offline read-only: service worker caches app shell + manifest; browse existing data offline; writes disabled until connectivity returns |
+
 ### Later (post-v1)
-- PWA install + offline read; queued writes when offline.
+- Queued offline writes (edit while offline → sync on reconnect).
 - Per-year **cost-basis report** view (running adjusted basis over time).
 - Bulk import (multi-file drop → batched extraction with a review queue).
 - Tag/category taxonomy and per-room or per-system grouping.
