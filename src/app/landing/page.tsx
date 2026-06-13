@@ -1,5 +1,6 @@
 import { type ReactElement } from "react";
 import { Link } from "react-router";
+import { trackDemoCTAClicked } from "@/services/analytics";
 
 export function LandingPage(): ReactElement {
   return (
@@ -21,6 +22,7 @@ export function LandingPage(): ReactElement {
         </Link>
         <Link
           to="/demo"
+          onClick={trackDemoCTAClicked}
           className="inline-flex h-10 items-center rounded-lg border border-border px-6 text-sm font-medium hover:bg-muted"
         >
           Try Demo

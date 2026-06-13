@@ -8,6 +8,7 @@ import {
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRoutePrefix } from "@/hooks/use-route-prefix";
 
 interface AppShellProps {
   children: ReactNode;
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
 ] as const;
 
 export function AppShell({ children }: AppShellProps): ReactElement {
+  const prefix = useRoutePrefix();
   return (
     <div className="flex min-h-screen">
       {/* Desktop sidebar */}
@@ -33,7 +35,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
-              to={to}
+              to={`${prefix}${to}`}
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
@@ -60,7 +62,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
-            to={to}
+            to={`${prefix}${to}`}
             className={({ isActive }) =>
               cn(
                 "flex flex-col items-center gap-0.5 px-2 py-1 text-xs transition-colors",
