@@ -28,6 +28,7 @@
 15. [Testing & CI](#15-testing--ci)
 16. [Demo mode](#16-demo-mode)
 17. [Scalability & limits](#17-scalability--limits)
+18. [Analytics (Plausible)](#18-analytics-plausible)
 
 ---
 
@@ -688,10 +689,10 @@ tokens, keys, or raw payloads.
 - **BYOK key:** sent only as the `?key=` query param to `generativelanguage.googleapis.com` over
   HTTPS; redacted from all logs/telemetry; session-only mode keeps it out of `localStorage`.
 - **CSP (Cloudflare `_headers`):** `default-src 'self'`; `connect-src` limited to
-  `https://www.googleapis.com https://generativelanguage.googleapis.com https://accounts.google.com`;
-  `script-src 'self' https://accounts.google.com/gsi/client`; `frame-src https://accounts.google.com`;
+  `https://www.googleapis.com https://generativelanguage.googleapis.com https://accounts.google.com https://plausible.io`;
+  `script-src 'self' https://accounts.google.com/gsi/client https://plausible.io`; `frame-src https://accounts.google.com`;
   `object-src 'none'`; `base-uri 'self'`; plus HSTS and `X-Content-Type-Options: nosniff`.
-- **No third-party scripts** beyond Google Identity Services; dependencies pinned (longevity).
+- **No third-party scripts** beyond Google Identity Services and Plausible Analytics (§18); dependencies pinned (longevity).
 - **Scope minimization:** `drive.file` (not full `drive`) so the app can only see files it created.
 
 ### 13.1 Additional security hardening
@@ -1245,6 +1246,103 @@ and potentially cached manifest for offline (~250 KB typical).
   - **Offline cache (if using localStorage for manifest):** evict the oldest cached manifest
     and retry.
 - The app shall never crash or show an unhandled error due to a full `localStorage`.
+
+---
+
+## 18. Analytics (Plausible)
+
+### 18.1 Provider & rationale
+
+**Plausible Analytics** (cloud, `plausible.io`) — chosen for consistency with the app's privacy
+posture:
+- **No cookies** → no consent banner required (GDPR/CCPA-compliant out of the box).
+- **No cross-site tracking** — aggregate-only data, no individual user profiles.
+- **Lightweight** — `< 1 KB` script, negligible impact on LCP/FID budgets.
+- **IP addresses are never stored** — geolocation derived at ingestion time, then discarded.
+- **CSP-compatible** — requires only `script-src https://plausible.io` and
+  `connect-src https://plausible.io` added to the existing Cloudflare `_headers` CSP.
+
+**Why not Google Analytics:** GA4's `gtag.js` collects browser fingerprints, sets cross-site
+cookies, and feeds Google's ad network — contradicting the "no third-party data leakage"
+principle established in §13. The app handles IRS/financial metadata; even behavioral metadata
+(routes visited, time on page, geo) should stay out of ad-targeting pipelines.
+
+### 18.2 Integration architecture
+
+A thin wrapper module abstracts the provider so swapping to a different analytics backend
+requires changing one file:
+
+```ts
+// src/services/analytics.ts
+
+type EventProps = Record<string, string | number | boolean>;
+
+export function trackEvent(name: string, props?: EventProps): void {
+  // Plausible exposes `window.plausible` when the script loads.
+  // In dev / when the script is absent, this is a silent no-op.
+  if (typeof window !== "undefined" && "plausible" in window) {
+    (window as Record<string, unknown>).plausible(name, { props });
+  }
+}
+
+export function trackPageView(): void {
+  // Plausible auto-tracks page views via the script tag.
+  // This is a hook point for SPA route-change tracking if manual mode is enabled.
+}
+```
+
+**Script tag** (added to `index.html`):
+```html
+<script defer data-domain="YOUR_DOMAIN" src="https://plausible.io/js/script.js"></script>
+```
+
+The `defer` attribute ensures it never blocks rendering.
+
+### 18.3 Custom events
+
+The following custom events are fired at key user actions. These become trackable as
+"goals" (conversions) in the Plausible dashboard — configured in the Plausible UI, not in code.
+
+| Event name | Trigger location | Props | Purpose |
+| --- | --- | --- | --- |
+| `Demo CTA Clicked` | Landing page "Try Demo" button | — | Measures demo funnel entry |
+| `Sign In` | Auth success callback (§4) | — | Measures auth conversion |
+| `Project Created` | `addProject()` success | `treatment` | Tracks feature adoption |
+| `Project Edited` | `updateProject()` success | — | Engagement signal |
+| `AI Extraction Started` | Receipt upload initiated (§9) | — | AI feature adoption |
+| `AI Extraction Accepted` | User confirms extracted data | `confidence` (bucket) | AI trust signal |
+| `Export` | Export button click | `format` (`json` / `csv`) | Export usage |
+| `BYOK Key Saved` | Settings → key saved | `expiry` (window) | BYOK adoption |
+| `Clear All Data` | Settings → data cleared | — | Churn signal |
+
+**Privacy rule:** No PII, no project titles, no financial amounts, no API keys are ever
+included in event props. Only categorical/aggregate-safe values.
+
+### 18.4 CSP update
+
+Add to the existing Cloudflare Pages `_headers` CSP:
+
+```
+script-src 'self' https://accounts.google.com/gsi/client https://plausible.io;
+connect-src https://www.googleapis.com https://generativelanguage.googleapis.com https://accounts.google.com https://plausible.io;
+```
+
+### 18.5 SPA route tracking
+
+Plausible auto-tracks the initial page load. For client-side route changes (React Router),
+use the `script.hash.js` or `script.manual.js` variant, or integrate with a `useEffect` in
+the root layout that calls `trackPageView()` on `location` changes. The recommended approach
+is the official `script.js` which automatically detects `History.pushState` calls —
+compatible with React Router's navigation.
+
+### 18.6 Development & testing
+
+- **Local dev:** The Plausible script is a no-op on `localhost` (Plausible ignores events from
+  non-matching domains). The `trackEvent` wrapper also silently no-ops if `window.plausible`
+  is undefined.
+- **Opt-out:** Plausible respects the browser's `localStorage.setItem('plausible_ignore', 'true')`
+  flag. Developers can set this to exclude their own visits.
+- **Testing:** Unit tests mock `window.plausible` to assert events fire with correct names/props.
 
 ---
 

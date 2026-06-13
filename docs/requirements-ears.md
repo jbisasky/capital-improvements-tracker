@@ -44,6 +44,7 @@
 26. [About page](#26-about-page)
 27. [Scalability & limits](#27-scalability--limits)
 28. [Documentation completeness](#28-documentation-completeness)
+29. [Analytics](#29-analytics)
 
 ---
 
@@ -357,8 +358,8 @@
 | --- | --- | --- |
 | SEC-01 | Ubiquitous | The access token shall be held in memory only; it shall be injected as `Authorization: Bearer` per request and never persisted, logged, or placed in URLs. |
 | SEC-02 | Ubiquitous | The BYOK key shall be sent only as the `?key=` query parameter to `generativelanguage.googleapis.com` over HTTPS and shall be redacted from all logs/telemetry. |
-| SEC-03 | Ubiquitous | The app shall serve a strict Content Security Policy (CSP) via Cloudflare Pages `_headers`: `default-src 'self'`; `connect-src` limited to Google API endpoints; `script-src 'self'` + GIS client; `object-src 'none'`; `base-uri 'self'`; plus HSTS and `X-Content-Type-Options: nosniff`. |
-| SEC-04 | Ubiquitous | The app shall include no third-party scripts beyond Google Identity Services. |
+| SEC-03 | Ubiquitous | The app shall serve a strict Content Security Policy (CSP) via Cloudflare Pages `_headers`: `default-src 'self'`; `connect-src` limited to Google API endpoints + `https://plausible.io`; `script-src 'self'` + GIS client + `https://plausible.io`; `object-src 'none'`; `base-uri 'self'`; plus HSTS and `X-Content-Type-Options: nosniff`. |
+| SEC-04 | Ubiquitous | The app shall include no third-party scripts beyond Google Identity Services and Plausible Analytics (§29). |
 | SEC-05 | Ubiquitous | OAuth scope shall be minimized: `drive.file` (not full `drive`) so the app can only access files it created. |
 | SEC-06 | Where-optional | Where the user enables "session-only" mode, the BYOK key shall be held in memory only and not persisted to `localStorage`. |
 | SEC-07 | Ubiquitous | The app shall apply Subresource Integrity (SRI) hashes to any externally loaded scripts (e.g. GIS client) where the CDN supports it. |
@@ -503,6 +504,30 @@
 | DOC-14 | Ubiquitous | Incomplete documentation shall never prevent saving a project. The checker is advisory only — a nudge, not a gate. |
 | DOC-15 | Ubiquitous | The CSV/PDF export shall include a `documentationStatus` column (complete/partial/incomplete) for each project. |
 | DOC-16 | Ubiquitous | The project list shall support filtering by documentation status (complete / partial / incomplete). |
+
+---
+
+## 29. Analytics
+
+| ID | Type | Requirement |
+| --- | --- | --- |
+| ANLYT-01 | Ubiquitous | The app shall use Plausible Analytics as the sole analytics provider, loaded via a `<script defer>` tag in `index.html`. |
+| ANLYT-02 | Ubiquitous | The Plausible script shall be the only analytics-related third-party script; no Google Analytics, Facebook Pixel, or equivalent tracking scripts shall be included. |
+| ANLYT-03 | Ubiquitous | The analytics integration shall not set any cookies or use any browser fingerprinting techniques. |
+| ANLYT-04 | Ubiquitous | All analytics event calls shall go through a single wrapper module (`src/services/analytics.ts`) that abstracts the Plausible API, so the provider can be swapped without touching feature code. |
+| ANLYT-05 | Event-driven | When the user clicks the "Try Demo" CTA on the landing page, the app shall fire a `Demo CTA Clicked` analytics event. |
+| ANLYT-06 | Event-driven | When authentication succeeds (§4), the app shall fire a `Sign In` analytics event. |
+| ANLYT-07 | Event-driven | When a project is successfully created, the app shall fire a `Project Created` analytics event with a `treatment` property. |
+| ANLYT-08 | Event-driven | When a project is successfully updated, the app shall fire a `Project Edited` analytics event. |
+| ANLYT-09 | Event-driven | When the user initiates an AI extraction from a receipt, the app shall fire an `AI Extraction Started` analytics event. |
+| ANLYT-10 | Event-driven | When the user accepts AI-extracted data, the app shall fire an `AI Extraction Accepted` analytics event with a `confidence` bucket property. |
+| ANLYT-11 | Event-driven | When the user clicks an export button, the app shall fire an `Export` analytics event with a `format` property (`json` or `csv`). |
+| ANLYT-12 | Event-driven | When the user saves a BYOK key in Settings, the app shall fire a `BYOK Key Saved` analytics event with an `expiry` property. |
+| ANLYT-13 | Event-driven | When the user clears all data in Settings, the app shall fire a `Clear All Data` analytics event. |
+| ANLYT-14 | Ubiquitous | No analytics event shall include PII, project titles, financial amounts, API keys, or any data that could identify a specific user's tax records. Only categorical and aggregate-safe values are permitted in event properties. |
+| ANLYT-15 | Ubiquitous | The CSP (`_headers`) shall include `https://plausible.io` in both `script-src` and `connect-src` directives. |
+| ANLYT-16 | If-then | If the Plausible script fails to load (ad blocker, network error), then all analytics calls shall silently no-op without affecting app functionality. |
+| ANLYT-17 | Ubiquitous | In local development (`localhost`), analytics events shall be silently discarded (Plausible ignores non-matching domains by default). |
 
 ---
 
