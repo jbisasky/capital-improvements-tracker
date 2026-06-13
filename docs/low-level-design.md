@@ -970,5 +970,105 @@ everything.
 
 ---
 
+## 16. Scalability & limits
+
+A 20-year single-user app will accumulate data. This section specifies the hard limits and
+graceful-degradation strategies so the app never silently breaks as data grows.
+
+### 16.1 Manifest size
+
+The manifest is a single JSON file in Drive. Growth is linear with project count.
+
+| Projects | Approx manifest size | Performance impact |
+| --- | --- | --- |
+| 50 | ~25 KB | Negligible |
+| 200 | ~100 KB | Still fast; parse < 50 ms |
+| 500 | ~250 KB | Parse ~100 ms; consider lazy rendering |
+| 1,000+ | ~500 KB+ | Needs virtual scrolling on list view |
+
+**Strategy:**
+- **v1 target: handles up to ~500 projects comfortably.** This covers 20 years of a typical
+  homeowner doing 20–30 projects per year.
+- **UI: virtual scrolling (list virtualization)** kicks in when the project list exceeds 100
+  items — only DOM nodes in/near the viewport are rendered. Libraries like `@tanstack/virtual`
+  or a custom IntersectionObserver approach.
+- **Parse performance:** the manifest is parsed once at boot and held in memory; subsequent
+  operations mutate the in-memory copy. No re-parsing per operation.
+- **If >1,000 projects (unlikely):** the manifest remains a single file (simplicity), but the
+  UI paginates or virtualizes. A future migration could shard by year if needed — out of v1
+  scope.
+
+### 16.2 Attachment limits
+
+| Limit | Value | Rationale |
+| --- | --- | --- |
+| Max file size (single upload) | 25 MB | Google Drive's simple upload limit; resumable handles this fine. Covers high-res phone photos and multi-page PDFs. |
+| Max attachments per project | 10 | Prevents accidental bulk-dump; covers receipt + photos + invoice for a single project. |
+| Accepted MIME types | `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `application/pdf` | Standard receipt formats. HEIC for iPhone photos. |
+| Total storage | User's Google Drive quota | No app-side limit beyond Drive's own quota; `DRIVE_QUOTA` error surfaces if full. |
+
+**Enforcement:**
+- File size validated client-side before upload begins. Oversized files show an inline error:
+  "File too large (max 25 MB). Try compressing or splitting the document."
+- Attachment count enforced in the form — "Add attachment" button disabled at 10 with tooltip.
+- MIME type validated on drop/select; unsupported types rejected with: "Unsupported file type.
+  Use JPEG, PNG, WebP, HEIC, or PDF."
+
+### 16.3 Image compression before upload
+
+Phone cameras produce 5–12 MB photos (12+ MP). For receipts and invoices, this resolution is
+overkill — the AI extraction and human review need legibility, not pixel-perfect reproduction.
+
+**Strategy:**
+- **Client-side resize before upload** using `OffscreenCanvas` (or `<canvas>` fallback):
+  - If image dimension exceeds 2048 px on the longest side → resize proportionally to 2048 px.
+  - Re-encode as JPEG at quality 0.85 (or WebP 0.80 if browser supports encoding).
+  - Typical result: 5–10 MB photo → 200–600 KB. Dramatically faster upload and less Drive
+    storage consumed.
+- **Original preserved option:** a "Keep original quality" checkbox (default: off) bypasses
+  compression for users who want archival-quality uploads. The AI extraction works fine on
+  compressed images.
+- **PDFs are NOT compressed** — passed through as-is (re-compressing PDFs is lossy and complex).
+- **Progress shows post-compression size** so the user sees realistic upload estimates.
+
+### 16.4 Browser support
+
+| Browser | Minimum version | Notes |
+| --- | --- | --- |
+| Chrome / Edge (Chromium) | 90+ | Covers 99%+ of Chromium users as of 2025 |
+| Firefox | 90+ | ESM, `structuredClone`, `AbortController` all stable |
+| Safari | 15.4+ | WebP support, proper ESM, `structuredClone` |
+| Mobile Chrome (Android) | 90+ | Same as desktop Chrome |
+| Mobile Safari (iOS) | 15.4+ | Same as desktop Safari |
+| IE / Legacy Edge | ❌ Not supported | No polyfills provided; modern-only |
+
+**Rationale:** The app uses modern APIs (`fetch`, `AbortController`, `structuredClone`,
+`crypto.randomUUID()`, `OffscreenCanvas`, CSS `@layer`, `has()`) that require relatively
+recent browsers. Supporting older versions would require heavy polyfills, contradicting the
+longevity/minimal-deps principle.
+
+**Enforcement:** The app shell includes a one-time feature-detection check at boot. If a
+required API is missing, a static fallback page renders: "This app requires a modern browser.
+Please update Chrome, Firefox, or Safari to the latest version."
+
+### 16.5 localStorage quota handling
+
+`localStorage` has a browser-enforced limit (typically 5–10 MB per origin). The app uses it
+for: BYOK key (~50 bytes), theme preference (~10 bytes), daily AI usage counters (~100 bytes),
+and potentially cached manifest for offline (~250 KB typical).
+
+**Total expected usage:** < 500 KB — well within limits even at 1,000 projects.
+
+**Graceful degradation:**
+- All `localStorage.setItem()` calls are wrapped in a try/catch. On `QuotaExceededError`:
+  - **Non-critical data** (theme, counters): silently degrade to in-memory (session-only).
+  - **BYOK key:** surface a warning: "Browser storage is full — key will only persist for this
+    session. Clear site data or use session-only mode."
+  - **Offline cache (if using localStorage for manifest):** evict the oldest cached manifest
+    and retry.
+- The app shall never crash or show an unhandled error due to a full `localStorage`.
+
+---
+
 *Companion to the HLD. As implementation proceeds, request/response examples will be reconciled
 against the live Google API behavior and any deviations recorded here.*

@@ -42,6 +42,7 @@
 24. [Longevity](#24-longevity)
 25. [Diagnostics](#25-diagnostics)
 26. [About page](#26-about-page)
+27. [Scalability & limits](#27-scalability--limits)
 
 ---
 
@@ -434,6 +435,29 @@
 | ABOUT-01 | Ubiquitous | The about page (`/about`) shall display: app version, the full "not tax advice" legal disclaimer, a privacy explainer ("Your data lives in your Google Drive. This app has no server."), and links to documentation. |
 | ABOUT-02 | Ubiquitous | The app version shall be derived from `package.json` version (injected at build time). |
 | ABOUT-03 | Ubiquitous | The privacy explainer shall describe what data is stored where (manifest in appDataFolder, attachments in visible folder, BYOK key in localStorage, token in memory only). |
+
+---
+
+## 27. Scalability & limits
+
+| ID | Type | Requirement |
+| --- | --- | --- |
+| SCALE-01 | Ubiquitous | The app shall handle up to 500 projects in the manifest without perceptible performance degradation (parse < 100 ms, list render < 200 ms). |
+| SCALE-02 | State-driven | While the project list exceeds 100 items, the app shall use list virtualization (only rendering DOM nodes in/near the viewport) to maintain smooth scrolling. |
+| SCALE-03 | Ubiquitous | The manifest shall be parsed once at boot and held in memory; subsequent operations shall mutate the in-memory copy without re-parsing. |
+| SCALE-04 | Ubiquitous | Attachment uploads shall be limited to 25 MB per file (validated client-side before upload begins). |
+| SCALE-05 | If-then | If the user selects a file exceeding 25 MB, then the app shall display an inline error: "File too large (max 25 MB). Try compressing or splitting the document." |
+| SCALE-06 | Ubiquitous | Each project shall allow a maximum of 10 attachments. The "Add attachment" button shall be disabled at the limit with a tooltip. |
+| SCALE-07 | Ubiquitous | The file picker and drop zone shall accept only: `image/jpeg`, `image/png`, `image/webp`, `image/heic`, and `application/pdf`. |
+| SCALE-08 | If-then | If the user selects an unsupported file type, then the app shall reject it with: "Unsupported file type. Use JPEG, PNG, WebP, HEIC, or PDF." |
+| SCALE-09 | Event-driven | When the user uploads an image exceeding 2048 px on its longest side, the app shall resize it proportionally to 2048 px and re-encode as JPEG (quality 0.85) or WebP (quality 0.80) before uploading — unless "Keep original quality" is checked. |
+| SCALE-10 | Ubiquitous | PDFs shall not be compressed or re-encoded before upload. |
+| SCALE-11 | Ubiquitous | The upload progress indicator shall reflect the post-compression file size (not the original). |
+| SCALE-12 | Ubiquitous | The app shall support Chrome/Edge 90+, Firefox 90+, Safari 15.4+, and their mobile equivalents. IE and legacy Edge are not supported. |
+| SCALE-13 | Event-driven | When the app detects a missing required browser API at boot (feature-detection check), it shall render a static fallback page: "This app requires a modern browser. Please update Chrome, Firefox, or Safari to the latest version." |
+| SCALE-14 | Ubiquitous | All `localStorage.setItem()` calls shall be wrapped in a try/catch for `QuotaExceededError`. |
+| SCALE-15 | If-then | If a `QuotaExceededError` occurs when storing non-critical data (theme, usage counters), then the app shall silently degrade to in-memory storage for the session. |
+| SCALE-16 | If-then | If a `QuotaExceededError` occurs when storing the BYOK key, then the app shall display a warning: "Browser storage is full — key will only persist for this session" and fall back to in-memory. |
 
 ---
 
