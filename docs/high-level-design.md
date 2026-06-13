@@ -32,7 +32,7 @@ projects, receipts, and summary totals) — no Google sign-in or API key require
 prospective users explore the full UI and understand the app's value proposition before committing
 to auth. The demo environment uses static fixture data baked into the build and bypasses all
 Drive/Gemini calls. A persistent banner indicates "Demo mode — sign in to use your own data."
-Specified in LLD §15.
+Specified in LLD §16.
 
 ---
 
@@ -129,8 +129,16 @@ original single-`taxDeductibleAmount` shape is retained only as a migration sour
 
 ```jsonc
 {
-  "schemaVersion": 1,                  // integer for migration logic
+  "schemaVersion": 2,                  // integer for migration logic
   "lastUpdated": "ISO-8601",
+  "property": {                        // set once in Settings → "Your Property"
+    "address": "123 Main St",
+    "city": "Austin",
+    "state": "TX",
+    "zip": "78701",
+    "propertyType": "primary_residence", // | "rental" | "home_office" | "vacation"
+    "sqftTotal": 2400                  // optional — needed for home-office % calc
+  },
   "summary": {
     "totalCostBasisAdded": 0.00,       // sum of capital improvements (basis adjustments)
     "totalDeductible": 0.00            // sum of amounts that are *actually* deductible/credited
@@ -150,7 +158,21 @@ original single-`taxDeductibleAmount` shape is retained only as a migration sour
         { "fileId": "string", "filename": "string", "mimeType": "string", "sizeBytes": 0 }
       ],
       "createdAt": "ISO-8601",
-      "updatedAt": "ISO-8601"
+      "updatedAt": "ISO-8601",
+
+      // --- Optional IRS-relevant fields ---
+      "category": "roof",              // improvement type (roof, hvac, kitchen, etc.)
+      "vendorName": "ABC Roofing LLC", // contractor/vendor
+      "vendorTin": "12-3456789",       // EIN (optional — for 1099 if landlord)
+      "paymentMethod": "credit_card",  // cash | check | credit_card | financing | mixed
+      "datePaymentMade": "YYYY-MM-DD", // may differ from completionDate
+      "permitNumber": "BLD-2026-04521",// building permit reference
+      "usefulLifeYears": 27.5,         // depreciation period (rental property)
+      "depreciationStartDate": "YYYY-MM-DD", // "placed in service" date
+      "energyCreditType": "none",      // 25c_efficiency | 25d_solar | 45l | none
+      "safeHarborElection": false,     // IRS de minimis safe harbor
+      "sqftAffected": 200,             // for home-office deductions (Form 8829)
+      "notes": "Full roof replacement" // free-form audit notes
     }
   ]
 }
@@ -159,10 +181,11 @@ original single-`taxDeductibleAmount` shape is retained only as a migration sour
 This model exists because of the domain accuracy issue in §6 — a single `taxDeductibleAmount`
 field conflates two very different tax mechanics.
 
-> **Migration from the work order baseline:** `version: "1.0"` → `schemaVersion: 1`;
+> **Migration from the work order baseline:** `version: "1.0"` → `schemaVersion: 2`;
 > `summary.totalDeductions` is split into `totalCostBasisAdded` + `totalDeductible`; each
 > project's `taxDeductibleAmount` maps to `deductibleAmount` with `taxTreatment: "unknown"`
-> until reclassified.
+> until reclassified. The `property` field and optional IRS fields are added as empty/absent
+> (progressive enrichment — users fill them in over time).
 
 ### 4.3 Concurrency & durability (decision B4)
 A single `manifest.json` over 20 years is a single point of failure and a multi-device write
@@ -290,8 +313,12 @@ No data migration is ever required. Treat the host as swappable infrastructure.
 
 - **Pin & vendor** dependencies; commit lockfile; prefer shadcn (owned code) over heavy libs.
 - Minimize runtime dependencies; avoid services that can disappear (other than Google core).
-- **PWA/offline** (adopted for v1 if feasible): cached app shell so the UI keeps working even
-  if hosting lapses; Drive sync resumes when back online.
+- **PWA/offline read-only** (v1): a service worker caches the app shell and the last-fetched
+  manifest so the UI loads and existing data is browsable even without connectivity or if
+  hosting lapses. Write operations (create/edit/delete/extract) are disabled with an inline
+  message while offline; they resume when connectivity returns. **Queued offline writes** (edit
+  while offline → sync on reconnect) are deferred to post-v1 due to conflict-resolution
+  complexity.
 - Document the Google Cloud project / OAuth client
   ([`docs/google-cloud-setup.md`](google-cloud-setup.md)) so it can be recreated.
 - Provide **data export** (decision B5): download `manifest.json` + a human-readable CSV/PDF so
@@ -311,7 +338,7 @@ No data migration is ever required. Treat the host as swappable infrastructure.
   render/`useEffect` loop) could burn API quota or Gemini tokens fast. The design mandates
   layered client guards — a per-gesture call budget, a global frequency circuit breaker, per-API
   rate limiters/breakers, bounded retries, and a daily/session AI spend budget — plus
-  provider-side quota caps and API-key restrictions. Specified in LLD §13.
+  provider-side quota caps and API-key restrictions. Specified in LLD §14.
 
 ---
 
@@ -326,7 +353,7 @@ No data migration is ever required. Treat the host as swappable infrastructure.
   responses — deterministic and credential-free in CI.
 - **Type safety:** `tsc --noEmit` + ESLint `no-explicit-any` in CI gate.
 - **CI:** GitHub Actions — lint/typecheck, Vitest, and Playwright jobs run in parallel on every
-  push/PR. Branch protection requires all three to pass. Full specification in LLD §14.
+  push/PR. Branch protection requires all three to pass. Full specification in LLD §15.
 
 ---
 
@@ -340,7 +367,8 @@ No data migration is ever required. Treat the host as swappable infrastructure.
 4. **P3 — Projects CRUD:** list/detail/create/edit, money/date handling, summary totals.
 5. **P4 — AI extraction:** Gemini multimodal + structured output + human review step.
 6. **P5 — Tax model:** cost-basis vs deductible treatment, disclaimers, export.
-7. **P6 — Hardening:** CSP, PWA/offline, backups/export, longevity docs.
+7. **P6 — Hardening:** CSP, PWA/offline (read-only: service worker + cached manifest),
+   backups/export, longevity docs.
 
 ---
 
@@ -362,7 +390,7 @@ All questions resolved with the owner on 2026-06-12.
 | D10 | Hosting | Hosting target? | **Cloudflare Pages** (source on GitHub) |
 | D11 | Security | BYOK key in localStorage acceptable as-is? | **Add CSP + warning + session-only option** |
 | D12 | Scope | Single account or multi-account? | **Single account** |
-| D13 | Longevity | PWA/offline + vendored deps in v1? | **Yes if feasible** |
+| D13 | Longevity | PWA/offline + vendored deps in v1? | **Yes — offline read-only (service worker + cached manifest); queued writes post-v1** |
 | D14 | Onboarding | "See a demo" on landing page? | **Yes — static demo mode** |
 | D15 | HTTP | HTTP client library choice? | **Native `fetch` only — no Axios** |
 | D16 | Testing | Test framework choices? | **Vitest (unit/component) + Playwright (E2E)** |

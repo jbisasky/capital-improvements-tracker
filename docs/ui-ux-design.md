@@ -7,7 +7,7 @@
 > This document specifies **what the user sees and does**: the feature set, information
 > architecture, every screen (with wireframes), the core flows, and — critically — the
 > **non-happy-path states** (loading / empty / error / offline / conflict / auth-expired /
-> budget-exceeded) mapped to the error taxonomy in [LLD §10](low-level-design.md#10-error-taxonomy--user-messaging).
+> budget-exceeded) mapped to the error taxonomy in [LLD §11](low-level-design.md#11-error-taxonomy--user-messaging).
 > Built with shadcn/ui (Radix) + Tailwind v4; mobile-first because receipts are captured on phones.
 
 ## Table of contents
@@ -22,7 +22,8 @@
 9. [Responsive & mobile capture](#9-responsive--mobile-capture)
 10. [Accessibility](#10-accessibility)
 11. [Visual design & theming](#11-visual-design--theming)
-12. [Microcopy & legal](#12-microcopy--legal)
+12. [Loading & perceived performance](#12-loading--perceived-performance)
+13. [Microcopy & legal](#13-microcopy--legal)
 
 ---
 
@@ -58,8 +59,10 @@
 | Resilience | Loading/empty/error states, conflict resolution UI, diagnostics log |
 | Disclaimers | "Not tax advice" persistent affordance |
 
+| Resilience | PWA offline read-only: service worker caches app shell + manifest; browse existing data offline; writes disabled until connectivity returns |
+
 ### Later (post-v1)
-- PWA install + offline read; queued writes when offline.
+- Queued offline writes (edit while offline → sync on reconnect).
 - Per-year **cost-basis report** view (running adjusted basis over time).
 - Bulk import (multi-file drop → batched extraction with a review queue).
 - Tag/category taxonomy and per-room or per-system grouping.
@@ -178,7 +181,7 @@ Persistent elements:
 </details>
 
 - **Primary CTA:** "Sign in with Google." **Secondary CTA:** "See a demo" — navigates to
-  `/demo/dashboard` with pre-populated fixture data (HLD D14, LLD §15). No auth required.
+  `/demo/dashboard` with pre-populated fixture data (HLD D14, LLD §16). No auth required.
 - Below the fold: privacy explainer + what you'll need (Google account, an AI
   Studio key). Error inline if GIS init fails (origin mismatch → friendly "config issue" note).
 
@@ -276,7 +279,7 @@ Two entry modes that converge on the same form:
 - Field-level validation (zod-mirrored). `taxTreatment` drives which amount fields are emphasized
   (capital → cost-basis; credit/deductible → deductible amount).
 - Save = attachments-first, manifest-last (LLD §9). Button shows progress; disabled while a budget
-  or circuit guard is tripped (LLD §13) with an inline reason.
+  or circuit guard is tripped (LLD §14) with an inline reason.
 
 ### 5.5 AI extraction review (modal/step)
 
@@ -372,7 +375,7 @@ Two entry modes that converge on the same form:
 
 </details>
 - BYOK warning is explicit (decision D11). "Test" pings Gemini with a trivial call (counts against
-  budget). Budgets back LLD §13.5; "used today" reflects the persisted counter.
+  budget). Budgets back LLD §14.5; "used today" reflects the persisted counter.
 
 ### 5.8 Export (`/export`)
 
@@ -398,7 +401,7 @@ Two entry modes that converge on the same form:
 </details>
 
 ### 5.9 Diagnostics (`/settings/diagnostics`)
-- Read-only ring-buffer log (LLD §13.7): timestamped events incl. `LOOP_GUARD_TRIPPED`,
+- Read-only ring-buffer log (LLD §14.7): timestamped events incl. `LOOP_GUARD_TRIPPED`,
   `CIRCUIT_OPEN`, `AI_BUDGET_EXCEEDED`, sync conflicts. "Copy log" (redacted) for support.
 
 ### 5.10 About (`/about`)
@@ -452,7 +455,7 @@ sequenceDiagram
 
 ## 7. State coverage matrix
 
-Every data-bearing screen must implement these. Mapped to LLD §10 codes where applicable.
+Every data-bearing screen must implement these. Mapped to LLD §11 codes where applicable.
 
 | State | Where | UX |
 | --- | --- | --- |
@@ -525,7 +528,71 @@ Every data-bearing screen must implement these. Mapped to LLD §10 codes where a
 
 ---
 
-## 12. Microcopy & legal
+## 12. Loading & perceived performance
+
+Response-time perception follows well-established UX thresholds (Nielsen, 1993). Every
+async operation in the app maps to one of the tiers below, with a prescribed indicator.
+
+### 12.1 Response-time tiers
+
+| Tier | Latency | User perception | Indicator strategy |
+| --- | --- | --- | --- |
+| **Instant** | < 100 ms | Feels immediate; cause & effect fused | None — any visual change is the feedback itself |
+| **Acknowledged** | 100 ms – 1 s | Noticeable pause, but flow isn't broken | Subtle inline cue: button state change, slight opacity shift, tiny progress dot |
+| **Working** | 1 – 5 s | User knows something is happening; attention may wander | Skeleton placeholder (layout loads), or spinner with label ("Extracting…") |
+| **Long** | 5 – 15 s | User may switch tabs; needs reassurance & ability to cancel | Determinate progress bar (or indeterminate with elapsed time / status text) + Cancel button |
+| **Very long** | > 15 s | High abandonment risk; user needs estimated time | Stepped progress ("Uploading… Analyzing… Almost done") + Cancel + elapsed timer |
+
+### 12.2 Operation-to-indicator map
+
+| Operation | Expected latency | Tier | Indicator |
+| --- | --- | --- | --- |
+| In-app navigation (route change) | < 100 ms | Instant | None (React Router instant) |
+| Theme toggle | < 100 ms | Instant | Immediate CSS class swap |
+| Search / filter (client-side) | < 100 ms | Instant | List re-renders instantly |
+| Sign-in (GIS consent popup) | 1–3 s | Working | "Sign in with Google" button shows Google's own popup; on return, landing fades to skeleton dashboard |
+| Dashboard load (post-auth) | 1–3 s | Working | **Skeleton cards + skeleton rows** — three summary-card placeholders shimmer, recent-projects rows shimmer |
+| Projects list load | 0.5–2 s | Working | **Skeleton rows** — table rows shimmer; filters disabled until data arrives |
+| Project detail load | 0.3–1 s | Acknowledged | Skeleton detail card; usually near-instant (manifest already cached) |
+| Save project (attachment upload + CAS write) | 1–5 s | Working | **Button progress state** — "Save" → "Saving…" with inline spinner; button disabled; on success: toast + navigate to detail |
+| AI extraction (small file, inline) | 3–8 s | Long | **Spinner + label** — "Extracting details…" overlay on the form; Cancel button visible; on complete: transition to Review screen |
+| AI extraction (large file, File API) | 8–30 s | Very long | **Stepped progress** — "Uploading file… → Processing… → Extracting…" with elapsed timer; Cancel aborts the File API session |
+| Export download (client-side gen) | < 1 s | Acknowledged | Button briefly shows "Generating…" then triggers download |
+| Manifest first-run create | 1–2 s | Working | Skeleton dashboard (same as post-auth load) |
+| Backup rotation (pre-write) | 0.5–1 s | Acknowledged | No separate indicator — folded into the save button progress |
+| Silent token refresh | < 1 s | Acknowledged | No visible indicator when successful; on failure → NeedsInteraction banner |
+| BYOK "Test" ping | 1–3 s | Working | "Test" button → "Testing…" spinner → ✓ Valid / ✗ Invalid result inline |
+
+### 12.3 Design rules
+
+1. **Skeletons for layout, spinners for actions.** Initial page loads use skeleton
+   placeholders (cards, rows, detail blocks shaped like the real content) to give the user a
+   sense of the page structure. Discrete actions ("I clicked a button") use a spinner or
+   button-progress state.
+
+2. **Never block the full screen.** Loading indicators are scoped to the region that's
+   waiting — a skeleton card, not a full-page overlay. The shell (nav, top bar, footer) remains
+   interactive. Exception: the AI extraction overlay covers the form area but not the global
+   nav.
+
+3. **Always provide an escape.** Any operation expected to exceed 3 seconds must have a
+   **Cancel** affordance. Cancellation triggers `AbortController.abort()` on in-flight
+   requests and restores the pre-operation state.
+
+4. **Optimistic rows.** After a successful save, the new/updated project appears immediately
+   in the list with a subtle "syncing" indicator (pulse dot), before the CAS write round-trip
+   confirms. If the write fails, the row reverts with an error toast.
+
+5. **Transition, don't flash.** If an operation completes in < 300 ms, the skeleton/spinner
+   is held for a minimum of 300 ms total to avoid a jarring flash of loading state. This
+   prevents the "flicker" that's worse than no indicator at all.
+
+6. **Progressive disclosure on long ops.** Operations over 5 seconds show staged messages
+   (e.g. "Uploading → Processing → Extracting") so the user knows the system isn't stuck.
+
+---
+
+## 13. Microcopy & legal
 
 - **Persistent disclaimer:** "Not tax advice — for recordkeeping only. Confirm treatment with a
   qualified professional." Shown near every tax figure and in /about.

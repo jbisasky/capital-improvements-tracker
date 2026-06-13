@@ -20,12 +20,14 @@
 7. [Drive: attachment upload (resumable)](#7-drive-attachment-upload-resumable)
 8. [AI extraction — Gemini multimodal](#8-ai-extraction--gemini-multimodal)
 9. [End-to-end: "add project from a receipt"](#9-end-to-end-add-project-from-a-receipt)
-10. [Error taxonomy & user messaging](#10-error-taxonomy--user-messaging)
-11. [Concurrency edge cases](#11-concurrency-edge-cases)
-12. [Security handshake details](#12-security-handshake-details)
-13. [Runaway-usage failsafes (API/token budget protection)](#13-runaway-usage-failsafes-apitoken-budget-protection)
-14. [Testing & CI](#14-testing--ci)
-15. [Demo mode](#15-demo-mode)
+10. [Documentation completeness checker](#10-documentation-completeness-checker)
+11. [Error taxonomy & user messaging](#11-error-taxonomy--user-messaging)
+12. [Concurrency edge cases](#12-concurrency-edge-cases)
+13. [Security handshake details](#13-security-handshake-details)
+14. [Runaway-usage failsafes (API/token budget protection)](#14-runaway-usage-failsafes-apitoken-budget-protection)
+15. [Testing & CI](#15-testing--ci)
+16. [Demo mode](#16-demo-mode)
+17. [Scalability & limits](#17-scalability--limits)
 
 ---
 
@@ -71,7 +73,7 @@ status → `AppError`. It implements the retry policy in §1.5.
 - **`401` is special:** triggers a single silent token refresh (§4.4), then **one** replay of
   the original request. A second `401` surfaces `AUTH_REQUIRED`.
 - **Retries never self-retrigger unbounded:** the attempt cap is hard, and the whole retry path
-  sits behind the runaway-usage failsafes in §13 (per-gesture budget, global breaker, per-API
+  sits behind the runaway-usage failsafes in §14 (per-gesture budget, global breaker, per-API
   breaker), so a pathological retry/loop is contained rather than burning quota.
 
 ### 1.6 Idempotency
@@ -100,6 +102,20 @@ export const TaxTreatment = z.enum([
   "capital_improvement", "repair", "deductible", "credit", "unknown",
 ]);
 
+export const ImprovementCategory = z.enum([
+  "roof", "hvac", "plumbing", "electrical", "landscaping", "kitchen",
+  "bathroom", "flooring", "windows_doors", "insulation", "foundation",
+  "energy_efficiency", "accessibility", "security", "other",
+]);
+
+export const PaymentMethod = z.enum([
+  "cash", "check", "credit_card", "financing", "mixed",
+]);
+
+export const EnergyCreditType = z.enum([
+  "25c_efficiency", "25d_solar", "45l", "none",
+]);
+
 export const Project = z.object({
   id: z.string().uuid(),
   title: z.string().min(1),
@@ -113,11 +129,39 @@ export const Project = z.object({
   attachments: z.array(Attachment),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+
+  // --- Optional IRS-relevant fields ---
+  category: ImprovementCategory.optional(),              // e.g. "roof", "hvac"
+  vendorName: z.string().optional(),                     // contractor/vendor business name
+  vendorTin: z.string().regex(/^\d{2}-\d{7}$/).optional(), // EIN format XX-XXXXXXX
+  paymentMethod: PaymentMethod.optional(),               // how the project was paid
+  datePaymentMade: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // may differ from completion
+  permitNumber: z.string().optional(),                   // building permit reference
+  usefulLifeYears: z.number().positive().optional(),     // for depreciation (e.g. 27.5)
+  depreciationStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // "placed in service"
+  energyCreditType: EnergyCreditType.optional(),         // IRS 25C/25D/45L
+  safeHarborElection: z.boolean().optional(),            // de minimis safe harbor ($2,500/$5,000)
+  sqftAffected: z.number().positive().optional(),        // for home office (Form 8829)
+  notes: z.string().optional(),                          // free-form audit notes
+});
+
+export const PropertyType = z.enum([
+  "primary_residence", "rental", "home_office", "vacation",
+]);
+
+export const PropertyProfile = z.object({
+  address: z.string().min(1),              // street address
+  city: z.string().min(1),
+  state: z.string().length(2),             // US state abbreviation
+  zip: z.string().regex(/^\d{5}(-\d{4})?$/), // 5 or 9 digit ZIP
+  propertyType: PropertyType,
+  sqftTotal: z.number().positive().optional(), // total home sq ft (for home-office %)
 });
 
 export const Manifest = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   lastUpdated: z.string().datetime(),
+  property: PropertyProfile.optional(),    // set once in Settings; inherited by all projects
   summary: z.object({
     totalCostBasisAdded: z.number().nonnegative(),
     totalDeductible: z.number().nonnegative(),
@@ -143,6 +187,10 @@ export const ExtractionResult = z.object({
   irsJustification: z.string(),
   vendor: z.string().nullable(),
   confidence: z.number().min(0).max(1),
+  // AI may also extract these from receipts:
+  category: ImprovementCategory.nullable().optional(),
+  paymentMethod: PaymentMethod.nullable().optional(),
+  permitNumber: z.string().nullable().optional(),
 });
 ```
 
@@ -298,7 +346,7 @@ sequenceDiagram
     App->>Drive: GET files/{id}?alt=media
     Drive-->>App: raw JSON bytes
     App->>App: JSON.parse (guarded)
-    App->>App: detect version → migrate to schemaVersion=1 if needed
+    App->>App: detect version → migrate to schemaVersion=2 if needed
     App->>App: Manifest.safeParse(zod)
     alt valid
         App->>App: cache { manifest, fileId, headRevisionId }
@@ -326,7 +374,7 @@ Content-Type: application/json; charset=UTF-8
 { "name": "manifest.json", "parents": ["appDataFolder"], "mimeType": "application/json" }
 --...
 Content-Type: application/json
-{ "schemaVersion": 1, "lastUpdated": "<now>", "summary": {"totalCostBasisAdded":0,"totalDeductible":0}, "projects": [] }
+{ "schemaVersion": 2, "lastUpdated": "<now>", "summary": {"totalCostBasisAdded":0,"totalDeductible":0}, "projects": [] }
 --...--
 ```
 Response yields the new `fileId` + `headRevisionId`, cached for subsequent CAS writes.
@@ -515,7 +563,86 @@ cleaned up (or reconciled) on next successful manifest load.
 
 ---
 
-## 10. Error taxonomy & user messaging
+## 10. Documentation completeness checker
+
+A pure domain function that evaluates whether a project has sufficient documentation for IRS
+substantiation. No I/O — runs against the in-memory `Project` object after every save and on
+dashboard/list render.
+
+### 10.1 Assessment function
+
+```ts
+type DocStatus = "complete" | "partial" | "incomplete";
+
+interface DocAssessment {
+  status: DocStatus;
+  missing: string[];        // fields the IRS would expect — not yet filled
+  recommended: string[];    // optional fields that strengthen audit defense
+  score: number;            // 0–100 percentage for progress indicator
+}
+
+function assessDocumentation(
+  project: Project,
+  propertyType: PropertyType | undefined,
+): DocAssessment { /* ... */ }
+```
+
+### 10.2 Rules by treatment type
+
+Each `taxTreatment` has a required-field set and a recommended-field set. The checker
+evaluates which are present (non-empty / non-null) to produce the status:
+
+| Treatment | Required (must have for "complete") | Recommended (improves defense) |
+| --- | --- | --- |
+| `capital_improvement` | title, completionDate, totalCost, ≥1 attachment, irsJustification, vendorName | category, paymentMethod, permitNumber, notes |
+| `repair` | title, completionDate, totalCost, ≥1 attachment | vendorName, category, paymentMethod |
+| `deductible` | title, completionDate, totalCost, ≥1 attachment, irsJustification | vendorName, category, paymentMethod |
+| `credit` | title, completionDate, totalCost, ≥1 attachment, energyCreditType, vendorName | permitNumber, notes (manufacturer cert as attachment) |
+| `unknown` | title, completionDate, totalCost | (everything else — nudge user to classify) |
+
+**Additional rules by property type:**
+- If `propertyType === "rental"` and treatment is `capital_improvement`:
+  add `usefulLifeYears` + `depreciationStartDate` to required.
+- If `propertyType === "home_office"`:
+  add `sqftAffected` to required (needed for Form 8829 allocation).
+- If `vendorTin` is present and amount ≥ $600:
+  mark as "1099-ready" (informational badge).
+
+### 10.3 Status thresholds
+
+```
+score = (filledRequiredFields / totalRequiredFields) × 100
+
+complete   = score === 100  (all required fields present)
+partial    = score >= 50    (some required fields present)
+incomplete = score < 50     (most required fields missing)
+```
+
+### 10.4 UI integration
+
+- **Project list:** colored dot badge (🟢 / 🟡 / 🔴) next to each project title.
+- **Project detail:** "Documentation health" card showing status + missing/recommended lists.
+- **Dashboard:** summary line: "X of Y projects have complete documentation" with a link to
+  filter the list by incomplete.
+- **Post-save nudge:** after saving a project in `incomplete` state, a non-blocking toast:
+  "Tip: adding [first missing field] would strengthen this record for tax purposes."
+- **Export:** the CSV/PDF export includes a `documentationStatus` column so the user (or their
+  CPA) can see which projects need attention at a glance.
+
+### 10.5 Design principles
+
+- **Never blocking:** incomplete documentation never prevents saving or using the app.
+  The checker is advisory — a nudge, not a gate.
+- **Contextual:** rules adapt based on `taxTreatment` and `propertyType`. A simple repair
+  needs less documentation than a $50K kitchen remodel claimed as a capital improvement.
+- **Progressive:** users can start with just a receipt and fill in details over time.
+  The indicator rewards progress without punishing initial quick-capture.
+- **No false alarms:** `unknown` treatment only requires the bare minimum — the main nudge
+  is to classify the treatment, not to fill 12 fields.
+
+---
+
+## 11. Error taxonomy & user messaging
 
 | `AppError.code` | Origin | Retry? | User-facing message / action |
 | --- | --- | --- | --- |
@@ -530,17 +657,17 @@ cleaned up (or reconciled) on next successful manifest load.
 | `API_KEY_INVALID` | Gemini 400 | no | "Check your AI Studio key in Settings" |
 | `QUOTA` | 429 | backoff | "AI quota reached — try later" |
 | `DRIVE_QUOTA` | Drive 403 storage | no | "Your Google Drive is full" |
-| `LOOP_GUARD_TRIPPED` | per-gesture budget (§13.2) | no | "Something looped unexpectedly — action stopped" (diagnostics) |
-| `CIRCUIT_OPEN` | global/endpoint breaker (§13.3–4) | after cooldown + manual resume | "Paused requests to protect your quota — resume?" |
-| `RATE_LIMITED_LOCAL` | token bucket (§13.4) | auto (delayed) | usually silent; brief "slowing down" if sustained |
-| `AI_BUDGET_EXCEEDED` | spend budget (§13.5) | next reset / override | "Daily AI limit reached — raise limit or try tomorrow" |
+| `LOOP_GUARD_TRIPPED` | per-gesture budget (§14.2) | no | "Something looped unexpectedly — action stopped" (diagnostics) |
+| `CIRCUIT_OPEN` | global/endpoint breaker (§14.3–4) | after cooldown + manual resume | "Paused requests to protect your quota — resume?" |
+| `RATE_LIMITED_LOCAL` | token bucket (§14.4) | auto (delayed) | usually silent; brief "slowing down" if sustained |
+| `AI_BUDGET_EXCEEDED` | spend budget (§14.5) | next reset / override | "Daily AI limit reached — raise limit or try tomorrow" |
 
 Every `AppError` carries `{ code, httpStatus?, cause?, operationId? }`; user messages never leak
 tokens, keys, or raw payloads.
 
 ---
 
-## 11. Concurrency edge cases
+## 12. Concurrency edge cases
 
 - **Two devices editing simultaneously:** both pass the initial read; one writes first and bumps
   `headRevisionId`; the second's pre-write re-read detects the change → merge path (§6.3).
@@ -554,7 +681,7 @@ tokens, keys, or raw payloads.
 
 ---
 
-## 12. Security handshake details
+## 13. Security handshake details
 
 - **Token:** in memory only; injected as `Authorization: Bearer` per request; never persisted,
   logged, or placed in URLs.
@@ -567,9 +694,60 @@ tokens, keys, or raw payloads.
 - **No third-party scripts** beyond Google Identity Services; dependencies pinned (longevity).
 - **Scope minimization:** `drive.file` (not full `drive`) so the app can only see files it created.
 
+### 13.1 Additional security hardening
+
+**Content injection prevention:**
+- `dangerouslySetInnerHTML` is banned (enforced by ESLint rule). All user-supplied content
+  (project titles, descriptions, AI-extracted values) is rendered through React's default
+  escaping. This prevents XSS from a tampered manifest or a prompt-injected Gemini response.
+
+**BYOK key auto-expiry:**
+- When storing the BYOK key, a `storedAt` ISO timestamp is persisted alongside it.
+- On app boot, if `storedAt` is older than the configured expiry window, the key is deleted
+  and the user is prompted: "Your API key expired from local storage (security policy).
+  Re-enter it in Settings."
+- Configurable expiry in Settings: **7 days / 30 days (default) / 90 days / Never**.
+- The expiry period is stored in `localStorage` alongside the key.
+- "Session-only" mode (§13 above) overrides this entirely — key never reaches `localStorage`.
+
+```ts
+interface ByokStorage {
+  key: string;        // the encrypted... no — plain key (CSP + origin isolation is the guard)
+  storedAt: string;   // ISO-8601 UTC
+  expiryDays: 7 | 30 | 90 | null; // null = never
+}
+```
+
+**Clear all local data:**
+- Settings → "Clear all data from this device" button wipes:
+  - `localStorage` (BYOK key, theme, usage counters, offline manifest cache)
+  - Service worker cache (via `caches.delete()`)
+  - In-memory auth state (equivalent to sign-out)
+- Confirmation dialog: "This will sign you out and remove your API key from this browser.
+  Your data in Google Drive is not affected."
+- After wipe, redirect to the landing page.
+
+**BYOK input hygiene:**
+- The API key `<input>` uses `autocomplete="off"` and `type="password"` to prevent browser
+  autofill and shoulder-surfing.
+
+**Dependency audit in CI:**
+- The GitHub Actions CI workflow includes `npm audit --audit-level=high` as a non-blocking
+  warning step. Critical/high CVEs fail the build.
+- Dependabot or Renovate is configured for automated dependency update PRs.
+
+**OAuth `aud` verification:**
+- After receiving a token from GIS, the app verifies the token info endpoint confirms the
+  `aud` (audience) matches the app's OAuth client ID. This prevents token confusion attacks
+  where an attacker tricks the app into accepting a token issued for a different client.
+
+**Clickjacking:**
+- CSP `frame-ancestors 'none'` (already in `_headers`) prevents the app from being embedded
+  in any iframe. This is the modern replacement for `X-Frame-Options: DENY`.
+
 ---
 
-## 13. Runaway-usage failsafes (API/token budget protection)
+## 14. Runaway-usage failsafes (API/token budget protection)
 
 A bug — a bad `useEffect` dependency array, a render loop, a retry that re-triggers itself, an
 event handler firing in a tight loop — can hammer the Drive or Gemini endpoints and burn quota
@@ -579,7 +757,7 @@ behalf**, all guards live in the client, layered defense-in-depth, and are compl
 outside the guarded `httpFetch` pipeline** (enforced by lint rule + code review), so every call
 passes through these checks.
 
-### 13.1 Guard layers (summary)
+### 14.1 Guard layers (summary)
 
 | # | Guard | Scope | Trips when | Effect |
 | --- | --- | --- | --- | --- |
@@ -592,7 +770,7 @@ passes through these checks.
 | 7 | **Daily + session spend/quota budget** | per app, persisted | calls or estimated tokens exceed cap | block further AI calls until reset / user override |
 | 8 | **AbortController on unmount/nav** | per component | route change / unmount | cancel in-flight, prevent zombie loops |
 
-### 13.2 Per-gesture call budget (primary anti-loop net)
+### 14.2 Per-gesture call budget (primary anti-loop net)
 Every user-initiated action runs inside a `withCallBudget(label, K, fn)` scope. Each guarded
 request decrements a counter bound to the current gesture via async context. Exceeding `K`
 indicates a logic bug (a loop), not legitimate use, so the whole gesture is aborted and surfaced.
@@ -608,7 +786,7 @@ This directly contains the classic React failure mode where a component re-rende
 request every render: the budget is exhausted almost immediately and the cascade stops instead of
 running unbounded.
 
-### 13.3 Global frequency circuit breaker
+### 14.3 Global frequency circuit breaker
 A process-wide sliding-window counter trips a hard kill-switch if call frequency is implausibly
 high regardless of source.
 
@@ -622,7 +800,7 @@ flowchart TD
     E --> X
     D -- no --> F[allow request → httpFetch]
     F --> G{success?}
-    G -- no, repeated --> H[per-endpoint breaker may OPEN §13.4]
+    G -- no, repeated --> H[per-endpoint breaker may OPEN §14.4]
     G -- yes --> I[Result.ok]
 ```
 
@@ -630,14 +808,14 @@ When the global breaker opens it is **sticky**: it requires either the cooldown 
 manual user "resume" click (so a runaway loop can't immediately re-trip in a tight cycle). The
 event is logged with the recent call stack/labels to aid debugging.
 
-### 13.4 Per-endpoint circuit breaker + token bucket
+### 14.4 Per-endpoint circuit breaker + token bucket
 - **Token bucket** per API: e.g. Gemini bucket = capacity 5, refill 1/2 s; Drive bucket =
   capacity 10, refill 2/s. Requests take a token or wait (bounded) / reject.
 - **Circuit breaker** per API: after `F` consecutive failures → `OPEN` for cooldown `C` (e.g.
   30 s), then `HALF_OPEN` allows a single probe; success → `CLOSED`, failure → `OPEN` again.
   This prevents retry storms against a failing endpoint.
 
-### 13.5 Spend / token budget (Gemini specifically)
+### 14.5 Spend / token budget (Gemini specifically)
 Gemini responses include `usageMetadata` (`promptTokenCount`, `candidatesTokenCount`,
 `totalTokenCount`). We accumulate:
 - a **session counter** (in memory) and a **rolling daily counter** (persisted in `localStorage`,
@@ -655,7 +833,7 @@ interface UsageBudget {
 }
 ```
 
-### 13.6 Provider-side limits (defense in depth — owner configures)
+### 14.6 Provider-side limits (defense in depth — owner configures)
 Client guards can be bypassed by a determined bug or a tampered build, so the **authoritative**
 ceiling is set at Google:
 - **AI Studio / Generative Language API quotas:** set requests-per-minute and requests-per-day
@@ -663,11 +841,11 @@ ceiling is set at Google:
   enforces RPM/RPD caps; explicit lower caps add headroom safety.
 - **API key restrictions:** restrict the BYOK key to the Generative Language API only, and add an
   **HTTP referrer restriction** to the app's domain(s) so a leaked key can't be used elsewhere.
-- **Drive API quotas:** Drive enforces per-user rate limits; our backoff (§1.5) + breaker (§13.4)
+- **Drive API quotas:** Drive enforces per-user rate limits; our backoff (§1.5) + breaker (§14.4)
   cooperate with `429`/`403 rateLimitExceeded` responses rather than fighting them.
 - These steps are in the runbook [`docs/google-cloud-setup.md`](google-cloud-setup.md).
 
-### 13.7 Observability
+### 14.7 Observability
 Every trip (`LOOP_GUARD_TRIPPED`, `CIRCUIT_OPEN`, `AI_BUDGET_EXCEEDED`, `RATE_LIMITED_LOCAL`) is
 recorded to an in-app diagnostics log (ring buffer) with timestamp, label, and counters, viewable
 in Settings → Diagnostics. This makes a runaway-loop bug obvious and debuggable after the fact
@@ -675,12 +853,12 @@ without external telemetry.
 
 ---
 
-## 14. Testing & CI
+## 15. Testing & CI
 
 Two tools cover the full testing pyramid: **Vitest** (unit / component) and **Playwright** (E2E).
 Both run in a single GitHub Actions workflow on every push and PR.
 
-### 14.1 Test pyramid overview
+### 15.1 Test pyramid overview
 
 | Layer | Tool | Scope | Location | Runs against |
 | --- | --- | --- | --- | --- |
@@ -688,7 +866,7 @@ Both run in a single GitHub Actions workflow on every push and PR.
 | Component | Vitest + Testing Library | React components in isolation | Colocated `*.test.tsx` next to source | jsdom / happy-dom |
 | E2E | Playwright | Full user flows across pages | `e2e/*.spec.ts` (top-level) | Real browser against dev server |
 
-### 14.2 Vitest — unit & component tests
+### 15.2 Vitest — unit & component tests
 
 Vitest shares the Vite config (`vite.config.ts`), so path aliases, TypeScript transforms, and
 plugins work without extra setup.
@@ -719,7 +897,7 @@ export default mergeConfig(viteConfig, defineConfig({
 - `Result` helpers — mapping, chaining, error narrowing.
 - Zod schemas (`§2`) — round-trip parse/serialize, reject malformed input.
 - Retry/backoff logic (`§1.5`) — deterministic with a fake clock.
-- Budget/circuit-breaker state machines (`§13`) — transition coverage.
+- Budget/circuit-breaker state machines (`§14`) — transition coverage.
 
 **What to component-test:**
 - Forms (add/edit project) — field validation, `taxTreatment` driving which amount fields
@@ -733,7 +911,7 @@ export default mergeConfig(viteConfig, defineConfig({
 - Gemini API → mock `extractFromDocument` service; feed canned extraction responses.
 - `localStorage` → use Vitest's jsdom environment (provides `localStorage` natively).
 
-### 14.3 Playwright — E2E tests
+### 15.3 Playwright — E2E tests
 
 Playwright drives a real Chromium browser against the Vite dev server. Tests exercise full
 user flows as described in the UI/UX design doc §6.
@@ -790,7 +968,7 @@ await page.route("**/generativelanguage.googleapis.com/**", (route) => {
 
 This keeps E2E tests deterministic, fast, and free of real API credentials in CI.
 
-### 14.4 GitHub Actions CI workflow
+### 15.4 GitHub Actions CI workflow
 
 ```yaml
 # .github/workflows/ci.yml
@@ -841,7 +1019,7 @@ jobs:
 
 All three jobs run in parallel. PR merge requires all to pass (branch protection rule).
 
-### 14.5 Test file conventions
+### 15.5 Test file conventions
 
 - **Unit/component tests** live next to the file they test: `src/domain/tax.ts` →
   `src/domain/tax.test.ts`. This makes coverage gaps obvious at a glance.
@@ -851,7 +1029,7 @@ All three jobs run in parallel. PR merge requires all to pass (branch protection
 - Naming: `*.test.ts` for Vitest, `*.spec.ts` for Playwright — keeps the two layers
   unambiguous and allows separate glob patterns.
 
-### 14.6 What is NOT tested (and why)
+### 15.6 What is NOT tested (and why)
 
 - **Real Google OAuth flow** — GIS consent is an interactive redirect to `accounts.google.com`;
   not feasible to automate without test account credentials. Mocked in E2E.
@@ -863,12 +1041,12 @@ All three jobs run in parallel. PR merge requires all to pass (branch protection
 
 ---
 
-## 15. Demo mode
+## 16. Demo mode
 
 The landing page offers a **"See a demo"** button (HLD D14) that drops the user into a
 read-only sandbox with no authentication required. This section specifies how it works.
 
-### 15.1 Activation & routing
+### 16.1 Activation & routing
 
 Clicking "See a demo" navigates to `/demo/dashboard`. All `/demo/*` routes mirror the
 authenticated routes (`/dashboard`, `/projects`, `/projects/:id`, `/settings`, `/export`) but
@@ -881,7 +1059,7 @@ wrap them in a `DemoProvider` context instead of the real `AuthProvider` + `Driv
 "/dashboard"  → AuthShell (real AuthProvider + DriveProvider)
 ```
 
-### 15.2 Data layer — static fixtures
+### 16.2 Data layer — static fixtures
 
 Demo mode replaces all service calls with **static fixture data** bundled at build time:
 
@@ -890,7 +1068,7 @@ Demo mode replaces all service calls with **static fixture data** bundled at bui
 import type { Manifest } from "../domain/manifest";
 
 export const DEMO_MANIFEST: Manifest = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   lastUpdated: "2025-06-01T00:00:00.000Z",
   summary: {
     totalCostBasisAdded: 42_300,
@@ -916,7 +1094,7 @@ export const DEMO_MANIFEST: Manifest = {
 };
 ```
 
-### 15.3 DemoProvider context
+### 16.3 DemoProvider context
 
 ```ts
 interface DemoContext {
@@ -935,7 +1113,7 @@ shows a toast: *"This is a demo — sign in to save your own data."* The fixture
 changes. The "Extract with AI" button shows a canned extraction result (pre-built fixture)
 rather than calling Gemini.
 
-### 15.4 Persistent demo banner
+### 16.4 Persistent demo banner
 
 A sticky top banner renders on all `/demo/*` routes:
 
@@ -948,7 +1126,7 @@ A sticky top banner renders on all `/demo/*` routes:
 The banner is visually distinct (e.g. light blue background) so it's never confused with a
 real session. The "Sign in" link navigates back to `/`.
 
-### 15.5 What works vs. what doesn't in demo mode
+### 16.5 What works vs. what doesn't in demo mode
 
 | Feature | Demo behavior |
 | --- | --- |
@@ -962,11 +1140,111 @@ real session. The "Sign in" link navigates back to `/`.
 | Theme toggle | Works (persisted in localStorage) |
 | Sign out | Navigates back to `/` |
 
-### 15.6 Bundle impact
+### 16.6 Bundle impact
 
 The fixture data is small (~2–5 KB JSON) and tree-shaken from the authenticated code path.
 No additional API clients or service logic is loaded — the demo provider short-circuits
 everything.
+
+---
+
+## 17. Scalability & limits
+
+A 20-year single-user app will accumulate data. This section specifies the hard limits and
+graceful-degradation strategies so the app never silently breaks as data grows.
+
+### 17.1 Manifest size
+
+The manifest is a single JSON file in Drive. Growth is linear with project count.
+
+| Projects | Approx manifest size | Performance impact |
+| --- | --- | --- |
+| 50 | ~25 KB | Negligible |
+| 200 | ~100 KB | Still fast; parse < 50 ms |
+| 500 | ~250 KB | Parse ~100 ms; consider lazy rendering |
+| 1,000+ | ~500 KB+ | Needs virtual scrolling on list view |
+
+**Strategy:**
+- **v1 target: handles up to ~500 projects comfortably.** This covers 20 years of a typical
+  homeowner doing 20–30 projects per year.
+- **UI: virtual scrolling (list virtualization)** kicks in when the project list exceeds 100
+  items — only DOM nodes in/near the viewport are rendered. Libraries like `@tanstack/virtual`
+  or a custom IntersectionObserver approach.
+- **Parse performance:** the manifest is parsed once at boot and held in memory; subsequent
+  operations mutate the in-memory copy. No re-parsing per operation.
+- **If >1,000 projects (unlikely):** the manifest remains a single file (simplicity), but the
+  UI paginates or virtualizes. A future migration could shard by year if needed — out of v1
+  scope.
+
+### 17.2 Attachment limits
+
+| Limit | Value | Rationale |
+| --- | --- | --- |
+| Max file size (single upload) | 25 MB | Google Drive's simple upload limit; resumable handles this fine. Covers high-res phone photos and multi-page PDFs. |
+| Max attachments per project | 10 | Prevents accidental bulk-dump; covers receipt + photos + invoice for a single project. |
+| Accepted MIME types | `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `application/pdf` | Standard receipt formats. HEIC for iPhone photos. |
+| Total storage | User's Google Drive quota | No app-side limit beyond Drive's own quota; `DRIVE_QUOTA` error surfaces if full. |
+
+**Enforcement:**
+- File size validated client-side before upload begins. Oversized files show an inline error:
+  "File too large (max 25 MB). Try compressing or splitting the document."
+- Attachment count enforced in the form — "Add attachment" button disabled at 10 with tooltip.
+- MIME type validated on drop/select; unsupported types rejected with: "Unsupported file type.
+  Use JPEG, PNG, WebP, HEIC, or PDF."
+
+### 17.3 Image compression before upload
+
+Phone cameras produce 5–12 MB photos (12+ MP). For receipts and invoices, this resolution is
+overkill — the AI extraction and human review need legibility, not pixel-perfect reproduction.
+
+**Strategy:**
+- **Client-side resize before upload** using `OffscreenCanvas` (or `<canvas>` fallback):
+  - If image dimension exceeds 2048 px on the longest side → resize proportionally to 2048 px.
+  - Re-encode as JPEG at quality 0.85 (or WebP 0.80 if browser supports encoding).
+  - Typical result: 5–10 MB photo → 200–600 KB. Dramatically faster upload and less Drive
+    storage consumed.
+- **Original preserved option:** a "Keep original quality" checkbox (default: off) bypasses
+  compression for users who want archival-quality uploads. The AI extraction works fine on
+  compressed images.
+- **PDFs are NOT compressed** — passed through as-is (re-compressing PDFs is lossy and complex).
+- **Progress shows post-compression size** so the user sees realistic upload estimates.
+
+### 17.4 Browser support
+
+| Browser | Minimum version | Notes |
+| --- | --- | --- |
+| Chrome / Edge (Chromium) | 90+ | Covers 99%+ of Chromium users as of 2025 |
+| Firefox | 90+ | ESM, `structuredClone`, `AbortController` all stable |
+| Safari | 15.4+ | WebP support, proper ESM, `structuredClone` |
+| Mobile Chrome (Android) | 90+ | Same as desktop Chrome |
+| Mobile Safari (iOS) | 15.4+ | Same as desktop Safari |
+| IE / Legacy Edge | ❌ Not supported | No polyfills provided; modern-only |
+
+**Rationale:** The app uses modern APIs (`fetch`, `AbortController`, `structuredClone`,
+`crypto.randomUUID()`, `OffscreenCanvas`, CSS `@layer`, `has()`) that require relatively
+recent browsers. Supporting older versions would require heavy polyfills, contradicting the
+longevity/minimal-deps principle.
+
+**Enforcement:** The app shell includes a one-time feature-detection check at boot. If a
+required API is missing, a static fallback page renders: "This app requires a modern browser.
+Please update Chrome, Firefox, or Safari to the latest version."
+
+### 17.5 localStorage quota handling
+
+`localStorage` has a browser-enforced limit (typically 5–10 MB per origin). The app uses it
+for: BYOK key (~50 bytes), theme preference (~10 bytes), daily AI usage counters (~100 bytes),
+and potentially cached manifest for offline (~250 KB typical).
+
+**Total expected usage:** < 500 KB — well within limits even at 1,000 projects.
+
+**Graceful degradation:**
+- All `localStorage.setItem()` calls are wrapped in a try/catch. On `QuotaExceededError`:
+  - **Non-critical data** (theme, counters): silently degrade to in-memory (session-only).
+  - **BYOK key:** surface a warning: "Browser storage is full — key will only persist for this
+    session. Clear site data or use session-only mode."
+  - **Offline cache (if using localStorage for manifest):** evict the oldest cached manifest
+    and retry.
+- The app shall never crash or show an unhandled error due to a full `localStorage`.
 
 ---
 
