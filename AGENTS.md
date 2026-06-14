@@ -18,9 +18,13 @@ Welcome! This is a 100% serverless, client-side SPA for tracking capital improve
 
 ## ✅ Pre-commit & Testing Rules
 If you make any code changes (not just documentation updates), you must:
-1. Run the relevant Vitest unit/component tests.
-2. Run a suite of Playwright E2E tests covering the affected flows.
-3. Generate a Markdown test report (in the `docs/test-reports/` folder) documenting the test evidence, including screenshots of the passing flows. Reference the format in `docs/test-reports/task4-auth-drive.md` (or similar) as an example.
+1. **Write Tests:** Practice Test-Driven Development (TDD) when possible. **You must write unit tests (UTs) for all new code.**
+   - **F.I.R.S.T. Principles:** Ensure tests are **F**ast, **I**solated, **R**epeatable, **S**elf-validating, and **T**horough/Timely.
+   - **AAA Pattern:** Structure your tests using the **A**rrange, **A**ct, **A**ssert pattern. Use inline comments (`// Arrange`, `// Act`, `// Assert`) if helpful.
+   - **Avoid Flakiness:** Do not rely on external network calls or brittle DOM structures. Mock where appropriate.
+2. **Run Tests:** Run the relevant Vitest unit/component tests to ensure they pass.
+3. **E2E Testing:** Run a suite of Playwright E2E tests covering the affected flows.
+4. **Report:** Generate a Markdown test report (in the `docs/test-reports/` folder) documenting the test evidence, including screenshots of the passing flows. Reference the format in `docs/test-reports/task4-auth-drive.md` (or similar) as an example.
 
 ## 🔄 Task Tracking Directives
 When you complete a task or a step, **you MUST update the "Completed Tasks" and "Remaining Tasks" sections in this `AGENTS.md` file AND in the `README.md` file (if applicable)**.
