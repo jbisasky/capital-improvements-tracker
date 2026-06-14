@@ -4,6 +4,7 @@ import { ManifestSchema, ProjectSchema, ExtractionResultSchema } from "./schemas
 describe("domain schemas", () => {
   describe("ProjectSchema", () => {
     it("validates a complete valid project", () => {
+      // Arrange
       const validProject = {
         id: "123e4567-e89b-12d3-a456-426614174000",
         title: "New HVAC",
@@ -23,11 +24,15 @@ describe("domain schemas", () => {
         vendorTin: "12-3456789",
       };
 
+      // Act
       const result = ProjectSchema.safeParse(validProject);
+
+      // Assert
       expect(result.success).toBe(true);
     });
 
     it("rejects invalid UUID", () => {
+      // Arrange
       const invalidProject = {
         id: "not-a-uuid",
         title: "Bad",
@@ -43,7 +48,10 @@ describe("domain schemas", () => {
         updatedAt: "2025-01-01T00:00:00Z",
       };
 
+      // Act
       const result = ProjectSchema.safeParse(invalidProject);
+
+      // Assert
       expect(result.success).toBe(false);
       if (!result.success && result.error.issues[0]) {
         expect(result.error.issues[0].path).toEqual(["id"]);
@@ -51,7 +59,8 @@ describe("domain schemas", () => {
     });
 
     it("rejects negative costs", () => {
-       const invalidProject = {
+      // Arrange
+      const invalidProject = {
         id: "123e4567-e89b-12d3-a456-426614174000",
         title: "Bad",
         completionDate: "2025-01-01",
@@ -66,7 +75,10 @@ describe("domain schemas", () => {
         updatedAt: "2025-01-01T00:00:00.000Z",
       };
 
+      // Act
       const result = ProjectSchema.safeParse(invalidProject);
+
+      // Assert
       expect(result.success).toBe(false);
       if (!result.success && result.error.issues[0]) {
         expect(result.error.issues[0].path).toEqual(["totalCost"]);
@@ -74,6 +86,7 @@ describe("domain schemas", () => {
     });
 
     it("rejects invalid date format", () => {
+      // Arrange
       const invalidProject = {
         id: "123e4567-e89b-12d3-a456-426614174000",
         title: "Bad",
@@ -89,7 +102,10 @@ describe("domain schemas", () => {
         updatedAt: "2025-01-01T00:00:00.000Z",
       };
 
+      // Act
       const result = ProjectSchema.safeParse(invalidProject);
+
+      // Assert
       expect(result.success).toBe(false);
       if (!result.success && result.error.issues[0]) {
          expect(result.error.issues[0].path).toEqual(["completionDate"]);
@@ -99,6 +115,7 @@ describe("domain schemas", () => {
 
   describe("ManifestSchema", () => {
     it("validates a correct manifest", () => {
+      // Arrange
       const validManifest = {
         schemaVersion: 2,
         lastUpdated: "2025-06-16T10:00:00.000Z",
@@ -109,12 +126,16 @@ describe("domain schemas", () => {
         projects: [],
       };
 
+      // Act
       const result = ManifestSchema.safeParse(validManifest);
+
+      // Assert
       expect(result.success).toBe(true);
     });
 
     it("rejects wrong schemaVersion", () => {
-       const invalidManifest = {
+      // Arrange
+      const invalidManifest = {
         schemaVersion: 1, // must be 2
         lastUpdated: "2025-06-16T10:00:00.000Z",
         summary: {
@@ -124,13 +145,17 @@ describe("domain schemas", () => {
         projects: [],
       };
 
+      // Act
       const result = ManifestSchema.safeParse(invalidManifest);
+
+      // Assert
       expect(result.success).toBe(false);
     });
   });
 
   describe("ExtractionResultSchema", () => {
     it("allows nullable fields", () => {
+      // Arrange
       const validExtraction = {
         title: "Extracted Title",
         completionDate: null,
@@ -143,7 +168,10 @@ describe("domain schemas", () => {
         confidence: 0.5,
       };
 
+      // Act
       const result = ExtractionResultSchema.safeParse(validExtraction);
+
+      // Assert
       expect(result.success).toBe(true);
     });
   });

@@ -19,18 +19,24 @@ describe("doc-completeness", () => {
   };
 
   it("evaluates an 'unknown' treatment project with only required base fields", () => {
+    // Arrange (Project is already set as baseProject)
+    // Act
     const result = assessDocumentation(baseProject, undefined);
-    // 'unknown' only requires title, completionDate, totalCost (all present in base)
+
+    // Assert ('unknown' only requires title, completionDate, totalCost - all present in base)
     expect(result.status).toBe("complete");
     expect(result.missing).toEqual([]);
     expect(result.score).toBe(100);
   });
 
   it("evaluates a 'capital_improvement' with missing fields as 'incomplete' or 'partial'", () => {
+    // Arrange
     const proj: Project = { ...baseProject, taxTreatment: "capital_improvement" };
-    // capital_improvement requires: title, date, cost, attachments, justification, vendorName
-    // we only have title, date, cost.
+
+    // Act
     const result = assessDocumentation(proj, undefined);
+
+    // Assert (capital_improvement requires: title, date, cost, attachments, justification, vendorName)
     expect(result.missing).toContain("attachments");
     expect(result.missing).toContain("irsJustification");
     expect(result.missing).toContain("vendorName");
@@ -40,6 +46,7 @@ describe("doc-completeness", () => {
   });
 
   it("evaluates a fully documented 'capital_improvement' as 'complete'", () => {
+    // Arrange
     const proj: Project = {
       ...baseProject,
       taxTreatment: "capital_improvement",
@@ -47,7 +54,11 @@ describe("doc-completeness", () => {
       vendorName: "Bob's Roofing",
       attachments: [{ fileId: "1", filename: "f", mimeType: "m", sizeBytes: 1 }],
     };
+
+    // Act
     const result = assessDocumentation(proj, undefined);
+
+    // Assert
     expect(result.status).toBe("complete");
     expect(result.missing).toEqual([]);
     expect(result.score).toBe(100);
@@ -56,8 +67,13 @@ describe("doc-completeness", () => {
   });
 
   it("adds rental modifiers for 'capital_improvement'", () => {
+    // Arrange
     const proj: Project = { ...baseProject, taxTreatment: "capital_improvement" };
+
+    // Act
     const result = assessDocumentation(proj, "rental");
+
+    // Assert
     // Should now require usefulLifeYears and depreciationStartDate
     expect(result.missing).toContain("usefulLifeYears");
     expect(result.missing).toContain("depreciationStartDate");
@@ -67,8 +83,13 @@ describe("doc-completeness", () => {
   });
 
   it("adds home_office modifiers for any property with 'home_office'", () => {
+    // Arrange
     const proj: Project = { ...baseProject, taxTreatment: "repair" };
+
+    // Act
     const result = assessDocumentation(proj, "home_office");
+
+    // Assert
     // Should require sqftAffected
     expect(result.missing).toContain("sqftAffected");
   });
