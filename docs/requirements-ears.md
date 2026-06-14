@@ -63,7 +63,7 @@
 | ARCH-08 | Ubiquitous | The app shall centralize all HTTP concerns in a single typed `httpFetch` wrapper that handles auth header injection, timeout (`AbortController`, 30 s default), JSON serialization, and status-to-error mapping. |
 | ARCH-09 | Ubiquitous | Service methods shall return a discriminated `Result<T>` type (`Ok<T> | Err<E>`) rather than throwing exceptions, so callers must handle failure explicitly. |
 | ARCH-10 | Ubiquitous | The app shall separate code into layers: `services/` (I/O), `domain/` (pure logic, no I/O), `features/` (compose services + components), `components/` (presentational), and `lib/` (utilities). |
-| ARCH-11 | Ubiquitous | All monetary values shall be stored and computed internally as integer cents to avoid floating-point drift; decimal dollars shall only appear at the I/O serialization boundary. |
+| ARCH-11 | Ubiquitous | All monetary values shall be stored and computed internally as integer cents to avoid floating-point drift; decimal dollars shall only appear at the I/O serialization boundary, handled via a Zod transform (`z.number().transform(val => Math.round(val * 100))`). |
 | ARCH-12 | Ubiquitous | Timestamps shall be ISO-8601 UTC strings; date-only fields (e.g. `completionDate`) shall be `YYYY-MM-DD` local-date strings with no timezone. |
 
 ---
@@ -104,7 +104,7 @@
 | DRV-11 | Event-driven | When no manifest is found on first run, the app shall create a new empty manifest in `appDataFolder` with `schemaVersion: 2` and an empty `projects` array. |
 | DRV-12 | If-then | If more than one `manifest.json` is found in `appDataFolder`, then the app shall pick the most recently modified, log `MANIFEST_DUPLICATE`, and surface a one-time repair prompt. |
 | DRV-13 | Ubiquitous | The `summary` object (`totalCostBasisAdded`, `totalDeductible`) shall always be recomputed from the `projects` array after any mutation; it shall never be merged directly. |
-| DRV-14 | Event-driven | When a manifest read and all backups fail validation, the app shall surface `READ_CORRUPT` with an option to restore from backup or export raw data. |
+| DRV-14 | Event-driven | When a manifest read and all backups fail validation (or if a critical CAS merge failure occurs), the app shall surface `READ_CORRUPT` with a straightforward UI flow to "Restore from backup" that overwrites the current `manifest.json` with a selected `.bak.` file, or to export raw data. |
 | DRV-15 | Event-driven | When a legacy-schema manifest is detected during boot, the app shall migrate it forward silently (no user interaction required) and display a brief toast: "Data updated to latest format." The original is preserved as a backup before migration. |
 | DRV-16 | Ubiquitous | The manifest shall support an optional top-level `property` field (`PropertyProfile`: address, city, state, zip, propertyType, sqftTotal) set via Settings → "Your Property." |
 | DRV-17 | Ubiquitous | Each project shall support optional IRS-relevant fields: `category`, `vendorName`, `vendorTin`, `paymentMethod`, `datePaymentMade`, `permitNumber`, `usefulLifeYears`, `depreciationStartDate`, `energyCreditType`, `safeHarborElection`, `sqftAffected`, `notes`. All shall be optional (nullable/absent) to keep the form simple for casual users. |
@@ -253,6 +253,7 @@
 | DEMO-09 | State-driven | While in demo mode, the theme toggle shall work and persist its setting in `localStorage`. |
 | DEMO-10 | Ubiquitous | The `DemoProvider` shall supply the same context shape as the real `AuthProvider` + `DriveProvider`, so existing UI components render identically regardless of the data source. |
 | DEMO-11 | Ubiquitous | The demo fixture data (~2–5 KB) shall be tree-shaken from the authenticated code path to minimize bundle impact. |
+| DEMO-12 | Ubiquitous | In demo mode, the dependency injection or `DemoProvider` shall explicitly intercept and mock out the `httpFetch` wrapper entirely to ensure zero risk of rogue components making actual network requests to Google APIs. |
 
 ---
 
@@ -370,7 +371,7 @@
 | SEC-11 | Event-driven | When the app boots and finds a stored BYOK key whose `storedAt` timestamp exceeds the configured expiry window (default 30 days), it shall delete the key and prompt: "Your API key expired from local storage (security policy). Re-enter it in Settings." |
 | SEC-12 | Ubiquitous | The BYOK key expiry shall be configurable in Settings: 7 days, 30 days (default), 90 days, or Never. |
 | SEC-13 | Event-driven | When the user clicks "Clear all data from this device" in Settings, the app shall wipe all `localStorage` entries, delete service worker caches (`caches.delete()`), clear in-memory auth state, and redirect to the landing page. |
-| SEC-14 | Event-driven | When the user triggers "Clear all data," the app shall display a confirmation dialog: "This will sign you out and remove your API key from this browser. Your data in Google Drive is not affected." |
+| SEC-14 | Event-driven | When the user triggers "Clear all data," the app shall display a confirmation dialog: "This will sign you out and remove your API key from this browser. Your data in Google Drive is not affected." and shall provide explicit UI instructions on how the user can manually delete the app's folders from Google Drive to completely purge their records. |
 | SEC-15 | Event-driven | After receiving an access token from GIS, the app shall verify that the token's `aud` (audience) matches the app's OAuth client ID; if mismatched, the token shall be discarded and `AUTH_REQUIRED` surfaced. |
 | SEC-16 | Ubiquitous | The CSP shall include `frame-ancestors 'none'` to prevent clickjacking (the app shall never be embeddable in an iframe). |
 | SEC-17 | Ubiquitous | The CI pipeline shall run `npm audit --audit-level=high`; critical or high vulnerabilities shall fail the build. |
@@ -474,7 +475,7 @@
 | SCALE-06 | Ubiquitous | Each project shall allow a maximum of 10 attachments. The "Add attachment" button shall be disabled at the limit with a tooltip. |
 | SCALE-07 | Ubiquitous | The file picker and drop zone shall accept only: `image/jpeg`, `image/png`, `image/webp`, `image/heic`, and `application/pdf`. |
 | SCALE-08 | If-then | If the user selects an unsupported file type, then the app shall reject it with: "Unsupported file type. Use JPEG, PNG, WebP, HEIC, or PDF." |
-| SCALE-09 | Event-driven | When the user uploads an image exceeding 2048 px on its longest side, the app shall resize it proportionally to 2048 px and re-encode as JPEG (quality 0.85) or WebP (quality 0.80) before uploading — unless "Keep original quality" is checked. |
+| SCALE-09 | Event-driven | When the user uploads an image exceeding 2048 px on its longest side, the app shall resize it proportionally to 2048 px and re-encode as JPEG (quality 0.85) or WebP (quality 0.80) using `OffscreenCanvas` (with a `document.createElement('canvas')` fallback for Safari < 16.4) before uploading — unless "Keep original quality" is checked. |
 | SCALE-10 | Ubiquitous | PDFs shall not be compressed or re-encoded before upload. |
 | SCALE-11 | Ubiquitous | The upload progress indicator shall reflect the post-compression file size (not the original). |
 | SCALE-12 | Ubiquitous | The app shall support Chrome/Edge 90+, Firefox 90+, Safari 15.4+, and their mobile equivalents. IE and legacy Edge are not supported. |

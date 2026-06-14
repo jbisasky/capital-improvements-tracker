@@ -48,7 +48,7 @@ type Result<T, E extends AppError = AppError> = Ok<T> | Err<E>;
 ### 1.2 Money
 All monetary values are stored and computed as **integer cents** (`number` of cents) internally
 to avoid floating-point drift; the JSON manifest serializes them as decimal dollars at the I/O
-boundary only. See `Money` helpers in `lib/money.ts`.
+boundary only. To prevent precision drift when parsing decimal floats from JSON (e.g. `18000.15` becoming `18000.14999999...`), the boundary shall use a Zod transform (`z.number().transform(val => Math.round(val * 100))`) so the domain layer only ever sees integer cents. See `Money` helpers in `lib/money.ts`.
 
 ### 1.3 Time
 Timestamps are ISO-8601 UTC strings produced by `new Date().toISOString()`. Dates (e.g.
@@ -357,6 +357,8 @@ sequenceDiagram
         App->>App: if all fail → READ_CORRUPT, offer restore/export
     end
 ```
+
+**Restore from backup flow:** If a critical CAS merge failure occurs or if all reads/backups fail validation, the UI shall provide a straightforward "Restore from backup" flow that allows the user to overwrite the corrupted `manifest.json` with a selected known-good `.bak.` file.
 
 Migration is a forward-only registry keyed by detected shape:
 ```ts
@@ -727,6 +729,7 @@ interface ByokStorage {
   - In-memory auth state (equivalent to sign-out)
 - Confirmation dialog: "This will sign you out and remove your API key from this browser.
   Your data in Google Drive is not affected."
+- **Drive Deletion Instructions:** The UI shall also provide explicit instructions/documentation on how the user can manually delete the app's folders (both `appDataFolder` and visible attachment folder) from Google Drive to completely purge their records.
 - After wipe, redirect to the landing page.
 
 **BYOK input hygiene:**
@@ -1115,6 +1118,8 @@ shows a toast: *"This is a demo — sign in to save your own data."* The fixture
 changes. The "Extract with AI" button shows a canned extraction result (pre-built fixture)
 rather than calling Gemini.
 
+**API Failsafe:** The `DemoProvider` (or dependency injection container) explicitly intercepts and mocks out the `httpFetch` wrapper entirely. This ensures there is zero risk of a rogue component attempting to call the Gemini API or Drive API with actual network requests while in demo mode.
+
 ### 16.4 Persistent demo banner
 
 A sticky top banner renders on all `/demo/*` routes:
@@ -1205,6 +1210,7 @@ overkill — the AI extraction and human review need legibility, not pixel-perfe
   - Re-encode as JPEG at quality 0.85 (or WebP 0.80 if browser supports encoding).
   - Typical result: 5–10 MB photo → 200–600 KB. Dramatically faster upload and less Drive
     storage consumed.
+  - **Fallback:** Ensure the utility includes a standard `document.createElement('canvas')` fallback if `typeof OffscreenCanvas === 'undefined'` so iOS 15.x / Safari < 16.4 users do not encounter a crash.
 - **Original preserved option:** a "Keep original quality" checkbox (default: off) bypasses
   compression for users who want archival-quality uploads. The AI extraction works fine on
   compressed images.
