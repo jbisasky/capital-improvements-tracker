@@ -6,9 +6,11 @@ import {
   Settings,
   Download,
   Info,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
+import { useAuth } from "@/services/auth-context";
 
 interface AppShellProps {
   children: ReactNode;
@@ -24,6 +26,9 @@ const NAV_ITEMS = [
 
 export function AppShell({ children }: AppShellProps): ReactElement {
   const prefix = useRoutePrefix();
+  const auth = useAuth();
+  const isLiveMode = prefix === "";
+
   return (
     <div className="flex min-h-screen">
       {/* Desktop sidebar */}
@@ -50,6 +55,18 @@ export function AppShell({ children }: AppShellProps): ReactElement {
             </NavLink>
           ))}
         </nav>
+        {isLiveMode && (
+          <div className="mt-auto border-t p-3">
+            <button
+              type="button"
+              onClick={auth.signOut}
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/50"
+            >
+              <LogOut className="size-4" />
+              Sign out
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* Main content */}
