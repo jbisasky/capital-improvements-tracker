@@ -103,7 +103,7 @@ This app is a durable, low-maintenance personal ledger that:
 
 ### Prerequisites
 
-- [Node.js 22+](https://nodejs.org/) (see `.nvmrc`)
+- [Node.js 24+](https://nodejs.org/) (see `.nvmrc`)
 - npm (ships with Node)
 
 ### Setup
@@ -111,7 +111,7 @@ This app is a durable, low-maintenance personal ledger that:
 ```bash
 git clone https://github.com/jbisasky/capital-improvements-tracker.git
 cd capital-improvements-tracker
-nvm use          # switches to Node 22
+nvm use          # switches to Node 24
 npm install
 npm run dev      # starts Vite dev server at http://localhost:5173
 ```
