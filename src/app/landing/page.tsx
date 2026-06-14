@@ -1,8 +1,17 @@
 import { type ReactElement } from "react";
-import { Link } from "react-router";
+import { Link, Navigate } from "react-router";
 import { trackDemoCTAClicked } from "@/services/analytics";
+import { useAuth } from "@/services/auth-context";
 
 export function LandingPage(): ReactElement {
+  const { isAuthenticated, signIn, status } = useAuth();
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const isLoading = status === "authenticating";
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-6">
       <div className="text-center">
@@ -14,12 +23,14 @@ export function LandingPage(): ReactElement {
         </p>
       </div>
       <div className="flex gap-4">
-        <Link
-          to="/dashboard"
-          className="inline-flex h-10 items-center rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+        <button
+          type="button"
+          onClick={signIn}
+          disabled={isLoading}
+          className="inline-flex h-10 items-center rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50"
         >
-          Sign in with Google
-        </Link>
+          {isLoading ? "Signing in…" : "Sign in with Google"}
+        </button>
         <Link
           to="/demo"
           onClick={trackDemoCTAClicked}
@@ -28,6 +39,11 @@ export function LandingPage(): ReactElement {
           Try Demo
         </Link>
       </div>
+      {status === "needs_interaction" && (
+        <p className="text-sm text-destructive">
+          Session expired. Please sign in again.
+        </p>
+      )}
     </div>
   );
 }

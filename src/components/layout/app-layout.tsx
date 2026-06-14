@@ -1,22 +1,29 @@
-import { type ReactElement } from "react";
-import { Outlet } from "react-router";
+import { type ReactElement, useMemo } from "react";
+import { Outlet, Navigate } from "react-router";
 import { AppShell } from "@/components/layout/app-shell";
 import { StorageProvider } from "@/services/storage-context";
-import { MockStorageDriver } from "@/services/mock-storage-driver";
-import { type Manifest } from "@/domain/schemas";
-
-const EMPTY_MANIFEST: Manifest = {
-  schemaVersion: 2,
-  lastUpdated: new Date().toISOString(),
-  summary: { totalCostBasisAdded: 0, totalDeductible: 0 },
-  projects: [],
-};
-
-const appDriver = new MockStorageDriver(EMPTY_MANIFEST);
+import { DriveStorageDriver } from "@/services/drive-storage-driver";
+import { useAuth } from "@/services/auth-context";
 
 export function AppLayout(): ReactElement {
+  const { isAuthenticated, status } = useAuth();
+
+  const driver = useMemo(() => new DriveStorageDriver(), []);
+
+  if (status === "authenticating") {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Signing in…</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
-    <StorageProvider driver={appDriver}>
+    <StorageProvider driver={driver}>
       <AppShell>
         <Outlet />
       </AppShell>
