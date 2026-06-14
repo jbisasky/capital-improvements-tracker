@@ -37,4 +37,6 @@ When you complete a task or a step, **you MUST update the "Completed Tasks" and 
 - [x] **Task 5 (PR #17):** AI extraction — Gemini 2.5 Flash integration, BYOK API key, receipt scanning, human review step.
 
 ### Remaining Tasks
-- [ ] **Task 6:** Polish — PWA/offline, diagnostics page, landing page refinement.
+- [ ] **Task 6:** Polish — Diagnostics page.
+- [ ] **Task 7:** Polish — Landing page & about page refinement.
+- [ ] **Task 8:** Polish — PWA/offline & service worker.

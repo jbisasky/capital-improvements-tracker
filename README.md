@@ -177,7 +177,9 @@ docs/
 | 3 | Core views — Dashboard, Projects, Settings, Export (mock data) | Done |
 | 4 | Auth + Drive integration — GIS OAuth, real Drive read/write, CAS | Done |
 | 5 | AI extraction + BYOK — Gemini integration, extraction review flow | Planned |
-| 6 | Demo mode + polish — Landing page, diagnostics, about, analytics wiring | Planned |
+| 6 | Polish — Diagnostics page | Planned |
+| 7 | Polish — Landing page & about page refinement | Planned |
+| 8 | Polish — PWA/offline & service worker | Planned |
 
 ## License
 

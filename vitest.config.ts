@@ -10,6 +10,12 @@ export default mergeConfig(viteConfig, defineConfig({
       provider: "v8",
       include: ["src/**"],
       exclude: ["src/**/*.test.*", "src/test/**"],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
+      },
     },
   },
 }));
