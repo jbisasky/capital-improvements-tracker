@@ -1,13 +1,35 @@
 import { type ReactElement, useState } from "react";
 import { useStorage } from "@/services/storage-context";
 import { type PropertyType } from "@/domain/schemas";
-import { trackClearAllData } from "@/services/analytics";
+import { trackClearAllData, trackBYOKKeySaved } from "@/services/analytics";
+import {
+  getGeminiKey,
+  saveGeminiKey,
+  clearGeminiKey,
+  getKeyExpiry,
+  isSessionOnly,
+  type ExpiryDays,
+} from "@/services/gemini-key";
+import {
+  getBudgetSettings,
+  saveBudgetSettings,
+  getUsageCounters,
+  type UsageBudget,
+} from "@/services/ai-budget";
+import { testGeminiKey } from "@/services/gemini";
 
 const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: "primary_residence", label: "Primary Residence" },
   { value: "rental", label: "Rental Property" },
   { value: "home_office", label: "Home Office" },
   { value: "vacation", label: "Vacation Home" },
+];
+
+const EXPIRY_OPTIONS: { value: ExpiryDays; label: string }[] = [
+  { value: 7, label: "7 days" },
+  { value: 30, label: "30 days" },
+  { value: 90, label: "90 days" },
+  { value: null, label: "Never" },
 ];
 
 export function SettingsPage(): ReactElement {
@@ -27,10 +49,50 @@ export function SettingsPage(): ReactElement {
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
+  // BYOK key state
+  const [keyInput, setKeyInput] = useState("");
+  const [sessionOnly, setSessionOnly] = useState(false);
+  const [expiryDays, setExpiryDays] = useState<ExpiryDays>(getKeyExpiry());
+  const [hasKey, setHasKey] = useState(getGeminiKey() != null);
+  const [keyIsSessionOnly, setKeyIsSessionOnly] = useState(isSessionOnly());
+  const [testStatus, setTestStatus] = useState<"idle" | "testing" | "valid" | "invalid">("idle");
+
+  // Budget state
+  const [budget, setBudget] = useState<UsageBudget>(getBudgetSettings());
+  const usage = getUsageCounters();
+
   function handleSaveProperty(e: React.SyntheticEvent<HTMLFormElement>): void {
     e.preventDefault();
-    // Property saving will be wired to the storage driver in Task 4
-    // For now it just shows the form is functional
+  }
+
+  function handleSaveKey(): void {
+    if (keyInput.trim().length === 0) return;
+    saveGeminiKey(keyInput.trim(), { expiryDays, sessionOnly });
+    setHasKey(true);
+    setKeyIsSessionOnly(sessionOnly);
+    setKeyInput("");
+    setTestStatus("idle");
+    trackBYOKKeySaved(sessionOnly ? "session" : String(expiryDays ?? "never"));
+  }
+
+  function handleRemoveKey(): void {
+    clearGeminiKey();
+    setHasKey(false);
+    setKeyIsSessionOnly(false);
+    setTestStatus("idle");
+  }
+
+  function handleTestKey(): void {
+    const key = keyInput.trim().length > 0 ? keyInput.trim() : getGeminiKey();
+    if (key == null) return;
+    setTestStatus("testing");
+    void testGeminiKey(key).then((result) => {
+      setTestStatus(result.ok ? "valid" : "invalid");
+    });
+  }
+
+  function handleSaveBudget(): void {
+    saveBudgetSettings(budget);
   }
 
   function handleClearData(): void {
@@ -139,32 +201,182 @@ export function SettingsPage(): ReactElement {
         </button>
       </form>
 
-      {/* BYOK API Key (placeholder) */}
+      {/* BYOK API Key */}
       <div className="space-y-4 rounded-lg border p-4">
         <h2 className="text-lg font-medium">Gemini API Key (BYOK)</h2>
         <p className="text-sm text-muted-foreground">
           Enter your Google Gemini API key to enable AI-powered receipt extraction.
           The key is stored locally and never sent to any server other than Google.
         </p>
-        <div className="flex gap-3">
-          <input
-            type="password"
-            placeholder="Enter API key..."
-            autoComplete="off"
-            disabled
-            className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-50"
-          />
-          <button
-            type="button"
-            disabled
-            className="rounded-md border px-3 py-2 text-sm disabled:opacity-50"
-          >
-            Save Key
-          </button>
-        </div>
+
+        {hasKey ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="inline-block size-2 rounded-full bg-green-500" />
+              <span className="text-sm font-medium text-green-700">
+                Key configured{keyIsSessionOnly ? " (session only)" : ""}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleTestKey}
+                disabled={testStatus === "testing"}
+                className="rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+              >
+                {testStatus === "testing" ? "Testing…" : "Test Key"}
+              </button>
+              <button
+                type="button"
+                onClick={handleRemoveKey}
+                className="rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                Remove Key
+              </button>
+            </div>
+            {testStatus === "valid" && (
+              <p className="text-sm text-green-600">Key is valid and working.</p>
+            )}
+            {testStatus === "invalid" && (
+              <p className="text-sm text-red-600">Key is invalid or restricted. Check your API key.</p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <input
+                type="password"
+                placeholder="Enter API key…"
+                autoComplete="off"
+                value={keyInput}
+                onChange={(e) => { setKeyInput(e.target.value); }}
+                className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+              <button
+                type="button"
+                onClick={handleSaveKey}
+                disabled={keyInput.trim().length === 0}
+                className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
+              >
+                Save Key
+              </button>
+              <button
+                type="button"
+                onClick={handleTestKey}
+                disabled={keyInput.trim().length === 0 || testStatus === "testing"}
+                className="rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+              >
+                {testStatus === "testing" ? "Testing…" : "Test"}
+              </button>
+            </div>
+            {testStatus === "valid" && (
+              <p className="text-sm text-green-600">Key is valid and working.</p>
+            )}
+            {testStatus === "invalid" && (
+              <p className="text-sm text-red-600">Key is invalid or restricted.</p>
+            )}
+
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={sessionOnly}
+                  onChange={(e) => { setSessionOnly(e.target.checked); }}
+                  className="rounded border"
+                />
+                Session only (don&apos;t store in this browser)
+              </label>
+            </div>
+
+            {!sessionOnly && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Key expires after:</span>
+                <select
+                  value={expiryDays == null ? "null" : String(expiryDays)}
+                  onChange={(e) => {
+                    setExpiryDays(e.target.value === "null" ? null : Number(e.target.value) as ExpiryDays);
+                  }}
+                  className="rounded-md border bg-background px-2 py-1 text-xs outline-none"
+                >
+                  {EXPIRY_OPTIONS.map((opt) => (
+                    <option key={String(opt.value)} value={opt.value == null ? "null" : String(opt.value)}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+
         <p className="text-xs text-muted-foreground">
-          Available after connecting Google Drive (Task 5).
+          Your key is sent only to Google&apos;s Gemini API over HTTPS. It is never logged or
+          sent to any other server.
         </p>
+      </div>
+
+      {/* Usage Budget */}
+      <div className="space-y-4 rounded-lg border p-4">
+        <h2 className="text-lg font-medium">AI Usage Limits</h2>
+        <p className="text-sm text-muted-foreground">
+          Protect against runaway API usage. Limits pause extractions until reset.
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label htmlFor="maxCallsSession" className="mb-1 block text-xs font-medium text-muted-foreground">
+              Max calls / session
+            </label>
+            <input
+              id="maxCallsSession"
+              type="number"
+              min="1"
+              value={budget.maxAiCallsPerSession}
+              onChange={(e) => { setBudget((b) => ({ ...b, maxAiCallsPerSession: Number(e.target.value) || 50 })); }}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label htmlFor="maxCallsDay" className="mb-1 block text-xs font-medium text-muted-foreground">
+              Max calls / day
+            </label>
+            <input
+              id="maxCallsDay"
+              type="number"
+              min="1"
+              value={budget.maxAiCallsPerDay}
+              onChange={(e) => { setBudget((b) => ({ ...b, maxAiCallsPerDay: Number(e.target.value) || 200 })); }}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label htmlFor="maxTokensDay" className="mb-1 block text-xs font-medium text-muted-foreground">
+              Max tokens / day
+            </label>
+            <input
+              id="maxTokensDay"
+              type="number"
+              min="1000"
+              step="100000"
+              value={budget.maxAiTokensPerDay}
+              onChange={(e) => { setBudget((b) => ({ ...b, maxAiTokensPerDay: Number(e.target.value) || 2_000_000 })); }}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        </div>
+
+        <div className="text-xs text-muted-foreground">
+          Today: {usage.dailyCalls} calls, ~{usage.dailyTokens.toLocaleString()} tokens
+          · This session: {usage.sessionCalls} calls
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSaveBudget}
+          className="rounded-md border px-3 py-2 text-sm hover:bg-accent"
+        >
+          Save Limits
+        </button>
       </div>
 
       {/* Clear All Data */}
