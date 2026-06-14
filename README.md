@@ -50,8 +50,10 @@ This app is a durable, low-maintenance personal ledger that:
 
 ## Features
 
-### Implemented (Tasks 1–4)
+### Implemented (Tasks 1–6)
 
+- **AI extraction** — Gemini 2.5 Flash multimodal receipt scanning with human review step (BYOK)
+- **Diagnostics page** — Ring-buffer logging for background sync and AI rate limit debugging
 - **Google Drive integration** — OAuth sign-in, real read/write to `appDataFolder`, CAS concurrency
 
 - **Dashboard** — cost basis / total spent / project count / documentation health summary
@@ -67,11 +69,10 @@ This app is a durable, low-maintenance personal ledger that:
 - **Strict TypeScript** — `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, zero `any`
 - **ESLint** — `strictTypeChecked` + `stylisticTypeChecked`
 
-### Planned (Tasks 5–6)
+### Planned (Tasks 7–8)
 
-- **AI extraction** — Gemini 2.5 Flash multimodal receipt scanning with human review step (BYOK)
 - **PWA & offline** — service worker, offline read-only mode
-- **Landing page polish** — production landing with demo CTA, about page, diagnostics
+- **Landing page polish** — production landing with demo CTA, about page
 
 ## Tech stack
 
@@ -176,8 +177,8 @@ docs/
 | 2 | Domain + storage layer — Zod schemas, Result type, MockStorageDriver | Done |
 | 3 | Core views — Dashboard, Projects, Settings, Export (mock data) | Done |
 | 4 | Auth + Drive integration — GIS OAuth, real Drive read/write, CAS | Done |
-| 5 | AI extraction + BYOK — Gemini integration, extraction review flow | Planned |
-| 6 | Polish — Diagnostics page | Planned |
+| 5 | AI extraction + BYOK — Gemini integration, extraction review flow | Done |
+| 6 | Polish — Diagnostics page | Done |
 | 7 | Polish — Landing page & about page refinement | Planned |
 | 8 | Polish — PWA/offline & service worker | Planned |
 
