@@ -11,21 +11,21 @@ import { useLocation } from "react-router";
 describe("useRoutePrefix", () => {
   it("should return '/demo' if pathname starts with '/demo'", () => {
     // Setup mock return value
-    (useLocation as any).mockReturnValue({ pathname: "/demo" });
+    vi.mocked(useLocation).mockReturnValue({ pathname: "/demo" } as unknown as ReturnType<typeof useLocation>);
     expect(useRoutePrefix()).toBe("/demo");
 
-    (useLocation as any).mockReturnValue({ pathname: "/demo/some/path" });
+    vi.mocked(useLocation).mockReturnValue({ pathname: "/demo/some/path" } as unknown as ReturnType<typeof useLocation>);
     expect(useRoutePrefix()).toBe("/demo");
   });
 
   it("should return '' if pathname does not start with '/demo'", () => {
-    (useLocation as any).mockReturnValue({ pathname: "/dashboard" });
+    vi.mocked(useLocation).mockReturnValue({ pathname: "/dashboard" } as unknown as ReturnType<typeof useLocation>);
     expect(useRoutePrefix()).toBe("");
 
-    (useLocation as any).mockReturnValue({ pathname: "/" });
+    vi.mocked(useLocation).mockReturnValue({ pathname: "/" } as unknown as ReturnType<typeof useLocation>);
     expect(useRoutePrefix()).toBe("");
 
-    (useLocation as any).mockReturnValue({ pathname: "/about" });
+    vi.mocked(useLocation).mockReturnValue({ pathname: "/about" } as unknown as ReturnType<typeof useLocation>);
     expect(useRoutePrefix()).toBe("");
   });
 });
