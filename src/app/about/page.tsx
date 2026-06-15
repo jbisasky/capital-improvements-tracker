@@ -1,4 +1,5 @@
 import { type ReactElement } from "react";
+import { AlertTriangle } from "lucide-react";
 import { version } from "../../../package.json";
 
 export function AboutPage(): ReactElement {
@@ -10,7 +11,7 @@ export function AboutPage(): ReactElement {
       </div>
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Privacy & Data Storage</h2>
+        <h2 className="text-xl font-semibold">Privacy &amp; Data Storage</h2>
         <div className="space-y-3 text-muted-foreground">
           <p>
             Your data lives in your Google Drive. This app has no server.
@@ -24,15 +25,18 @@ export function AboutPage(): ReactElement {
 
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Disclaimer</h2>
-        <div className="rounded-lg border border-border bg-muted/50 p-4">
-          <p className="text-sm font-medium text-foreground">
-            Not tax advice — for recordkeeping only. Confirm treatment with a qualified professional.
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            The tax classifications and rules provided within this application are for informational purposes only
-            and do not constitute tax, legal, or accounting advice. Always consult with a certified tax professional
-            regarding your specific situation before making any tax-related decisions or filings.
-          </p>
+        <div className="flex gap-3 rounded-lg border border-yellow-500/30 bg-yellow-50/50 p-4 dark:bg-yellow-950/20">
+          <AlertTriangle className="size-5 shrink-0 text-yellow-600 dark:text-yellow-500" />
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Not tax advice — for recordkeeping only. Confirm treatment with a qualified professional.
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              The tax classifications and rules provided within this application are for informational purposes only
+              and do not constitute tax, legal, or accounting advice. Always consult with a certified tax professional
+              regarding your specific situation before making any tax-related decisions or filings.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -41,7 +45,7 @@ export function AboutPage(): ReactElement {
         <ul className="list-inside list-disc space-y-2 text-muted-foreground">
           <li>
             <a
-              href="https://github.com/your-org/capital-improvements-tracker/blob/main/docs/high-level-design.md"
+              href="https://github.com/jbisasky/capital-improvements-tracker/blob/main/docs/high-level-design.md"
               target="_blank"
               rel="noreferrer"
               className="text-primary hover:underline"
@@ -51,7 +55,7 @@ export function AboutPage(): ReactElement {
           </li>
           <li>
             <a
-              href="https://github.com/your-org/capital-improvements-tracker/blob/main/docs/low-level-design.md"
+              href="https://github.com/jbisasky/capital-improvements-tracker/blob/main/docs/low-level-design.md"
               target="_blank"
               rel="noreferrer"
               className="text-primary hover:underline"
@@ -61,12 +65,22 @@ export function AboutPage(): ReactElement {
           </li>
           <li>
             <a
-              href="https://github.com/your-org/capital-improvements-tracker/blob/main/docs/google-cloud-setup.md"
+              href="https://github.com/jbisasky/capital-improvements-tracker/blob/main/docs/google-cloud-setup.md"
               target="_blank"
               rel="noreferrer"
               className="text-primary hover:underline"
             >
               Google Cloud Setup Guide
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://github.com/jbisasky/capital-improvements-tracker/blob/main/docs/requirements-ears.md"
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary hover:underline"
+            >
+              Requirements (EARS)
             </a>
           </li>
         </ul>
