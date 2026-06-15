@@ -66,13 +66,14 @@ This app is a durable, low-maintenance personal ledger that:
 - **Demo mode** — 8 fixture projects with realistic IRS data, no sign-in required
 - **Analytics** — Plausible integration (privacy-first, no cookies)
 - **Observability** — OpenTelemetry browser SDK → Honeycomb (performance traces, no PII)
+- **Landing page polish** — two-column marketing layout, Google-branded sign-in CTA, decorative dashboard preview card
+- **About page** — fixed documentation links, added Requirements (EARS) link, Badge disclaimer
 - **Strict TypeScript** — `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, zero `any`
 - **ESLint** — `strictTypeChecked` + `stylisticTypeChecked`
 
-### Planned (Tasks 7–8)
+### Planned (Task 8)
 
 - **PWA & offline** — service worker, offline read-only mode
-- **Landing page polish** — production landing with demo CTA, about page
 
 ## Tech stack
 
@@ -179,7 +180,7 @@ docs/
 | 4 | Auth + Drive integration — GIS OAuth, real Drive read/write, CAS | Done |
 | 5 | AI extraction + BYOK — Gemini integration, extraction review flow | Done |
 | 6 | Polish — Diagnostics page | Done |
-| 7 | Polish — Landing page & about page refinement | Planned |
+| 7 | Polish — Landing page & about page refinement | Done |
 | 8 | Polish — PWA/offline & service worker | Planned |
 
 ## License

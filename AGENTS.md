@@ -36,7 +36,7 @@ When you complete a task or a step, **you MUST update the "Completed Tasks" and 
 - [x] **Task 4 (PR #16):** Auth + Drive — GIS OAuth2 sign-in, auth state machine, httpFetch wrapper with retry/backoff, DriveStorageDriver with CAS via headRevisionId, auth-guarded routing, sign-out in sidebar, trackSignIn() analytics event.
 - [x] **Task 5 (PR #17):** AI extraction — Gemini 2.5 Flash integration, BYOK API key, receipt scanning, human review step.
 - [x] **Task 6:** Polish — Diagnostics page, ring buffer logging.
+- [x] **Task 7 (PR #19):** Polish — Landing page & about page refinement.
 
 ### Remaining Tasks
-- [ ] **Task 7:** Polish — Landing page & about page refinement.
 - [ ] **Task 8:** Polish — PWA/offline & service worker.
