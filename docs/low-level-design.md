@@ -83,6 +83,26 @@ Mutations carry a client-generated `operationId` (UUID) recorded in an in-memory
 double-submits (e.g. double-click) are coalesced. Drive writes are made idempotent via the
 compare-and-swap precondition in §6.
 
+### 1.7 Build-time environment variables
+
+Vite exposes only variables prefixed with `VITE_` to client code via `import.meta.env`. Local
+developers copy [`.env.example`](../.env.example) to `.env` (gitignored); production builds set
+the same keys as environment variables on the static host (e.g. Cloudflare Pages).
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `VITE_GOOGLE_CLIENT_ID` | For live mode | `""` (empty) | GIS OAuth Web Client ID. When unset, `initAuth()` is skipped and sign-in no-ops; demo mode (`/demo`) is unaffected. See [google-cloud-setup.md](google-cloud-setup.md). |
+| `VITE_HONEYCOMB_API_KEY` | No | unset | Honeycomb ingest key. When unset, `initTelemetry()` no-ops. |
+| `VITE_OTEL_SAMPLE_RATE` | No | `0.1` | Head-sampling ratio for browser traces (0.0–1.0). |
+| `VITE_APP_VERSION` | No | `dev` | `service.version` resource attribute on exported spans. |
+
+**Repository contract (EARS HOST-06/07):** `.env.example` is committed as the canonical template;
+`.env` is never committed. The OAuth Client ID is a public identifier (embedded in the JS bundle)
+but local/prod values are kept out of git so configuration stays centralized per environment.
+
+**Runtime BYOK (not env):** the Gemini API key is entered by the user in Settings and stored in
+`localStorage` — it is intentionally absent from `.env.example`.
+
 ---
 
 ## 2. Data contracts (TypeScript + zod)
@@ -229,6 +249,8 @@ Key invariants:
 - The token is **never** read from or written to storage; a refresh always starts cold.
 - The BYOK key *is* read from `localStorage` at boot (unless session-only mode is active).
 - Manifest bootstrap is gated on a valid token; if absent, the UI shows the signed-out state.
+- `initAuth()` runs only when `VITE_GOOGLE_CLIENT_ID` is non-empty (§1.7); without it the app
+  boots to the landing page and demo mode remains fully functional.
 
 ---
 

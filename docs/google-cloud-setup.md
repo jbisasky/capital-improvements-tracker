@@ -84,12 +84,18 @@ APIs & Services → **Credentials** → **+ Create credentials** → **OAuth cli
    (`google.accounts.oauth2.initTokenClient`) uses JavaScript origins, not redirect URIs.
 5. **Create**, then copy the **Client ID** (looks like `xx….apps.googleusercontent.com`).
 
-Put it in the app's build config (e.g. an env var `VITE_GOOGLE_CLIENT_ID` baked at build time):
+Put it in the app's build config:
 
 ```bash
-# .env (build-time; the Client ID is public, but keep config centralized)
+# Local dev: copy the template, then edit .env (gitignored)
+cp .env.example .env
+
+# .env — the Client ID is public, but keep real values out of git
 VITE_GOOGLE_CLIENT_ID=xxxxxxxxxxxx.apps.googleusercontent.com
 ```
+
+For production (Cloudflare Pages), set `VITE_GOOGLE_CLIENT_ID` as a build-time environment
+variable in the project settings — do not commit a `.env` file.
 
 > Whenever the hosting domain changes, come back and add the new origin here (LLD §5.4). A missing
 > origin is the #1 cause of GIS sign-in failing with `idpiframe_initialization_failed` / origin
