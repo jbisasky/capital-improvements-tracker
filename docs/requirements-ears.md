@@ -84,6 +84,8 @@
 | AUTH-10 | Event-driven | When the user clicks "Sign out," the app shall call `google.accounts.oauth2.revoke()` (best-effort) and clear all in-memory auth state. |
 | AUTH-11 | Event-driven | After every token response, the app shall verify that all required scopes are present; if any scope is missing, it shall surface `INSUFFICIENT_SCOPE` with a re-consent CTA. |
 | AUTH-12 | Event-driven | When the app opens in a new tab or after a hard refresh, the app shall start in the unauthenticated state (no token recovery from storage). |
+| AUTH-13 | Optional | Where `VITE_GOOGLE_CLIENT_ID` is set at build time, the app shall initialize the GIS token client on boot and enable live sign-in and Drive-backed storage on authenticated routes. |
+| AUTH-14 | If-then | If `VITE_GOOGLE_CLIENT_ID` is not set, then `initAuth()` shall be skipped, "Sign in with Google" shall no-op without error, and the app shall remain fully usable via demo mode (`/demo`). |
 
 ---
 
@@ -426,6 +428,9 @@
 | HOST-03 | Ubiquitous | The deployment shall use SPA routing: serve `index.html` for all unmatched client routes. |
 | HOST-04 | Ubiquitous | Both the `*.pages.dev` URL and any custom domain shall be registered as Authorized JavaScript origins in the Google Cloud OAuth client config. |
 | HOST-05 | Ubiquitous | The hosting shall be treated as swappable infrastructure: the build output is static files, and user data lives in Drive, so migrating to another static host requires no data migration. |
+| HOST-06 | Ubiquitous | The repository shall ship a committed `.env.example` documenting every supported `VITE_*` build-time variable with placeholder values and inline comments. |
+| HOST-07 | Ubiquitous | The `.env` file (developer-local copy of `.env.example`) shall be listed in `.gitignore` and shall never be committed to version control. |
+| HOST-08 | Ubiquitous | Production deployments shall set `VITE_GOOGLE_CLIENT_ID` (and any other required `VITE_*` variables) as build-time environment variables on the static host (e.g. Cloudflare Pages project settings), not via a committed `.env` file. |
 
 ---
 

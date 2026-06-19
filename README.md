@@ -116,8 +116,48 @@ git clone https://github.com/jbisasky/capital-improvements-tracker.git
 cd capital-improvements-tracker
 nvm use          # switches to Node 24
 npm install
+cp .env.example .env   # optional — only needed for live Google sign-in (see below)
 npm run dev      # starts Vite dev server at http://localhost:5173
 ```
+
+### Enabling Google sign-in and Drive storage
+
+By default the app runs in **demo mode** (`/demo`) with fixture data — no Google account or
+configuration required. To use **live mode** (sign in, read/write your own Drive data):
+
+1. **One-time Google Cloud setup** — follow [docs/google-cloud-setup.md](docs/google-cloud-setup.md):
+   enable the Drive API, configure the OAuth consent screen (`drive.appdata` + `drive.file`),
+   add yourself as a test user, and create an OAuth 2.0 **Web** Client ID with
+   `http://localhost:5173` as an authorized JavaScript origin.
+
+2. **Local environment file** — copy the template and paste your Client ID:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edit `.env` and set:
+
+   ```bash
+   VITE_GOOGLE_CLIENT_ID=xxxxxxxxxxxx.apps.googleusercontent.com
+   ```
+
+   `.env` is gitignored; never commit it. [`.env.example`](.env.example) documents all supported
+   `VITE_*` variables (OAuth, optional Honeycomb telemetry).
+
+3. **Restart the dev server** — Vite reads `.env` at startup. Click **Sign in with Google** on
+   the landing page (not "See a demo"). On first sign-in the app bootstraps `manifest.json` in
+   your Drive `appDataFolder`.
+
+4. **Production** — set `VITE_GOOGLE_CLIENT_ID` as a build-time environment variable on your
+   static host (e.g. Cloudflare Pages → Settings → Environment variables). Add your production
+   origin to the OAuth client's authorized JavaScript origins.
+
+5. **Gemini receipt scanning (optional)** — enter your API key in **Settings → BYOK** at runtime;
+   it is stored in `localStorage`, not in `.env`. See the runbook for key restrictions.
+
+Without `VITE_GOOGLE_CLIENT_ID`, "Sign in with Google" no-ops gracefully and authenticated
+routes redirect to the landing page — demo mode continues to work.
 
 ### Scripts
 
