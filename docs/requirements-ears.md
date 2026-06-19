@@ -367,7 +367,7 @@
 | SEC-05 | Ubiquitous | OAuth scope shall be minimized: `drive.file` (not full `drive`) so the app can only access files it created. |
 | SEC-06 | Where-optional | Where the user enables "session-only" mode, the BYOK key shall be held in memory only and not persisted to `localStorage`. |
 | SEC-07 | Ubiquitous | The app shall apply Subresource Integrity (SRI) hashes to any externally loaded scripts (e.g. GIS client) where the CDN supports it. |
-| SEC-08 | Ubiquitous | The BYOK API key shall be restricted (in Google Cloud console) to the Generative Language API only, with an HTTP referrer restriction to the app's domain(s). This shall be documented in `docs/google-cloud-setup.md`. |
+| SEC-08 | Ubiquitous | The BYOK API key shall be restricted (in Google Cloud console) to the Gemini API only (service: `generativelanguage.googleapis.com`), with an HTTP referrer restriction to the app's domain(s). This shall be documented in `docs/google-cloud-setup.md`. |
 | SEC-09 | Ubiquitous | The codebase shall ban `dangerouslySetInnerHTML` via ESLint rule. All user-supplied content (project titles, descriptions, AI-extracted values) shall be rendered through React's default escaping only. |
 | SEC-10 | Ubiquitous | The BYOK key input shall use `autocomplete="off"` and `type="password"` to prevent browser autofill and shoulder-surfing. |
 | SEC-11 | Event-driven | When the app boots and finds a stored BYOK key whose `storedAt` timestamp exceeds the configured expiry window (default 30 days), it shall delete the key and prompt: "Your API key expired from local storage (security policy). Re-enter it in Settings." |
