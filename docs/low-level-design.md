@@ -7,7 +7,7 @@
 > This document specifies the **granular handshaking** behind each edge of the §2 architecture
 > flowchart in the HLD: exact API calls, headers, request/response shapes, ordering, retries,
 > error handling, and the data contracts. It is implementation-facing. Where Google's public
-> behavior is version-sensitive (GIS, Drive v3, Generative Language API), the contract is
+> behavior is version-sensitive (GIS, Drive v3, Gemini API), the contract is
 > stated and any race/ambiguity is called out explicitly so it is handled in code, not assumed.
 
 ## Table of contents
@@ -863,11 +863,14 @@ interface UsageBudget {
 ### 14.6 Provider-side limits (defense in depth — owner configures)
 Client guards can be bypassed by a determined bug or a tampered build, so the **authoritative**
 ceiling is set at Google:
-- **AI Studio / Generative Language API quotas:** set requests-per-minute and requests-per-day
-  limits on the project/key in the Google Cloud console (Quotas page). The free tier already
-  enforces RPM/RPD caps; explicit lower caps add headroom safety.
-- **API key restrictions:** restrict the BYOK key to the Generative Language API only, and add an
-  **HTTP referrer restriction** to the app's domain(s) so a leaked key can't be used elsewhere.
+- **AI Studio / Gemini API quotas:** rate limits are tier-based (RPM, TPM, RPD per model, per
+  project) and are viewed in AI Studio; Free tier limits are fixed by Google. Cloud Console
+  **Quotas & System Limits** can inspect `generativelanguage.googleapis.com` metrics but
+  **Edit quotas** is primarily for requesting increases, not lowering caps. Optional billing
+  budgets apply on paid tiers.
+- **API key restrictions:** restrict the BYOK key to the Gemini API only. HTTP referrer
+  restrictions apply only to legacy standard keys; auth keys from AI Studio (2026 default) cannot
+  use referrers — rely on Gemini-only scope, Google leaked-key enforcement, and quota caps.
 - **Drive API quotas:** Drive enforces per-user rate limits; our backoff (§1.5) + breaker (§14.4)
   cooperate with `429`/`403 rateLimitExceeded` responses rather than fighting them.
 - These steps are in the runbook [`docs/google-cloud-setup.md`](google-cloud-setup.md).
@@ -1063,7 +1066,7 @@ All three jobs run in parallel. PR merge requires all to pass (branch protection
 - **Real Gemini API calls in CI** — would require a BYOK key as a CI secret and would be
   non-deterministic (model output varies). Mocked with canned responses.
 - **Contract tests** — overkill for a single SPA calling stable third-party APIs (Google Drive v3,
-  Generative Language API). The mock shapes in E2E serve as de-facto consumer contracts;
+  Gemini API). The mock shapes in E2E serve as de-facto consumer contracts;
   breaking changes from Google are caught by version-pinned API paths and release notes.
 
 ---

@@ -201,7 +201,7 @@ export async function extractFromDocument(
       return err(
         appError(
           "AI_EXTRACTION_FAILED",
-          "API key does not have permission. Ensure it has access to the Generative Language API.",
+          "API key does not have permission. Ensure the Gemini API is enabled and the key is restricted to it.",
         ),
       );
     }
