@@ -29,6 +29,7 @@ function projectToForm(project: Project): ProjectFormData {
     safeHarborElection: project.safeHarborElection ?? false,
     sqftAffected: project.sqftAffected != null ? String(project.sqftAffected) : "",
     notes: project.notes ?? "",
+    receiptDetailLevel: project.receiptDetailLevel ?? "",
   };
 }
 
@@ -55,6 +56,7 @@ function formToUpdatedProject(original: Project, data: ProjectFormData): Project
     ...(data.safeHarborElection ? { safeHarborElection: true } : {}),
     ...(data.sqftAffected ? { sqftAffected: parseFloat(data.sqftAffected) } : {}),
     ...(data.notes ? { notes: data.notes } : {}),
+    ...(data.receiptDetailLevel ? { receiptDetailLevel: data.receiptDetailLevel } : {}),
   };
 }
 

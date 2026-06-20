@@ -150,6 +150,7 @@ describe("extractFromDocument", () => {
                 irsJustification: "Adds to basis.",
                 vendor: "Acme Roofing",
                 confidence: 0.9,
+                receiptDetailLevel: "lump_sum",
               }),
             }],
           },

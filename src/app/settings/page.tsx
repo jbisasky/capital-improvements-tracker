@@ -1,6 +1,8 @@
 import { type ReactElement, useState } from "react";
+import { Link } from "react-router";
 import { useStorage } from "@/services/storage-context";
 import { type PropertyType } from "@/domain/schemas";
+import { useRoutePrefix } from "@/hooks/use-route-prefix";
 import { trackClearAllData, trackBYOKKeySaved } from "@/services/analytics";
 import {
   getGeminiKey,
@@ -33,7 +35,8 @@ const EXPIRY_OPTIONS: { value: ExpiryDays; label: string }[] = [
 ];
 
 export function SettingsPage(): ReactElement {
-  const { manifest } = useStorage();
+  const prefix = useRoutePrefix();
+  const { manifest, attachmentsFolderId, attachmentsFolderName } = useStorage();
   const property = manifest?.property;
 
   const [address, setAddress] = useState(property?.address ?? "");
@@ -377,6 +380,51 @@ export function SettingsPage(): ReactElement {
         >
           Save Limits
         </button>
+      </div>
+
+      {/* Google Drive storage */}
+      <div className="space-y-3 rounded-lg border p-4">
+        <h2 className="text-lg font-medium">Google Drive storage</h2>
+        <p className="text-sm text-muted-foreground">
+          Project records are stored in a hidden <code className="text-xs">manifest.json</code> file
+          in your Drive app data folder (not visible in normal Drive browsing). Receipts and invoices
+          live in a visible folder, organized into one subfolder per project.
+        </p>
+        <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+          <li>
+            Index: <span className="font-medium text-foreground">manifest.json</span> (hidden app data)
+          </li>
+          <li>
+            Attachments root:{" "}
+            <span className="font-medium text-foreground">{attachmentsFolderName}</span>
+          </li>
+        </ul>
+        {attachmentsFolderId != null ? (
+          <a
+            href={`https://drive.google.com/drive/folders/${attachmentsFolderId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-sm text-primary hover:underline"
+          >
+            Open attachments folder in Google Drive
+          </a>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            The attachments folder is created when you upload your first receipt
+            {manifest != null ? "" : " (sign in to sync)"}.
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          To fully remove your data from Google, delete the visible attachments folder and revoke
+          this app&apos;s Drive access in your Google Account settings. The hidden app data folder
+          can be cleared from Google Drive → Settings → Manage apps.
+        </p>
+        <Link
+          to={`${prefix}/settings/diagnostics`}
+          className="inline-block text-sm text-primary hover:underline"
+        >
+          View storage diagnostics
+        </Link>
       </div>
 
       {/* Clear All Data */}

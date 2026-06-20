@@ -6,18 +6,20 @@
 import { type Result, ok, err } from "@/domain/result";
 import { appError } from "@/domain/errors";
 import { ManifestSchema, type Manifest, type Project } from "@/domain/schemas";
+import { MAX_ATTACHMENTS_PER_PROJECT } from "@/domain/attachment-validation";
 import {
   type StorageDriver,
   type ManifestReadResult,
+  type UnlinkedDriveFile,
 } from "@/services/storage-driver";
 import { httpFetch } from "@/services/http";
-import { validateAttachmentFile } from "@/domain/attachment-validation";
-import { type Attachment } from "@/domain/schemas";
 import {
-  ensureAttachmentsFolder,
-  uploadAttachmentResumable,
-  fetchAttachmentBlob,
-  deleteDriveFile,
+  ensureAttachmentsRootFolder,
+  migrateProjectsToSubfolders,
+  uploadFileToProjectFolder,
+  downloadDriveFile,
+  trashDriveFile,
+  listUnlinkedDriveFiles,
 } from "@/services/drive-attachment";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
@@ -81,7 +83,11 @@ export class DriveStorageDriver implements StorageDriver {
     if (!parseResult.ok) return parseResult;
 
     this.cachedManifest = parseResult.value;
-    return ok({ manifest: parseResult.value, etag: revisionId });
+
+    const layoutResult = await this.syncFolderLayout(parseResult.value, revisionId);
+    if (!layoutResult.ok) return layoutResult;
+
+    return ok(layoutResult.value);
   }
 
   async writeManifest(
@@ -208,45 +214,115 @@ export class DriveStorageDriver implements StorageDriver {
     return ok(project);
   }
 
-  async uploadProjectAttachment(
-    projectId: string,
-    file: File,
+  async addProjectWithAttachments(
+    project: Project,
+    files: File[],
   ): Promise<Result<Manifest>> {
-    const projectResult = await this.getProject(projectId);
-    if (!projectResult.ok) return projectResult;
-
-    const validation = validateAttachmentFile(
-      file,
-      projectResult.value.attachments.length,
-    );
-    if (!validation.ok) return validation;
-
-    const uploadResult = await this.uploadFileForManifest(file);
-    if (!uploadResult.ok) return uploadResult;
-
-    const { attachment, manifest: folderManifest, etag } = uploadResult.value;
-    const project = folderManifest.projects.find((p) => p.id === projectId);
-    if (project == null) {
-      return err(appError("DRIVE_NOT_FOUND", `Project ${projectId} not found`));
+    if (files.length === 0) {
+      return this.addProject(project);
+    }
+    if (project.attachments.length + files.length > MAX_ATTACHMENTS_PER_PROJECT) {
+      return err(
+        appError(
+          "VALIDATION_ERROR",
+          `Maximum ${String(MAX_ATTACHMENTS_PER_PROJECT)} attachments per project.`,
+        ),
+      );
     }
 
-    const updated: Project = {
-      ...project,
-      attachments: [...project.attachments, attachment],
-      updatedAt: new Date().toISOString(),
+    const readResult = await this.ensureLoaded();
+    if (!readResult.ok) return readResult;
+
+    const manifest = readResult.value.manifest;
+    if (manifest.projects.some((p) => p.id === project.id)) {
+      return err(
+        appError("DRIVE_CONFLICT", `Project ${project.id} already exists`),
+      );
+    }
+
+    const rootResult = await ensureAttachmentsRootFolder(manifest);
+    if (!rootResult.ok) return rootResult;
+
+    let workingProject: Project = { ...project, attachments: [...project.attachments] };
+
+    for (const file of files) {
+      const uploadResult = await uploadFileToProjectFolder(
+        file,
+        workingProject,
+        rootResult.value.folderId,
+      );
+      if (!uploadResult.ok) return uploadResult;
+      workingProject = {
+        ...uploadResult.value.project,
+        attachments: [...workingProject.attachments, uploadResult.value.attachment],
+      };
+    }
+
+    const updated: Manifest = {
+      ...rootResult.value.manifest,
+      projects: [...rootResult.value.manifest.projects, workingProject],
     };
 
-    const newProjects = folderManifest.projects.map((p) =>
-      p.id === projectId ? updated : p,
-    );
-    const manifestToWrite: Manifest = { ...folderManifest, projects: newProjects };
-
-    const writeResult = await this.writeManifest(manifestToWrite, etag);
+    const writeResult = await this.writeManifest(updated, readResult.value.etag);
     if (!writeResult.ok) return writeResult;
     return ok(writeResult.value.manifest);
   }
 
-  async removeProjectAttachment(
+  async uploadAttachment(
+    projectId: string,
+    file: File,
+  ): Promise<Result<Manifest>> {
+    const readResult = await this.ensureLoaded();
+    if (!readResult.ok) return readResult;
+
+    const manifest = readResult.value.manifest;
+    const index = manifest.projects.findIndex((p) => p.id === projectId);
+    if (index === -1) {
+      return err(appError("DRIVE_NOT_FOUND", `Project ${projectId} not found`));
+    }
+
+    const project = manifest.projects[index];
+    if (project == null) {
+      return err(appError("DRIVE_NOT_FOUND", `Project ${projectId} not found`));
+    }
+
+    if (project.attachments.length >= MAX_ATTACHMENTS_PER_PROJECT) {
+      return err(
+        appError(
+          "VALIDATION_ERROR",
+          `Maximum ${String(MAX_ATTACHMENTS_PER_PROJECT)} attachments per project.`,
+        ),
+      );
+    }
+
+    const rootResult = await ensureAttachmentsRootFolder(manifest);
+    if (!rootResult.ok) return rootResult;
+
+    const uploadResult = await uploadFileToProjectFolder(
+      file,
+      project,
+      rootResult.value.folderId,
+    );
+    if (!uploadResult.ok) return uploadResult;
+
+    const updatedProject: Project = {
+      ...uploadResult.value.project,
+      attachments: [...project.attachments, uploadResult.value.attachment],
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newProjects = [...rootResult.value.manifest.projects];
+    newProjects[index] = updatedProject;
+
+    const writeResult = await this.writeManifest(
+      { ...rootResult.value.manifest, projects: newProjects },
+      readResult.value.etag,
+    );
+    if (!writeResult.ok) return writeResult;
+    return ok(writeResult.value.manifest);
+  }
+
+  async removeAttachment(
     projectId: string,
     fileId: string,
   ): Promise<Result<Manifest>> {
@@ -254,25 +330,30 @@ export class DriveStorageDriver implements StorageDriver {
     if (!readResult.ok) return readResult;
 
     const manifest = readResult.value.manifest;
-    const project = manifest.projects.find((p) => p.id === projectId);
+    const index = manifest.projects.findIndex((p) => p.id === projectId);
+    if (index === -1) {
+      return err(appError("DRIVE_NOT_FOUND", `Project ${projectId} not found`));
+    }
+
+    const project = manifest.projects[index];
     if (project == null) {
       return err(appError("DRIVE_NOT_FOUND", `Project ${projectId} not found`));
     }
+
     if (!project.attachments.some((a) => a.fileId === fileId)) {
-      return err(appError("DRIVE_NOT_FOUND", "Attachment not found"));
+      return err(appError("DRIVE_NOT_FOUND", "Attachment not found on project"));
     }
 
-    await deleteDriveFile(fileId);
+    await trashDriveFile(fileId);
 
-    const updated: Project = {
+    const updatedProject: Project = {
       ...project,
       attachments: project.attachments.filter((a) => a.fileId !== fileId),
       updatedAt: new Date().toISOString(),
     };
 
-    const newProjects = manifest.projects.map((p) =>
-      p.id === projectId ? updated : p,
-    );
+    const newProjects = [...manifest.projects];
+    newProjects[index] = updatedProject;
 
     const writeResult = await this.writeManifest(
       { ...manifest, projects: newProjects },
@@ -293,87 +374,54 @@ export class DriveStorageDriver implements StorageDriver {
       return err(appError("DRIVE_NOT_FOUND", "Attachment not found"));
     }
 
-    return fetchAttachmentBlob(fileId);
+    return downloadDriveFile(fileId);
   }
 
-  async addProjectWithAttachments(
-    project: Project,
-    files: File[],
-  ): Promise<Result<Manifest>> {
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (file == null) continue;
-      const validation = validateAttachmentFile(file, i);
-      if (!validation.ok) return validation;
+  async listUnlinkedDriveFiles(): Promise<Result<UnlinkedDriveFile[]>> {
+    const readResult = await this.ensureLoaded();
+    if (!readResult.ok) return readResult;
+
+    const rootId = readResult.value.manifest.settings?.attachmentsFolderId;
+    if (rootId == null) {
+      return ok([]);
     }
 
-    const folderResult = await this.ensureAttachmentsFolderPersisted();
-    if (!folderResult.ok) return folderResult;
-
-    const attachments: Attachment[] = [];
-    for (const file of files) {
-      const uploadResult = await uploadAttachmentResumable(
-        file,
-        folderResult.value,
-      );
-      if (!uploadResult.ok) return uploadResult;
-      attachments.push(uploadResult.value);
-    }
-
-    return this.addProject({ ...project, attachments });
+    return listUnlinkedDriveFiles(readResult.value.manifest, rootId);
   }
 
   // --- Private helpers ---
 
-  private async ensureAttachmentsFolderPersisted(): Promise<Result<string>> {
-    const readResult = await this.ensureLoaded();
-    if (!readResult.ok) return readResult;
-
-    let manifest = readResult.value.manifest;
-    const etag = readResult.value.etag;
-
-    const folderResult = await ensureAttachmentsFolder(manifest);
-    if (!folderResult.ok) return folderResult;
-
-    if (folderResult.value.manifestPatch != null) {
-      manifest = {
-        ...manifest,
-        settings: {
-          ...manifest.settings,
-          ...folderResult.value.manifestPatch.settings,
-        },
-      };
-      const settingsWrite = await this.writeManifest(manifest, etag);
-      if (!settingsWrite.ok) return settingsWrite;
+  private async syncFolderLayout(
+    manifest: Manifest,
+    etag: string,
+  ): Promise<Result<ManifestReadResult>> {
+    const hasAttachments = manifest.projects.some((p) => p.attachments.length > 0);
+    if (!hasAttachments && manifest.settings?.attachmentsFolderId == null) {
+      this.cachedManifest = manifest;
+      return ok({ manifest, etag });
     }
 
-    return ok(folderResult.value.folderId);
-  }
+    const rootResult = await ensureAttachmentsRootFolder(manifest);
+    if (!rootResult.ok) return rootResult;
 
-  private async uploadFileForManifest(file: File): Promise<
-    Result<{
-      attachment: Attachment;
-      manifest: Manifest;
-      etag: string;
-    }>
-  > {
-    const folderResult = await this.ensureAttachmentsFolderPersisted();
-    if (!folderResult.ok) return folderResult;
-
-    const uploadResult = await uploadAttachmentResumable(
-      file,
-      folderResult.value,
+    const migrateResult = await migrateProjectsToSubfolders(
+      rootResult.value.manifest,
+      rootResult.value.folderId,
     );
-    if (!uploadResult.ok) return uploadResult;
+    if (!migrateResult.ok) return migrateResult;
 
-    const readResult = await this.ensureLoaded();
-    if (!readResult.ok) return readResult;
+    const settingsChanged =
+      rootResult.value.manifest.settings?.attachmentsFolderId !==
+      manifest.settings?.attachmentsFolderId;
 
-    return ok({
-      attachment: uploadResult.value,
-      manifest: readResult.value.manifest,
-      etag: readResult.value.etag,
-    });
+    if (!migrateResult.value.changed && !settingsChanged) {
+      this.cachedManifest = migrateResult.value.manifest;
+      return ok({ manifest: migrateResult.value.manifest, etag });
+    }
+
+    const writeResult = await this.writeManifest(migrateResult.value.manifest, etag);
+    if (!writeResult.ok) return writeResult;
+    return ok(writeResult.value);
   }
 
   private async ensureLoaded(): Promise<Result<ManifestReadResult>> {

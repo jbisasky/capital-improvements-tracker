@@ -1,6 +1,10 @@
 import { type ReactElement, useState } from "react";
-import { type TaxTreatment, type ImprovementCategory, type PaymentMethod, type EnergyCreditType } from "@/domain/schemas";
+import { type TaxTreatment, type ImprovementCategory, type PaymentMethod, type EnergyCreditType, type ReceiptDetailLevel } from "@/domain/schemas";
 import { type ProjectFormData, EMPTY_FORM } from "@/app/projects/project-form-types";
+import {
+  RECEIPT_DETAIL_FIELD_LABEL,
+  RECEIPT_DETAIL_LABELS,
+} from "@/domain/receipt-detail-level";
 
 export type { ProjectFormData } from "@/app/projects/project-form-types";
 
@@ -51,10 +55,14 @@ const ENERGY_OPTIONS: { value: EnergyCreditType; label: string }[] = [
   { value: "45l", label: "45L" },
 ];
 
+const RECEIPT_DETAIL_OPTIONS = (
+  Object.entries(RECEIPT_DETAIL_LABELS) as [ReceiptDetailLevel, string][]
+).map(([value, label]) => ({ value, label }));
+
 export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps): ReactElement {
   const [form, setForm] = useState<ProjectFormData>(initial ?? EMPTY_FORM);
   const [showIrs, setShowIrs] = useState(
-    !!(initial?.vendorName ?? initial?.permitNumber ?? initial?.category),
+    !!(initial?.vendorName ?? initial?.permitNumber ?? initial?.category ?? initial?.receiptDetailLevel),
   );
 
   function handleChange(field: keyof ProjectFormData, value: string | boolean): void {
@@ -263,6 +271,22 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 onChange={(e) => { handleChange("permitNumber", e.target.value); }}
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
               />
+            </div>
+            <div>
+              <label htmlFor="receiptDetailLevel" className="mb-1 block text-xs font-medium text-muted-foreground">
+                {RECEIPT_DETAIL_FIELD_LABEL}
+              </label>
+              <select
+                id="receiptDetailLevel"
+                value={form.receiptDetailLevel}
+                onChange={(e) => { handleChange("receiptDetailLevel", e.target.value); }}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Not set</option>
+                {RECEIPT_DETAIL_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label htmlFor="energyCreditType" className="mb-1 block text-xs font-medium text-muted-foreground">

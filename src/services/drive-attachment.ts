@@ -1,23 +1,30 @@
 /**
- * Drive attachment upload/download — resumable protocol. See LLD §7.
+ * Google Drive attachment upload, folder layout, and migration.
+ * See LLD §7.
  */
 
 import { type Result, ok, err } from "@/domain/result";
 import { appError } from "@/domain/errors";
-import { type Attachment, type Manifest } from "@/domain/schemas";
+import {
+  type Attachment,
+  type Manifest,
+  type Project,
+} from "@/domain/schemas";
+import { validateAttachmentFile } from "@/domain/attachment-validation";
+import { projectFolderDisplayName } from "@/domain/drive-folder-name";
 import { httpFetch } from "@/services/http";
-import { httpFetchRaw } from "@/services/http-raw";
+import { httpRawFetch } from "@/services/http-raw";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
-const ATTACHMENTS_FOLDER_NAME = "Capital Improvements (App Data)";
-const CHUNK_SIZE = 8 * 1024 * 1024;
+export const ATTACHMENTS_ROOT_FOLDER_NAME = "Capital Improvements (App Data)";
 
 interface DriveFile {
   id: string;
   name: string;
   mimeType: string;
   size?: string;
+  parents?: string[];
   trashed?: boolean;
 }
 
@@ -25,175 +32,367 @@ interface DriveFileList {
   files: DriveFile[];
 }
 
-export interface EnsureFolderResult {
-  folderId: string;
-  manifestPatch: Pick<Manifest, "settings"> | null;
+interface ResumableUploadResult {
+  id: string;
+  name: string;
+  mimeType: string;
+  size?: string;
 }
 
-/** Look up or create the user-visible attachments folder. */
-export async function ensureAttachmentsFolder(
+function attachmentFromDriveFile(file: ResumableUploadResult, fallbackName: string): Attachment {
+  return {
+    fileId: file.id,
+    filename: file.name || fallbackName,
+    mimeType: file.mimeType,
+    sizeBytes: file.size != null ? Number(file.size) : 0,
+  };
+}
+
+async function findFolderByName(name: string): Promise<Result<string | null>> {
+  const query = `name = '${name.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  const url = `${DRIVE_API}/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent("files(id)")}`;
+
+  const result = await httpFetch<DriveFileList>(url);
+  if (!result.ok) return result;
+
+  const folder = result.value.files[0];
+  return ok(folder?.id ?? null);
+}
+
+async function createFolder(
+  name: string,
+  parentId?: string,
+): Promise<Result<string>> {
+  const metadata: { name: string; mimeType: string; parents?: string[] } = {
+    name,
+    mimeType: "application/vnd.google-apps.folder",
+  };
+  if (parentId != null) {
+    metadata.parents = [parentId];
+  }
+
+  const result = await httpFetch<DriveFile>(`${DRIVE_API}/files`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(metadata),
+  });
+
+  if (!result.ok) return result;
+  return ok(result.value.id);
+}
+
+async function verifyFolderExists(folderId: string): Promise<boolean> {
+  const result = await httpFetch<DriveFile>(
+    `${DRIVE_API}/files/${folderId}?fields=id,trashed,mimeType`,
+  );
+  if (!result.ok) return false;
+  return (
+    result.value.mimeType === "application/vnd.google-apps.folder" &&
+    result.value.trashed !== true
+  );
+}
+
+/** Ensure the root visible attachments folder exists; return its Drive folder id. */
+export async function ensureAttachmentsRootFolder(
   manifest: Manifest,
-): Promise<Result<EnsureFolderResult>> {
-  const cached = manifest.settings?.attachmentsFolderId;
-  if (cached != null && cached.length > 0) {
-    const verify = await httpFetch<DriveFile>(
-      `${DRIVE_API}/files/${cached}?fields=id,trashed`,
-    );
-    if (verify.ok && verify.value.trashed !== true) {
-      return ok({ folderId: cached, manifestPatch: null });
-    }
+): Promise<Result<{ folderId: string; manifest: Manifest }>> {
+  const cachedId = manifest.settings?.attachmentsFolderId;
+  if (cachedId != null && (await verifyFolderExists(cachedId))) {
+    return ok({ folderId: cachedId, manifest });
   }
 
-  const query = `name = '${ATTACHMENTS_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-  const searchUrl = `${DRIVE_API}/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent("files(id,name)")}`;
-  const searchResult = await httpFetch<DriveFileList>(searchUrl);
-  if (!searchResult.ok) return searchResult;
+  const existing = await findFolderByName(ATTACHMENTS_ROOT_FOLDER_NAME);
+  if (!existing.ok) return existing;
 
-  let folderId: string;
-  if (searchResult.value.files.length > 0) {
-    const first = searchResult.value.files[0];
-    if (first == null) {
-      return err(appError("DRIVE_NOT_FOUND", "Attachments folder not found"));
-    }
-    folderId = first.id;
-  } else {
-    const createResult = await httpFetch<DriveFile>(`${DRIVE_API}/files`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: ATTACHMENTS_FOLDER_NAME,
-        mimeType: "application/vnd.google-apps.folder",
-      }),
-    });
-    if (!createResult.ok) return createResult;
-    folderId = createResult.value.id;
+  let folderId = existing.value;
+  if (folderId == null) {
+    const created = await createFolder(ATTACHMENTS_ROOT_FOLDER_NAME);
+    if (!created.ok) return created;
+    folderId = created.value;
   }
 
-  const manifestPatch =
-    cached === folderId
-      ? null
-      : { settings: { attachmentsFolderId: folderId } };
+  const updated: Manifest = {
+    ...manifest,
+    settings: {
+      ...manifest.settings,
+      attachmentsFolderId: folderId,
+    },
+  };
 
-  return ok({ folderId, manifestPatch });
+  return ok({ folderId, manifest: updated });
 }
 
-/** Upload a file via Drive resumable upload. */
-export async function uploadAttachmentResumable(
+async function findProjectSubfolder(
+  rootFolderId: string,
+  folderName: string,
+): Promise<Result<string | null>> {
+  const query = `name = '${folderName.replace(/'/g, "\\'")}' and '${rootFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  const url = `${DRIVE_API}/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent("files(id)")}`;
+
+  const result = await httpFetch<DriveFileList>(url);
+  if (!result.ok) return result;
+
+  return ok(result.value.files[0]?.id ?? null);
+}
+
+/** Ensure a per-project subfolder under the root attachments folder. */
+export async function ensureProjectFolder(
+  project: Project,
+  rootFolderId: string,
+): Promise<Result<{ folderId: string; project: Project }>> {
+  if (project.projectFolderId != null && (await verifyFolderExists(project.projectFolderId))) {
+    return ok({ folderId: project.projectFolderId, project });
+  }
+
+  const folderName = projectFolderDisplayName(project);
+  const existing = await findProjectSubfolder(rootFolderId, folderName);
+  if (!existing.ok) return existing;
+
+  let folderId = existing.value;
+  if (folderId == null) {
+    const created = await createFolder(folderName, rootFolderId);
+    if (!created.ok) return created;
+    folderId = created.value;
+  }
+
+  return ok({
+    folderId,
+    project: { ...project, projectFolderId: folderId },
+  });
+}
+
+async function getFileParents(fileId: string): Promise<Result<string[]>> {
+  const result = await httpFetch<DriveFile>(
+    `${DRIVE_API}/files/${fileId}?fields=parents`,
+  );
+  if (!result.ok) return result;
+  return ok(result.value.parents ?? []);
+}
+
+async function moveFileToFolder(
+  fileId: string,
+  targetFolderId: string,
+  removeParentId: string,
+): Promise<Result<void>> {
+  const result = await httpFetch<DriveFile>(`${DRIVE_API}/files/${fileId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      addParents: targetFolderId,
+      removeParents: removeParentId,
+    }),
+  });
+
+  if (!result.ok) return result;
+  return ok(undefined);
+}
+
+/** Move manifest-referenced attachments from root into per-project subfolders. */
+export async function migrateProjectsToSubfolders(
+  manifest: Manifest,
+  rootFolderId: string,
+): Promise<Result<{ manifest: Manifest; changed: boolean }>> {
+  let changed = false;
+  const projects: Project[] = [];
+
+  for (const project of manifest.projects) {
+    if (project.attachments.length === 0) {
+      projects.push(project);
+      continue;
+    }
+
+    const folderResult = await ensureProjectFolder(project, rootFolderId);
+    if (!folderResult.ok) return folderResult;
+
+    const updatedProject = folderResult.value.project;
+    if (updatedProject.projectFolderId !== project.projectFolderId) {
+      changed = true;
+    }
+
+    const projectFolderId = folderResult.value.folderId;
+
+    for (const attachment of project.attachments) {
+      const parentsResult = await getFileParents(attachment.fileId);
+      if (!parentsResult.ok) continue;
+
+      if (
+        parentsResult.value.includes(rootFolderId) &&
+        !parentsResult.value.includes(projectFolderId)
+      ) {
+        const moveResult = await moveFileToFolder(
+          attachment.fileId,
+          projectFolderId,
+          rootFolderId,
+        );
+        if (moveResult.ok) {
+          changed = true;
+        }
+      }
+    }
+
+    projects.push(updatedProject);
+  }
+
+  if (!changed) {
+    return ok({ manifest, changed: false });
+  }
+
+  return ok({
+    manifest: { ...manifest, projects },
+    changed: true,
+  });
+}
+
+async function resumableUpload(
   file: File,
-  folderId: string,
-): Promise<Result<Attachment>> {
-  const initResult = await httpFetchRaw(
+  parentFolderId: string,
+): Promise<Result<ResumableUploadResult>> {
+  const initResult = await httpRawFetch(
     `${DRIVE_UPLOAD_API}/files?uploadType=resumable`,
     {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "X-Upload-Content-Type": file.type,
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Type": file.type || "application/octet-stream",
         "X-Upload-Content-Length": String(file.size),
       },
       body: JSON.stringify({
         name: file.name,
-        parents: [folderId],
+        parents: [parentFolderId],
       }),
     },
   );
+
   if (!initResult.ok) return initResult;
 
-  const initResponse = initResult.value;
-  if (initResponse.status < 200 || initResponse.status >= 300) {
-    const text = await initResponse.text().catch(() => "");
-    return err(
-      appError("WRITE_FAILED", `Upload handshake failed: ${text}`),
-    );
-  }
-
-  const sessionUri = initResponse.headers.get("Location");
+  const sessionUri = initResult.value.headers.get("Location");
   if (sessionUri == null) {
-    return err(appError("WRITE_FAILED", "Upload session URI missing"));
+    return err(appError("NETWORK_ERROR", "Drive resumable upload did not return a session URI"));
   }
 
-  const buffer = await file.arrayBuffer();
-  let offset = 0;
+  const uploadResult = await httpRawFetch(sessionUri, {
+    method: "PUT",
+    headers: {
+      "Content-Length": String(file.size),
+      "Content-Range": `bytes 0-${String(file.size - 1)}/${String(file.size)}`,
+    },
+    body: file,
+  });
 
-  while (offset < buffer.byteLength) {
-    const end = Math.min(offset + CHUNK_SIZE, buffer.byteLength) - 1;
-    const chunk = buffer.slice(offset, end + 1);
+  if (!uploadResult.ok) return uploadResult;
 
-    const uploadResult = await httpFetchRaw(sessionUri, {
-      method: "PUT",
-      headers: {
-        "Content-Length": String(chunk.byteLength),
-        "Content-Range": `bytes ${String(offset)}-${String(end)}/${String(buffer.byteLength)}`,
-      },
-      body: chunk,
-    });
-    if (!uploadResult.ok) return uploadResult;
-
-    const uploadResponse = uploadResult.value;
-
-    if (uploadResponse.status === 308) {
-      const range = uploadResponse.headers.get("Range");
-      if (range != null) {
-        const match = /bytes=0-(\d+)/.exec(range);
-        if (match?.[1] != null) {
-          offset = parseInt(match[1], 10) + 1;
-          continue;
-        }
-      }
-      offset = end + 1;
-      continue;
-    }
-
-    if (uploadResponse.status >= 200 && uploadResponse.status < 300) {
-      let driveFile: DriveFile;
-      try {
-        driveFile = (await uploadResponse.json()) as DriveFile;
-      } catch {
-        return err(appError("PARSE_ERROR", "Invalid upload response"));
-      }
-      return ok({
-        fileId: driveFile.id,
-        filename: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
-      });
-    }
-
-    const errText = await uploadResponse.text().catch(() => "");
+  if (!uploadResult.value.ok) {
     return err(
       appError(
-        "WRITE_FAILED",
-        `Upload failed (HTTP ${String(uploadResponse.status)}): ${errText}`,
+        "NETWORK_ERROR",
+        `Drive upload failed (HTTP ${String(uploadResult.value.status)})`,
       ),
     );
   }
 
-  return err(appError("WRITE_FAILED", "Upload completed without file metadata"));
+  try {
+    const parsed: unknown = JSON.parse(uploadResult.value.text);
+    if (typeof parsed !== "object" || parsed == null || !("id" in parsed)) {
+      return err(appError("PARSE_ERROR", "Drive upload response missing file id"));
+    }
+    const record = parsed as { id: unknown; name?: unknown; mimeType?: unknown; size?: unknown };
+    if (typeof record.id !== "string") {
+      return err(appError("PARSE_ERROR", "Drive upload response missing file id"));
+    }
+    const result: ResumableUploadResult = {
+      id: record.id,
+      name: typeof record.name === "string" ? record.name : "",
+      mimeType: typeof record.mimeType === "string" ? record.mimeType : "application/octet-stream",
+    };
+    if (typeof record.size === "string") {
+      result.size = record.size;
+    }
+    return ok(result);
+  } catch {
+    return err(appError("PARSE_ERROR", "Could not parse Drive upload response"));
+  }
 }
 
-/** Fetch attachment bytes from Drive. */
-export async function fetchAttachmentBlob(fileId: string): Promise<Result<Blob>> {
-  const result = await httpFetchRaw(
-    `${DRIVE_API}/files/${fileId}?alt=media`,
-  );
+/** Resumable upload to a Drive folder (exported for unit tests). */
+export async function uploadAttachmentResumable(
+  file: File,
+  parentFolderId: string,
+): Promise<Result<ResumableUploadResult>> {
+  return resumableUpload(file, parentFolderId);
+}
+
+export async function uploadFileToProjectFolder(
+  file: File,
+  project: Project,
+  rootFolderId: string,
+): Promise<Result<{ attachment: Attachment; project: Project }>> {
+  const validation = validateAttachmentFile(file);
+  if (!validation.ok) return validation;
+
+  const folderResult = await ensureProjectFolder(project, rootFolderId);
+  if (!folderResult.ok) return folderResult;
+
+  const uploadResult = await resumableUpload(file, folderResult.value.folderId);
+  if (!uploadResult.ok) return uploadResult;
+
+  return ok({
+    attachment: attachmentFromDriveFile(uploadResult.value, file.name),
+    project: folderResult.value.project,
+  });
+}
+
+export async function downloadDriveFile(fileId: string): Promise<Result<Blob>> {
+  const result = await httpRawFetch(`${DRIVE_API}/files/${fileId}?alt=media`);
   if (!result.ok) return result;
 
-  const response = result.value;
-  if (!response.ok) {
+  if (!result.value.ok) {
     return err(
-      appError("DRIVE_NOT_FOUND", `Could not download attachment (${String(response.status)})`),
+      appError(
+        "DRIVE_NOT_FOUND",
+        `Could not download file (HTTP ${String(result.value.status)})`,
+      ),
     );
   }
 
-  const blob = await response.blob();
+  const contentType =
+    result.value.headers.get("Content-Type") ?? "application/octet-stream";
+  const blob = new Blob([result.value.body ?? new ArrayBuffer(0)], {
+    type: contentType,
+  });
   return ok(blob);
 }
 
-/** Delete a file from Drive (best-effort on remove). */
-export async function deleteDriveFile(fileId: string): Promise<Result<void>> {
+export async function trashDriveFile(fileId: string): Promise<Result<void>> {
   const result = await httpFetch<unknown>(`${DRIVE_API}/files/${fileId}`, {
-    method: "DELETE",
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trashed: true }),
   });
   if (!result.ok) return result;
   return ok(undefined);
+}
+
+/** List files in the root attachments folder not referenced by any project. */
+export async function listUnlinkedDriveFiles(
+  manifest: Manifest,
+  rootFolderId: string,
+): Promise<Result<{ fileId: string; name: string }[]>> {
+  const query = `'${rootFolderId}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`;
+  const url = `${DRIVE_API}/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent("files(id,name)")}`;
+
+  const result = await httpFetch<DriveFileList>(url);
+  if (!result.ok) return result;
+
+  const referenced = new Set<string>();
+  for (const project of manifest.projects) {
+    for (const attachment of project.attachments) {
+      referenced.add(attachment.fileId);
+    }
+  }
+
+  const unlinked = result.value.files
+    .filter((file) => !referenced.has(file.id))
+    .map((file) => ({ fileId: file.id, name: file.name }));
+
+  return ok(unlinked);
 }

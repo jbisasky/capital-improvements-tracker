@@ -6,6 +6,11 @@ export interface ManifestReadResult {
   etag: string;
 }
 
+export interface UnlinkedDriveFile {
+  fileId: string;
+  name: string;
+}
+
 export interface StorageDriver {
   /** Read the manifest from storage. */
   readManifest(): Promise<Result<ManifestReadResult>>;
@@ -16,6 +21,12 @@ export interface StorageDriver {
   /** Add a project to the manifest. */
   addProject(project: Project): Promise<Result<Manifest>>;
 
+  /** Add a project with attachment files (upload first, manifest last). */
+  addProjectWithAttachments(
+    project: Project,
+    files: File[],
+  ): Promise<Result<Manifest>>;
+
   /** Update an existing project by ID. */
   updateProject(id: string, project: Project): Promise<Result<Manifest>>;
 
@@ -25,15 +36,15 @@ export interface StorageDriver {
   /** Get a single project by ID. */
   getProject(id: string): Promise<Result<Project>>;
 
-  /** Upload a file and append attachment metadata to a project. */
-  uploadProjectAttachment(projectId: string, file: File): Promise<Result<Manifest>>;
+  /** Upload an attachment to an existing project. */
+  uploadAttachment(projectId: string, file: File): Promise<Result<Manifest>>;
 
-  /** Remove an attachment reference (and delete blob/file when supported). */
-  removeProjectAttachment(projectId: string, fileId: string): Promise<Result<Manifest>>;
+  /** Remove an attachment reference from a project (and trash the Drive file when supported). */
+  removeAttachment(projectId: string, fileId: string): Promise<Result<Manifest>>;
 
-  /** Fetch attachment bytes for view/download. */
+  /** Download attachment bytes for view/download. */
   getAttachmentBlob(projectId: string, fileId: string): Promise<Result<Blob>>;
 
-  /** Upload files then add project — attachments-first, manifest-last (LLD §9). */
-  addProjectWithAttachments(project: Project, files: File[]): Promise<Result<Manifest>>;
+  /** Files in the root attachments folder not linked in the manifest (Drive only). */
+  listUnlinkedDriveFiles(): Promise<Result<UnlinkedDriveFile[]>>;
 }

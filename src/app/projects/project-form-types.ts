@@ -1,4 +1,4 @@
-import { type TaxTreatment, type ImprovementCategory, type PaymentMethod, type EnergyCreditType } from "@/domain/schemas";
+import { type TaxTreatment, type ImprovementCategory, type PaymentMethod, type EnergyCreditType, type ReceiptDetailLevel } from "@/domain/schemas";
 
 export interface ProjectFormData {
   title: string;
@@ -20,6 +20,7 @@ export interface ProjectFormData {
   safeHarborElection: boolean;
   sqftAffected: string;
   notes: string;
+  receiptDetailLevel: ReceiptDetailLevel | "";
 }
 
 export const EMPTY_FORM: ProjectFormData = {
@@ -42,4 +43,5 @@ export const EMPTY_FORM: ProjectFormData = {
   safeHarborElection: false,
   sqftAffected: "",
   notes: "",
+  receiptDetailLevel: "",
 };

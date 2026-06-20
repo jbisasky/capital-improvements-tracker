@@ -121,6 +121,10 @@ codebase where dependencies will be swapped over time.
   the `drive.file` scope, and referenced by `fileId` in each project's `attachments`. This
   keeps receipts findable in the normal Drive UI even if this app disappears (longevity, §9).
   Only the `manifest.json` index lives in the hidden `appDataFolder`.
+- **Per-project subfolders (v1):** under `Capital Improvements (App Data)/`, each project gets
+  `{title} - {completionDate}/` containing its receipt files. The manifest stores
+  `settings.attachmentsFolderId` and optional `project.projectFolderId` for stable layout across
+  devices. On load, referenced attachments in the root folder are migrated into project subfolders.
 
 ### 4.2 Manifest schema (canonical)
 
@@ -138,9 +142,6 @@ original single-`taxDeductibleAmount` shape is retained only as a migration sour
     "zip": "78701",
     "propertyType": "primary_residence", // | "rental" | "home_office" | "vacation"
     "sqftTotal": 2400                  // optional — needed for home-office % calc
-  },
-  "settings": {                          // optional — app-managed Drive metadata
-    "attachmentsFolderId": "string"      // user-visible folder for receipts (LLD §7.1)
   },
   "summary": {
     "totalCostBasisAdded": 0.00,       // sum of capital improvements (basis adjustments)
@@ -199,26 +200,6 @@ hazard, so the following safeguards are **adopted**:
 - **Atomic writes:** upload new content then update pointer (Drive update is atomic per file).
 - **Schema migrations:** `schemaVersion` gate with forward-only migration functions.
 
-### 4.4 Attachment upload surfaces & create flow
-
-Receipts and invoices are first-class project data — documentation completeness (LLD §10)
-requires ≥1 attachment for most tax treatments. Upload is exposed in **three places**:
-
-| Surface | Behavior |
-| --- | --- |
-| **Add new project** | File picker serves **dual purpose**: (1) optional Gemini extraction, (2) the same file is **persisted as a project attachment** when the user saves. Additional files may be added on the form step before save. |
-| **Project detail** | Users can **upload**, **view**, **download**, and **remove** attachments inline without opening Edit. |
-| **Edit project** | Same shared attachment zone as add/detail (UI/UX §5.4). |
-
-**Save ordering (decision — LLD §9, ATT-06):** attachments are uploaded to Drive **first**; the
-manifest is written **last** with the returned `fileId`s. On create, the app pre-assigns a
-project `id`, uploads all pending files, then performs a single `addProject` manifest write.
-This guarantees the manifest never references a missing Drive file.
-
-**Implementation note (2026-06):** Domain types and read-only attachment display exist; the
-Drive upload pipeline and UI wiring are specified in LLD §7.3–§7.4 and tracked in
-[`docs/plans/attachment-upload-integration.md`](plans/attachment-upload-integration.md).
-
 ---
 
 ## 5. Authentication & Token Lifecycle
@@ -273,17 +254,28 @@ tax advice**.
 ## 7. AI Document Extraction
 
 ### 7.1 Flow
-1. User selects a document (image/PDF) on the **add new project** screen (also available on
-   edit/detail via the shared attachment zone — §4.4).
-2. Optionally: file is sent **directly** to Gemini using the BYOK key for field extraction.
-3. Model returns structured JSON conforming to a strict schema (`responseSchema`) — fields:
-   cost, date, vendor, suggested treatment, justification.
-4. **Human review step [C8]:** extracted values are shown for confirmation/edit *before* save,
-   with the `confidence` score surfaced.
-5. On **Create Project** / **Save Changes**: the source file (and any additional attachments)
-   are uploaded to Drive **first**, then the manifest is updated with attachment metadata
-   (§4.4 ordering; §4.3 CAS safeguards). AI extraction alone does **not** satisfy attachment
-   requirements — the file must be saved as a Drive attachment on project create/save.
+1. User uploads one or more documents (images/PDFs) in the "new project" UI (multi-select and
+   drag-and-drop; max 10 per project).
+2. All pending files are sent **directly** to Gemini via the GenAI SDK using the BYOK key in **one
+   multimodal request** (multiple files) that synthesizes the best single project answer.
+3. Model returns structured JSON conforming to a strict schema (use Gemini structured
+   output / `responseSchema`) — fields: cost, date, vendor, suggested treatment, justification,
+   and **`receiptDetailLevel`** (`itemized` | `lump_sum` | `unclear`): whether materials/labor
+   line items are visible on the receipt vs a single total only.
+4. **Human review step [recommended — C8]:** the synthesized extraction is shown on one review
+   screen for confirmation/edit before anything is written to the manifest, with the `confidence`
+   score surfaced. The user may override any field including `receiptDetailLevel` (UI label:
+   *Materials/itemization visible on receipt*).
+5. On confirm: all pending attachments are uploaded to Drive (attachments-first), then the
+   manifest is updated (§4.3 safeguards). On the new-project flow the user may select **multiple**
+   files (up to 10); Gemini synthesizes one project field set from all documents (preferring
+   invoices/receipts over bank statements when sources conflict).
+
+**Receipt detail level (v1 — approach A):** assessed during AI extraction on the new-project
+flow (per file, merged with itemized-wins logic); persisted on the `Project` and editable on the
+project form. It is **not** re-run automatically when attachments are added later (follow-up **B**). Documentation Health may **recommend** setting
+or improving this field when attachments exist but detail is `lump_sum`, `unclear`, or unset —
+advisory only, not tax advice or a save gate.
 
 ### 7.2 Inputs (decision C7: images + PDFs)
 Supported inputs: **phone photos / scanned images and PDFs** (including multi-page invoices).

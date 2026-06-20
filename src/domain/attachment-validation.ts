@@ -17,12 +17,13 @@ export const ACCEPTED_ATTACHMENT_MIME_TYPES = [
   "image/heif",
 ] as const;
 
+export const ACCEPTED_ATTACHMENT_TYPES = ACCEPTED_ATTACHMENT_MIME_TYPES;
 export const ACCEPTED_ATTACHMENT_ACCEPT = ACCEPTED_ATTACHMENT_MIME_TYPES.join(",");
 
-/** Validate a file before upload. */
+/** Validate a file before upload or queuing. */
 export function validateAttachmentFile(
   file: File,
-  currentCount: number,
+  currentCount = 0,
 ): Result<void> {
   if (currentCount >= MAX_ATTACHMENTS_PER_PROJECT) {
     return err(
@@ -44,6 +45,10 @@ export function validateAttachmentFile(
         "Unsupported file type. Use JPEG, PNG, WebP, HEIC, or PDF.",
       ),
     );
+  }
+
+  if (file.size === 0) {
+    return err(appError("VALIDATION_ERROR", "File is empty."));
   }
 
   if (file.size > MAX_ATTACHMENT_BYTES) {
@@ -69,4 +74,27 @@ export function dedupeAttachmentFiles(files: File[]): File[] {
     result.push(file);
   }
   return result;
+}
+
+function fileKey(file: File): string {
+  return `${file.name}:${String(file.size)}:${String(file.lastModified)}`;
+}
+
+/** Validate and merge incoming files into a pending list (new-project flow). */
+export function addPendingAttachmentFiles(
+  existing: File[],
+  incoming: File[],
+): Result<File[]> {
+  const merged = [...existing];
+  for (const file of incoming) {
+    const validation = validateAttachmentFile(file, merged.length);
+    if (!validation.ok) {
+      return validation;
+    }
+    if (merged.some((f) => fileKey(f) === fileKey(file))) {
+      continue;
+    }
+    merged.push(file);
+  }
+  return ok(merged);
 }

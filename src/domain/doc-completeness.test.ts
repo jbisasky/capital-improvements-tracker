@@ -53,6 +53,7 @@ describe("doc-completeness", () => {
       irsJustification: "New roof",
       vendorName: "Bob's Roofing",
       attachments: [{ fileId: "1", filename: "f", mimeType: "m", sizeBytes: 1 }],
+      receiptDetailLevel: "itemized",
     };
 
     // Act
@@ -64,6 +65,39 @@ describe("doc-completeness", () => {
     expect(result.score).toBe(100);
     // Should still recommend category, paymentMethod, permitNumber, notes
     expect(result.recommended).toContain("category");
+    expect(result.recommended).not.toContain("receiptDetailLevel");
+  });
+
+  it("recommends receiptDetailLevel when attachments exist but not itemized", () => {
+    // Arrange
+    const proj: Project = {
+      ...baseProject,
+      taxTreatment: "capital_improvement",
+      irsJustification: "New roof",
+      vendorName: "Bob's Roofing",
+      attachments: [{ fileId: "1", filename: "f", mimeType: "m", sizeBytes: 1 }],
+      receiptDetailLevel: "lump_sum",
+    };
+
+    // Act
+    const result = assessDocumentation(proj, undefined);
+
+    // Assert
+    expect(result.recommended).toContain("receiptDetailLevel");
+  });
+
+  it("does not recommend receiptDetailLevel without attachments", () => {
+    // Arrange
+    const proj: Project = {
+      ...baseProject,
+      taxTreatment: "unknown",
+    };
+
+    // Act
+    const result = assessDocumentation(proj, undefined);
+
+    // Assert
+    expect(result.recommended).not.toContain("receiptDetailLevel");
   });
 
   it("adds rental modifiers for 'capital_improvement'", () => {

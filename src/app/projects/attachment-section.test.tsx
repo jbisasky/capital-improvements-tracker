@@ -4,8 +4,8 @@ import { AttachmentSection } from "./attachment-section";
 
 vi.mock("@/services/storage-context", () => ({
   useStorage: () => ({
-    uploadProjectAttachment: vi.fn(),
-    removeProjectAttachment: vi.fn(),
+    uploadAttachment: vi.fn(),
+    removeAttachment: vi.fn(),
     getAttachmentBlob: vi.fn(),
   }),
 }));
