@@ -37,41 +37,124 @@ Important rules:
 - Be conservative with confidence — if text is unclear or amounts ambiguous, lower the confidence
 - Always provide an irsJustification even if confidence is low`;
 
-const EXTRACTION_SCHEMA = {
+/** Gemini-compatible response schema (single `type` strings + `nullable`, no union types). */
+export const EXTRACTION_SCHEMA = {
   type: "object",
   properties: {
     title: { type: "string" },
-    completionDate: { type: ["string", "null"] },
-    totalCost: { type: ["number", "null"] },
+    completionDate: { type: "string", nullable: true },
+    totalCost: { type: "number", nullable: true },
     suggestedTreatment: {
       type: "string",
       enum: ["capital_improvement", "repair", "deductible", "credit", "unknown"],
     },
-    costBasisAdjustment: { type: ["number", "null"] },
-    deductibleAmount: { type: ["number", "null"] },
+    costBasisAdjustment: { type: "number", nullable: true },
+    deductibleAmount: { type: "number", nullable: true },
     irsJustification: { type: "string" },
-    vendor: { type: ["string", "null"] },
+    vendor: { type: "string", nullable: true },
     confidence: { type: "number" },
     category: {
-      type: ["string", "null"],
+      type: "string",
+      nullable: true,
       enum: [
         "roof", "hvac", "plumbing", "electrical", "landscaping", "kitchen",
         "bathroom", "flooring", "windows_doors", "insulation", "foundation",
-        "energy_efficiency", "accessibility", "security", "other", null,
+        "energy_efficiency", "accessibility", "security", "other",
       ],
     },
     paymentMethod: {
-      type: ["string", "null"],
-      enum: ["cash", "check", "credit_card", "financing", "mixed", null],
+      type: "string",
+      nullable: true,
+      enum: ["cash", "check", "credit_card", "financing", "mixed"],
     },
-    permitNumber: { type: ["string", "null"] },
+    permitNumber: { type: "string", nullable: true },
   },
   required: [
     "title", "completionDate", "totalCost", "suggestedTreatment",
     "costBasisAdjustment", "deductibleAmount", "irsJustification",
     "vendor", "confidence",
   ],
-};
+} as const;
+
+interface GeminiErrorBody {
+  error?: {
+    message?: string;
+    status?: string;
+  };
+}
+
+/** Build the generateContent URL with a safely encoded API key. */
+export function buildGenerateContentUrl(apiKey: string): string {
+  return `${GEMINI_API_BASE}:generateContent?key=${encodeURIComponent(apiKey)}`;
+}
+
+/** Parse the error message from a Gemini API JSON error body. */
+export function parseGeminiErrorMessage(body: unknown): string | null {
+  if (typeof body !== "object" || body == null) return null;
+  const message = (body as GeminiErrorBody).error?.message;
+  return typeof message === "string" && message.length > 0 ? message : null;
+}
+
+function isApiKeyInvalidMessage(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("api key not valid")
+    || lower.includes("api_key_invalid")
+    || lower.includes("invalid api key")
+  );
+}
+
+/** Map a Gemini HTTP error to a user-facing app error. */
+export function mapGeminiHttpError(
+  status: number,
+  errorBody: unknown,
+): ReturnType<typeof appError> {
+  const apiMessage = parseGeminiErrorMessage(errorBody);
+
+  if (status === 400) {
+    if (apiMessage != null && isApiKeyInvalidMessage(apiMessage)) {
+      return appError(
+        "AI_EXTRACTION_FAILED",
+        "Invalid API key. Check your Gemini key in Settings.",
+      );
+    }
+    if (apiMessage != null) {
+      return appError(
+        "AI_EXTRACTION_FAILED",
+        "Gemini rejected the extraction request. Try again or enter details manually.",
+      );
+    }
+    return appError(
+      "AI_EXTRACTION_FAILED",
+      "Gemini rejected the extraction request. Try again or enter details manually.",
+    );
+  }
+
+  if (status === 403) {
+    return appError(
+      "AI_EXTRACTION_FAILED",
+      "API key does not have permission. Ensure the Gemini API is enabled and the key is restricted to it.",
+    );
+  }
+
+  if (status === 429) {
+    return appError("RATE_LIMITED", "Gemini API quota exceeded. Try again later.");
+  }
+
+  return appError(
+    "AI_EXTRACTION_FAILED",
+    `Gemini API error (HTTP ${String(status)}). Try again later.`,
+  );
+}
+
+async function readGeminiHttpError(response: Response): Promise<ReturnType<typeof appError>> {
+  try {
+    const body: unknown = await response.json();
+    return mapGeminiHttpError(response.status, body);
+  } catch {
+    return mapGeminiHttpError(response.status, null);
+  }
+}
 
 export interface ExtractionResponse {
   result: ExtractionResult;
@@ -174,48 +257,17 @@ export async function extractFromDocument(
   // Make the API call
   let response: Response;
   try {
-    response = await fetch(
-      `${GEMINI_API_BASE}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-      },
-    );
+    response = await fetch(buildGenerateContentUrl(apiKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
   } catch {
     return err(appError("NETWORK_ERROR", "Network error connecting to Gemini API."));
   }
 
-  // Handle HTTP errors
   if (!response.ok) {
-    const status = response.status;
-    if (status === 400) {
-      return err(
-        appError(
-          "AI_EXTRACTION_FAILED",
-          "Invalid API key. Check your Gemini key in Settings.",
-        ),
-      );
-    }
-    if (status === 403) {
-      return err(
-        appError(
-          "AI_EXTRACTION_FAILED",
-          "API key does not have permission. Ensure the Gemini API is enabled and the key is restricted to it.",
-        ),
-      );
-    }
-    if (status === 429) {
-      return err(
-        appError("RATE_LIMITED", "Gemini API quota exceeded. Try again later."),
-      );
-    }
-    return err(
-      appError(
-        "AI_EXTRACTION_FAILED",
-        `Gemini API error (HTTP ${String(status)}). Try again later.`,
-      ),
-    );
+    return err(await readGeminiHttpError(response));
   }
 
   // Parse response
@@ -286,34 +338,27 @@ export async function extractFromDocument(
 /** Test if the API key is valid by making a minimal request. */
 export async function testGeminiKey(apiKey: string): Promise<Result<void>> {
   try {
-    const response = await fetch(
-      `${GEMINI_API_BASE}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: "Reply with OK" }] }],
-          generationConfig: { temperature: 0, maxOutputTokens: 5 },
-        }),
-      },
-    );
+    const response = await fetch(buildGenerateContentUrl(apiKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: "Reply with OK" }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 5 },
+      }),
+    });
 
     if (response.ok) return ok(undefined);
 
-    if (response.status === 400 || response.status === 403) {
-      return err(
-        appError("AI_EXTRACTION_FAILED", "Invalid or restricted API key."),
-      );
-    }
+    const mapped = await readGeminiHttpError(response);
     if (response.status === 429) {
       return err(appError("RATE_LIMITED", "API key is valid but quota exceeded."));
     }
-    return err(
-      appError(
-        "AI_EXTRACTION_FAILED",
-        `Unexpected status ${String(response.status)}.`,
-      ),
-    );
+    if (response.status === 400 || response.status === 403) {
+      return err(
+        appError("AI_EXTRACTION_FAILED", mapped.message),
+      );
+    }
+    return err(mapped);
   } catch {
     return err(appError("NETWORK_ERROR", "Could not connect to Gemini API."));
   }

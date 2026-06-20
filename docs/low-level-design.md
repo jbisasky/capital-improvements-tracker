@@ -18,6 +18,8 @@
 5. [Drive: appData bootstrap & manifest read](#5-drive-appdata-bootstrap--manifest-read)
 6. [Drive: manifest write (compare-and-swap + backups)](#6-drive-manifest-write-compare-and-swap--backups)
 7. [Drive: attachment upload (resumable)](#7-drive-attachment-upload-resumable)
+7.3. [Application attachment service & StorageDriver API](#73-application-attachment-service--storagedriver-api)
+7.4. [UI integration (AttachmentSection)](#74-ui-integration-attachmentsection)
 8. [AI extraction — Gemini multimodal](#8-ai-extraction--gemini-multimodal)
 9. [End-to-end: "add project from a receipt"](#9-end-to-end-add-project-from-a-receipt)
 10. [Documentation completeness checker](#10-documentation-completeness-checker)
@@ -184,6 +186,9 @@ export const Manifest = z.object({
   schemaVersion: z.literal(2),
   lastUpdated: z.string().datetime(),
   property: PropertyProfile.optional(),    // set once in Settings; inherited by all projects
+  settings: z.object({
+    attachmentsFolderId: z.string().optional(), // Drive folder for user-visible attachments (§7.1)
+  }).optional(),
   summary: z.object({
     totalCostBasisAdded: z.number().nonnegative(),
     totalDeductible: z.number().nonnegative(),
@@ -495,6 +500,97 @@ sequenceDiagram
 - A file is only referenced in the manifest **after** the upload returns a final `fileId`, so a
   failed upload never leaves a dangling reference.
 
+### 7.3 Application attachment service & StorageDriver API
+
+> **Implementation status (2026-06):** LLD §7.1–§7.2 (Drive protocol) is specified; the app-layer
+> wiring below is **not yet implemented**. Track progress in
+> [`docs/plans/attachment-upload-integration.md`](plans/attachment-upload-integration.md).
+
+#### Domain validation
+
+Pure function in `src/domain/attachment-validation.ts` (no I/O):
+
+```ts
+validateAttachmentFile(file: File, currentCount: number): Result<void>
+```
+
+Enforces LLD §17.2: max **25 MB** per file, max **10** attachments per project, MIME whitelist
+(`application/pdf`, `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`).
+
+#### Drive attachment service
+
+Module: `src/services/drive-attachment.ts`
+
+| Function | Purpose |
+| --- | --- |
+| `ensureAttachmentsFolder(manifest)` | Look up or create `"Capital Improvements (App Data)"`; read/write `manifest.settings.attachmentsFolderId` |
+| `uploadAttachmentResumable(file, folderId)` | Resumable handshake + chunked PUT (§7.2) → `Attachment` |
+| `fetchAttachmentBlob(fileId)` | Authenticated `GET files/{id}?alt=media` for view/download |
+| `deleteDriveFile(fileId)` | Optional Drive delete when user removes an attachment |
+
+Resumable upload requires raw HTTP access (read `Location` header, handle `308 Resume Incomplete`).
+Extend `src/services/http.ts` or add `src/services/http-raw.ts` — do **not** reuse the JSON-only
+success path of `httpFetch` for chunk uploads.
+
+#### StorageDriver extension
+
+`src/services/storage-driver.ts`:
+
+```ts
+interface StorageDriver {
+  // ... existing manifest CRUD ...
+
+  /** Upload file to Drive, append Attachment to project, CAS-write manifest. */
+  uploadProjectAttachment(projectId: string, file: File): Promise<Result<Manifest>>;
+
+  /** Remove attachment ref from project (and optionally delete Drive file). */
+  removeProjectAttachment(projectId: string, fileId: string): Promise<Result<Manifest>>;
+
+  /** Fetch attachment bytes for view/download. */
+  getAttachmentBlob(projectId: string, fileId: string): Promise<Result<Blob>>;
+
+  /** Create flow: upload all files, then addProject with attachments (§9 ordering). */
+  addProjectWithAttachments(project: Project, files: File[]): Promise<Result<Manifest>>;
+}
+```
+
+- **`DriveStorageDriver`:** delegates to `drive-attachment.ts`; attachments-first, manifest-last.
+- **`MockStorageDriver`:** stores blobs in an in-memory `Map<fileId, Blob>` so demo mode supports
+  view/download without Drive.
+
+#### Storage context
+
+`src/services/storage-context.tsx` exposes the four attachment methods above to React routes,
+refreshing in-memory manifest state on success (same pattern as `updateProject`).
+
+### 7.4 UI integration (AttachmentSection)
+
+Shared component: `src/app/projects/attachment-section.tsx`
+
+| Prop / mode | Used on |
+| --- | --- |
+| **Pending-until-save** | Add new project — files held locally until `addProjectWithAttachments`; includes the AI extraction source file |
+| **Live upload** | Project detail, Edit project — calls `uploadProjectAttachment` immediately |
+
+Features (maps to EARs ATT-08–ATT-11, ERR-07):
+
+- Upload file + optional **Scan / take photo** (`capture="environment"` on mobile)
+- Drag-and-drop zone with hover highlight
+- Per-file status: uploading / uploaded / failed (inline retry)
+- Actions: **View**, **Download**, **Remove**
+- Disabled at 10 attachments (tooltip)
+
+**New project wiring (`new-page.tsx`):**
+
+1. Retain `selectedFile` through AI review → form steps.
+2. Pre-assign project `id` before any upload.
+3. On submit: `addProjectWithAttachments(project, [selectedFile, ...extras])`.
+
+**Detail wiring (`detail-page.tsx`):** replace read-only list with `AttachmentSection` in live
+upload mode — users can add attachments without visiting Edit (HLD §4.4).
+
+**Edit wiring (`edit-page.tsx`):** `AttachmentSection` above or below `ProjectForm`.
+
 ---
 
 ## 8. AI extraction — Gemini multimodal
@@ -583,7 +679,8 @@ sequenceDiagram
 ```
 
 Ordering rationale: **attachments first, manifest last.** This guarantees the manifest never
-references a `fileId` that doesn't exist. If the manifest write ultimately fails after a
+references a `fileId` that doesn't exist. The file used for Gemini extraction (§8) is included
+in the upload batch — extraction alone does not count as an attachment (ATT-12, AI-14). If the manifest write ultimately fails after a
 successful upload, the orphaned Drive file is recorded in an in-memory "pending GC" list and
 cleaned up (or reconciled) on next successful manifest load.
 

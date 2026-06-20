@@ -1,12 +1,19 @@
 import { type Result } from "@/domain/result";
 import { ok, err } from "@/domain/result";
 import { appError } from "@/domain/errors";
-import { type Manifest, type Project } from "@/domain/schemas";
+import { type Attachment, type Manifest, type Project } from "@/domain/schemas";
+import { validateAttachmentFile } from "@/domain/attachment-validation";
 import {
   type StorageDriver,
   type ManifestReadResult,
 } from "@/services/storage-driver";
 import { DEMO_MANIFEST } from "@/services/fixtures";
+import {
+  deleteMockBlob,
+  getMockBlob,
+  mockUploadFile,
+  storeMockBlob,
+} from "@/services/mock-blob-store";
 
 function recomputeSummary(projects: Project[]): Manifest["summary"] {
   let totalCostBasisAdded = 0;
@@ -25,6 +32,16 @@ export class MockStorageDriver implements StorageDriver {
   constructor(initial?: Manifest) {
     this.manifest = structuredClone(initial ?? DEMO_MANIFEST);
     this.etag = crypto.randomUUID();
+    for (const p of this.manifest.projects) {
+      for (const att of p.attachments) {
+        if (getMockBlob(att.fileId) == null) {
+          storeMockBlob(
+            att.fileId,
+            new Blob([`Demo placeholder: ${att.filename}`], { type: att.mimeType }),
+          );
+        }
+      }
+    }
   }
 
   readManifest(): Promise<Result<ManifestReadResult>> {
@@ -88,6 +105,12 @@ export class MockStorageDriver implements StorageDriver {
         err(appError("DRIVE_NOT_FOUND", `Project ${id} not found`)),
       );
     }
+    const project = this.manifest.projects[index];
+    if (project != null) {
+      for (const att of project.attachments) {
+        deleteMockBlob(att.fileId);
+      }
+    }
     this.manifest.projects.splice(index, 1);
     this.manifest.lastUpdated = new Date().toISOString();
     this.manifest.summary = recomputeSummary(this.manifest.projects);
@@ -103,5 +126,88 @@ export class MockStorageDriver implements StorageDriver {
       );
     }
     return Promise.resolve(ok(structuredClone(project)));
+  }
+
+  async uploadProjectAttachment(
+    projectId: string,
+    file: File,
+  ): Promise<Result<Manifest>> {
+    const projectResult = await this.getProject(projectId);
+    if (!projectResult.ok) return projectResult;
+
+    const project = projectResult.value;
+    const validation = validateAttachmentFile(file, project.attachments.length);
+    if (!validation.ok) return validation;
+
+    const uploaded = await mockUploadFile(file);
+    const attachment: Attachment = uploaded;
+
+    const updated: Project = {
+      ...project,
+      attachments: [...project.attachments, attachment],
+      updatedAt: new Date().toISOString(),
+    };
+
+    return this.updateProject(projectId, updated);
+  }
+
+  async removeProjectAttachment(
+    projectId: string,
+    fileId: string,
+  ): Promise<Result<Manifest>> {
+    const projectResult = await this.getProject(projectId);
+    if (!projectResult.ok) return projectResult;
+
+    const project = projectResult.value;
+    if (!project.attachments.some((a) => a.fileId === fileId)) {
+      return err(appError("DRIVE_NOT_FOUND", "Attachment not found"));
+    }
+
+    deleteMockBlob(fileId);
+
+    const updated: Project = {
+      ...project,
+      attachments: project.attachments.filter((a) => a.fileId !== fileId),
+      updatedAt: new Date().toISOString(),
+    };
+
+    return this.updateProject(projectId, updated);
+  }
+
+  async getAttachmentBlob(
+    projectId: string,
+    fileId: string,
+  ): Promise<Result<Blob>> {
+    const projectResult = await this.getProject(projectId);
+    if (!projectResult.ok) return projectResult;
+
+    const project = projectResult.value;
+    if (!project.attachments.some((a) => a.fileId === fileId)) {
+      return err(appError("DRIVE_NOT_FOUND", "Attachment not found"));
+    }
+
+    const blob = getMockBlob(fileId);
+    if (blob == null) {
+      return err(appError("DRIVE_NOT_FOUND", "Attachment file not found"));
+    }
+
+    return ok(blob);
+  }
+
+  async addProjectWithAttachments(
+    project: Project,
+    files: File[],
+  ): Promise<Result<Manifest>> {
+    const attachments: Attachment[] = [];
+
+    for (const file of files) {
+      const validation = validateAttachmentFile(file, attachments.length);
+      if (!validation.ok) return validation;
+
+      const uploaded = await mockUploadFile(file);
+      attachments.push(uploaded);
+    }
+
+    return this.addProject({ ...project, attachments });
   }
 }

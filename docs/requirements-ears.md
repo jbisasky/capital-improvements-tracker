@@ -147,6 +147,11 @@
 | ATT-09 | Event-driven | When the user taps "remove" on an attachment, the app shall remove the attachment reference from the project and update the manifest. |
 | ATT-10 | Event-driven | When the user drags and drops a file onto the attachment zone, the app shall accept the file and begin the upload flow (same as selecting via the file picker). |
 | ATT-11 | Ubiquitous | The attachment zone shall provide visual feedback (border highlight, "Drop here" label) when a file is dragged over it. |
+| ATT-12 | Event-driven | When the user creates a project after AI extraction, the app shall persist the source document used for extraction as the first project attachment (same file, uploaded to Drive on save). |
+| ATT-13 | Ubiquitous | The project detail page shall provide an inline attachment upload zone so users can add receipts without opening the edit screen. |
+| ATT-14 | Ubiquitous | The add-new-project, edit-project, and project-detail screens shall share a common `AttachmentSection` component with upload, view, download, and remove actions. |
+| ATT-15 | Ubiquitous | The `StorageDriver` interface shall expose `uploadProjectAttachment`, `removeProjectAttachment`, `getAttachmentBlob`, and `addProjectWithAttachments` (see LLD §7.3). |
+| ATT-16 | Ubiquitous | On add-new-project, pending attachment files shall be held locally until save; uploads to Drive shall occur immediately before the manifest write, using a pre-assigned project `id`. |
 
 ---
 
@@ -167,6 +172,7 @@
 | AI-11 | Event-driven | When the user clicks "Discard" on the review screen, the app shall discard all extracted data and return to the form without saving. |
 | AI-12 | Event-driven | When the user clicks "Looks good → continue" on the review screen, the app shall transfer the confirmed values into the project form for final save. |
 | AI-13 | Ubiquitous | The AI extraction prompt shall also attempt to extract: `category` (improvement type), `vendorName`, `paymentMethod`, and `permitNumber` when visible on the receipt/invoice. These shall appear in the review screen alongside core fields. |
+| AI-14 | Event-driven | When the user confirms AI-extracted fields and saves a new project, the app shall not discard the extraction source file — it shall be included in the attachment upload batch per ATT-12 and ATT-06. |
 
 ---
 
