@@ -1,4 +1,5 @@
 import { type Project, type PropertyType, type TaxTreatment } from "@/domain/schemas";
+import { shouldRecommendReceiptDetail } from "@/domain/receipt-detail-level";
 
 export type DocStatus = "complete" | "partial" | "incomplete";
 
@@ -99,6 +100,10 @@ export function assessDocumentation(
     if (!isFieldPresent(project, field)) {
       missingRecommended.push(field);
     }
+  }
+
+  if (shouldRecommendReceiptDetail(project)) {
+    missingRecommended.push("receiptDetailLevel");
   }
 
   const filledCount = required.length - missing.length;

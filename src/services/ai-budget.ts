@@ -72,6 +72,34 @@ export function saveBudgetSettings(settings: Partial<UsageBudget>): void {
   );
 }
 
+/** Check if the budget allows N concurrent AI calls (e.g. parallel multi-file extract). */
+export function checkBudgetForCalls(count: number): Result<void> {
+  if (count <= 0) return ok(undefined);
+
+  const budget = getBudgetSettings();
+  const daily = getDailyUsage();
+
+  if (sessionCalls + count > budget.maxAiCallsPerSession) {
+    return err(
+      appError(
+        "AI_BUDGET_EXCEEDED",
+        `Session AI call limit would be exceeded (${String(budget.maxAiCallsPerSession)} max). Reduce files or raise the limit in Settings.`,
+      ),
+    );
+  }
+
+  if (daily.calls + count > budget.maxAiCallsPerDay) {
+    return err(
+      appError(
+        "AI_BUDGET_EXCEEDED",
+        `Daily AI call limit would be exceeded (${String(budget.maxAiCallsPerDay)} max). Try again tomorrow or raise the limit in Settings.`,
+      ),
+    );
+  }
+
+  return ok(undefined);
+}
+
 /** Check if the budget allows another AI call. Returns ok(void) or err. */
 export function checkBudget(): Result<void> {
   const budget = getBudgetSettings();

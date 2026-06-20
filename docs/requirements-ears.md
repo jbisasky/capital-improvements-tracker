@@ -129,6 +129,7 @@
 | PRJ-08 | State-driven | While a budget or circuit guard is tripped (LLD §13), the save button shall be disabled with an inline reason message. |
 | PRJ-09 | Ubiquitous | The project form shall include an expandable "IRS Details" section containing optional fields: category, vendor name, vendor TIN, payment method, date payment made, permit number, useful life, depreciation start date, energy credit type, safe harbor election, sq ft affected, and notes. |
 | PRJ-10 | Ubiquitous | All IRS detail fields shall be optional; the form shall be fully submittable with only the core required fields (title, date, cost, treatment). |
+| PRJ-11 | Event-driven | When adding a new project, the user shall be able to select multiple attachment files (file picker multi-select and drag-and-drop) before save, up to the per-project attachment limit. All queued files shall be uploaded on create via `addProjectWithAttachments`. |
 
 ---
 
@@ -147,11 +148,11 @@
 | ATT-09 | Event-driven | When the user taps "remove" on an attachment, the app shall remove the attachment reference from the project and update the manifest. |
 | ATT-10 | Event-driven | When the user drags and drops a file onto the attachment zone, the app shall accept the file and begin the upload flow (same as selecting via the file picker). |
 | ATT-11 | Ubiquitous | The attachment zone shall provide visual feedback (border highlight, "Drop here" label) when a file is dragged over it. |
-| ATT-12 | Event-driven | When the user creates a project after AI extraction, the app shall persist the source document used for extraction as the first project attachment (same file, uploaded to Drive on save). |
-| ATT-13 | Ubiquitous | The project detail page shall provide an inline attachment upload zone so users can add receipts without opening the edit screen. |
-| ATT-14 | Ubiquitous | The add-new-project, edit-project, and project-detail screens shall share a common `AttachmentSection` component with upload, view, download, and remove actions. |
-| ATT-15 | Ubiquitous | The `StorageDriver` interface shall expose `uploadProjectAttachment`, `removeProjectAttachment`, `getAttachmentBlob`, and `addProjectWithAttachments` (see LLD §7.3). |
-| ATT-16 | Ubiquitous | On add-new-project, pending attachment files shall be held locally until save; uploads to Drive shall occur immediately before the manifest write, using a pre-assigned project `id`. |
+| ATT-12 | Ubiquitous | The app shall store attachments in per-project subfolders under `Capital Improvements (App Data)/{title} - {completionDate}/`, caching `projectFolderId` on each project. |
+| ATT-13 | Event-driven | When the manifest is loaded and referenced attachments still sit in the root attachments folder, the app shall move them into the project's subfolder and persist updated `projectFolderId` values. |
+| ATT-14 | Ubiquitous | Settings and Diagnostics shall explain that `manifest.json` lives in hidden app data while receipts live in the visible folder, with a link to open the attachments root when known. |
+| ATT-15 | Ubiquitous | Diagnostics shall list files in the root attachments folder that are not referenced by any project (unlinked orphans). |
+| ATT-16 | Event-driven | When adding a new project, the attachment zone shall accept multiple files in one action (multi-select file picker and drag-and-drop), display a removable pending list, and upload all pending files on save. AI extraction shall send **all** pending files to Gemini in **one synthesized request** and present a single review screen before prefill of the project form. |
 
 ---
 
@@ -159,10 +160,10 @@
 
 | ID | Type | Requirement |
 | --- | --- | --- |
-| AI-01 | Event-driven | When the user uploads a file and clicks "Extract details with AI," the app shall send the document to Gemini via the GenAI SDK using the BYOK key and display a spinner. |
+| AI-01 | Event-driven | When the user clicks "Extract details with AI," the app shall send **all** pending documents to Gemini in **one multimodal request** (inline base64 for ≤15 MiB each) using the BYOK key, display progress while the request is in flight, and present a single review screen with the synthesized project fields before prefill of the project form. |
 | AI-02 | Ubiquitous | The AI extraction request shall use `gemini-2.5-flash` with `temperature: 0` and `response_mime_type: "application/json"` with a `response_schema` matching `ExtractionResult`. |
 | AI-03 | Event-driven | When the document size is ≤ 15 MiB, the app shall send it inline (base64); when larger, it shall use the Gemini File API (resumable upload → poll until ACTIVE → `generateContent`). |
-| AI-04 | Event-driven | When extraction completes, the app shall validate the response with `ExtractionResult.safeParse(zod)` and present the Review screen with prefilled, editable fields and per-field confidence badges. |
+| AI-04 | Event-driven | When extraction completes, the app shall validate the response with `ExtractionResult.safeParse(zod)` and present the Review screen with prefilled, editable fields and a confidence badge. |
 | AI-05 | Ubiquitous | Every AI-extracted value shall be editable and must be confirmed by the user before being saved to the manifest (decision C8). No extracted dollar amount shall be persisted without explicit user confirmation. |
 | AI-06 | Event-driven | When the user edits an extracted field on the review screen, the app shall clear that field's "✦ extracted" marker. |
 | AI-07 | If-then | If `finishReason !== "STOP"` (e.g. `SAFETY`, `MAX_TOKENS`), then the app shall surface `EXTRACTION_INCOMPLETE`, fall back to manual entry, and display any available raw text. |
@@ -172,7 +173,9 @@
 | AI-11 | Event-driven | When the user clicks "Discard" on the review screen, the app shall discard all extracted data and return to the form without saving. |
 | AI-12 | Event-driven | When the user clicks "Looks good → continue" on the review screen, the app shall transfer the confirmed values into the project form for final save. |
 | AI-13 | Ubiquitous | The AI extraction prompt shall also attempt to extract: `category` (improvement type), `vendorName`, `paymentMethod`, and `permitNumber` when visible on the receipt/invoice. These shall appear in the review screen alongside core fields. |
-| AI-14 | Event-driven | When the user confirms AI-extracted fields and saves a new project, the app shall not discard the extraction source file — it shall be included in the attachment upload batch per ATT-12 and ATT-06. |
+| AI-14 | Ubiquitous | The AI extraction prompt and `response_schema` shall include `receiptDetailLevel` with values `itemized`, `lump_sum`, or `unclear`, indicating whether materials/labor line items are visible on the receipt vs a single total only. |
+| AI-15 | Event-driven | When the user confirms the extraction review screen, the app shall persist the confirmed `receiptDetailLevel` on the new project (editable later on the project form). UI label: *Materials/itemization visible on receipt*. |
+| AI-16 | Event-driven | When multiple documents are attached, the synthesis prompt shall instruct Gemini to prefer primary sources (invoices, receipts) over secondary sources (bank statements), choose the most likely accurate value when sources disagree, and return **one** best-guess `ExtractionResult` without surfacing per-file conflicts in the UI. |
 
 ---
 
@@ -517,6 +520,7 @@
 | DOC-14 | Ubiquitous | Incomplete documentation shall never prevent saving a project. The checker is advisory only — a nudge, not a gate. |
 | DOC-15 | Ubiquitous | The CSV/PDF export shall include a `documentationStatus` column (complete/partial/incomplete) for each project. |
 | DOC-16 | Ubiquitous | The project list shall support filtering by documentation status (complete / partial / incomplete). |
+| DOC-17 | State-driven | While a project has ≥1 attachment and `receiptDetailLevel` is unset, `lump_sum`, or `unclear`, the documentation checker shall list *Itemized receipt details* in the recommended fields. When `itemized`, it shall not recommend. This is advisory only (see DOC-14) and is not tax advice. |
 
 ---
 

@@ -245,8 +245,12 @@ Persistent elements:
 
 ### 5.4 Add / Edit project (`/projects/new`, `/projects/:id/edit`)
 Two entry modes that converge on the same form:
-- **From a receipt** (AI-assisted): drop/scan a file → extraction → review → form prefilled.
-- **Manual**: blank form.
+- **From a receipt** (AI-assisted): drop/scan file(s) → one Gemini synthesis → review/confirm → form prefilled.
+- **Manual**: blank form (attachments may still be queued before save).
+
+The new-project attachment zone supports **multiple files** (multi-select, drag-and-drop, removable
+list, max 10). All are uploaded on save; AI reads all files together and suggests one project
+field set on a single review screen.
 
 | Desktop | Mobile |
 | --- | --- |
@@ -258,9 +262,10 @@ Two entry modes that converge on the same form:
 ┌─────────────────────────────────────────────────────────┐
 │ Add improvement                                   [ × ]   │
 │ ┌─ Attachments ─────────────────────────────────────────┐│
-│ │  [ 📷 Scan / take photo ]  [ ⬆ Upload file ]           ││
-│ │  receipt_roof.pdf  ✓ uploaded   [view] [remove]        ││
-│ │  ✨ Extract details with AI                             ││
+│ │  [ 📷 Scan / take photo ]  [ ⬆ Upload files ]            ││
+│ │  receipt_roof.pdf  1/2  [remove]                         ││
+│ │  permit_scan.pdf   2/2  [remove]                         ││
+│ │  ✨ Extract details with AI (2 files)                       ││
 │ └───────────────────────────────────────────────────────┘│
 │ Title*           [ New roof                              ] │
 │ Completion date* [ 2025-04-12 ]                           │
@@ -295,13 +300,13 @@ Two entry modes that converge on the same form:
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Review extracted details          confidence: ●●●○ (0.78) │
-│ We read this from receipt_roof.pdf. Check & edit before    │
-│ saving — nothing is stored until you confirm.             │
+│ From 3 files (AI synthesized). Check & edit before save.  │
 │                                                           │
 │ Title          [ New roof                  ]  ✦ extracted │
 │ Date           [ 2025-04-12 ]                 ✦           │
 │ Total cost     [ $18,000.00 ]                 ⚠ low conf  │
 │ Vendor         [ ABC Roofing ]                ✦           │
+│ Itemization    [ Itemized ▾ ]                 ✦           │
 │ Suggested tax  [ Capital improvement ▾ ]      ✦           │
 │ Justification  [ Full roof replacement…    ]              │
 │                                                           │
@@ -310,9 +315,13 @@ Two entry modes that converge on the same form:
 ```
 
 </details>
-- Per-field "✦ extracted" markers and **low-confidence warnings** on individual fields. Editing a
-  field clears its AI marker. `finishReason != STOP` → fallback banner "couldn't read fully, enter
-  manually" (maps to `EXTRACTION_INCOMPLETE`).
+- Single review screen with editable fields and a confidence badge. Per-field "✦ extracted"
+  markers; editing a field clears its AI marker. No per-file conflict UI — Gemini synthesizes one
+  best-guess answer from all attachments. `finishReason != STOP` → fallback banner "couldn't read
+  fully, enter manually" (maps to `EXTRACTION_INCOMPLETE`).
+- **Receipt detail level** dropdown (label: *Materials/itemization visible on receipt*): `Itemized`,
+  `Lump sum only`, `Unclear`. Stored on the project; Documentation Health recommends improving this
+  when attachments exist but detail is not itemized (advisory — not tax advice).
 
 ### 5.6 Project detail (`/projects/:id`)
 
@@ -399,7 +408,8 @@ Two entry modes that converge on the same form:
 │          ( ) PDF summary (per tax year)                   │
 │ Scope:   ( ) All   ( ) Year [2025 ▾]   ( ) Selected       │
 │ Note: attachments live in your Drive folder "Capital      │
-│ Improvements (App Data)" and are not bundled here.        │
+│ Improvements (App Data)", one subfolder per project, and  │
+│ are not bundled here.                                       │
 │                                   [ Download ]            │
 └─────────────────────────────────────────────────────────┘
 ```

@@ -111,6 +111,31 @@ describe("domain schemas", () => {
          expect(result.error.issues[0].path).toEqual(["completionDate"]);
       }
     });
+
+    it("accepts optional receiptDetailLevel", () => {
+      // Arrange
+      const validProject = {
+        id: "123e4567-e89b-12d3-a456-426614174000",
+        title: "Roof",
+        completionDate: "2025-01-01",
+        totalCost: 1000,
+        taxTreatment: "capital_improvement",
+        costBasisAdjustment: 1000,
+        deductibleAmount: 0,
+        irsJustification: "New roof",
+        confidence: 1,
+        attachments: [],
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+        receiptDetailLevel: "itemized",
+      };
+
+      // Act
+      const result = ProjectSchema.safeParse(validProject);
+
+      // Assert
+      expect(result.success).toBe(true);
+    });
   });
 
   describe("ManifestSchema", () => {
@@ -166,6 +191,7 @@ describe("domain schemas", () => {
         irsJustification: "It looks like something",
         vendor: null,
         confidence: 0.5,
+        receiptDetailLevel: "unclear",
       };
 
       // Act

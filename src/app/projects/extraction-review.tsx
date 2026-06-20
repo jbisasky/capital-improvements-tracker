@@ -10,11 +10,16 @@ import {
   type TaxTreatment,
   type ImprovementCategory,
   type PaymentMethod,
+  type ReceiptDetailLevel,
 } from "@/domain/schemas";
+import {
+  RECEIPT_DETAIL_FIELD_LABEL,
+  RECEIPT_DETAIL_LABELS,
+} from "@/domain/receipt-detail-level";
 
 interface ExtractionReviewProps {
   extraction: ExtractionResult;
-  filename: string;
+  sourceLabel: string;
   onAccept: (edited: ExtractionResult) => void;
   onDiscard: () => void;
 }
@@ -77,7 +82,7 @@ function FieldMarker({ edited }: { edited: boolean }): ReactElement {
 
 export function ExtractionReview({
   extraction,
-  filename,
+  sourceLabel,
   onAccept,
   onDiscard,
 }: ExtractionReviewProps): ReactElement {
@@ -99,7 +104,7 @@ export function ExtractionReview({
         <div>
           <h2 className="text-lg font-semibold">Review Extracted Details</h2>
           <p className="text-sm text-muted-foreground">
-            From <span className="font-medium">{filename}</span>. Check &amp; edit
+            From <span className="font-medium">{sourceLabel}</span>. Check &amp; edit
             before saving — nothing is stored until you confirm.
           </p>
         </div>
@@ -107,7 +112,6 @@ export function ExtractionReview({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {/* Title */}
         <div className="sm:col-span-2">
           <div className="mb-1 flex items-center gap-2">
             <label htmlFor="ext-title" className="text-xs font-medium text-muted-foreground">
@@ -124,7 +128,6 @@ export function ExtractionReview({
           />
         </div>
 
-        {/* Completion Date */}
         <div>
           <div className="mb-1 flex items-center gap-2">
             <label htmlFor="ext-date" className="text-xs font-medium text-muted-foreground">
@@ -141,7 +144,6 @@ export function ExtractionReview({
           />
         </div>
 
-        {/* Total Cost */}
         <div>
           <div className="mb-1 flex items-center gap-2">
             <label htmlFor="ext-cost" className="text-xs font-medium text-muted-foreground">
@@ -163,7 +165,6 @@ export function ExtractionReview({
           />
         </div>
 
-        {/* Vendor */}
         <div>
           <div className="mb-1 flex items-center gap-2">
             <label htmlFor="ext-vendor" className="text-xs font-medium text-muted-foreground">
@@ -180,7 +181,27 @@ export function ExtractionReview({
           />
         </div>
 
-        {/* Category */}
+        <div>
+          <div className="mb-1 flex items-center gap-2">
+            <label htmlFor="ext-receipt-detail" className="text-xs font-medium text-muted-foreground">
+              {RECEIPT_DETAIL_FIELD_LABEL}
+            </label>
+            <FieldMarker edited={editedFields.has("receiptDetailLevel")} />
+          </div>
+          <select
+            id="ext-receipt-detail"
+            value={fields.receiptDetailLevel}
+            onChange={(e) => {
+              updateField("receiptDetailLevel", e.target.value as ReceiptDetailLevel);
+            }}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          >
+            {Object.entries(RECEIPT_DETAIL_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+
         <div>
           <div className="mb-1 flex items-center gap-2">
             <label htmlFor="ext-category" className="text-xs font-medium text-muted-foreground">
@@ -203,7 +224,6 @@ export function ExtractionReview({
           </select>
         </div>
 
-        {/* Tax Treatment */}
         <div>
           <div className="mb-1 flex items-center gap-2">
             <label htmlFor="ext-treatment" className="text-xs font-medium text-muted-foreground">
@@ -225,7 +245,6 @@ export function ExtractionReview({
           </select>
         </div>
 
-        {/* Payment Method */}
         <div>
           <div className="mb-1 flex items-center gap-2">
             <label htmlFor="ext-payment" className="text-xs font-medium text-muted-foreground">
@@ -248,7 +267,6 @@ export function ExtractionReview({
           </select>
         </div>
 
-        {/* Cost Basis Adjustment */}
         <div>
           <div className="mb-1 flex items-center gap-2">
             <label htmlFor="ext-basis" className="text-xs font-medium text-muted-foreground">
@@ -270,7 +288,6 @@ export function ExtractionReview({
           />
         </div>
 
-        {/* Deductible Amount */}
         <div>
           <div className="mb-1 flex items-center gap-2">
             <label htmlFor="ext-deductible" className="text-xs font-medium text-muted-foreground">
@@ -292,7 +309,6 @@ export function ExtractionReview({
           />
         </div>
 
-        {/* IRS Justification */}
         <div className="sm:col-span-2">
           <div className="mb-1 flex items-center gap-2">
             <label htmlFor="ext-justification" className="text-xs font-medium text-muted-foreground">
@@ -309,7 +325,6 @@ export function ExtractionReview({
           />
         </div>
 
-        {/* Permit Number */}
         <div>
           <div className="mb-1 flex items-center gap-2">
             <label htmlFor="ext-permit" className="text-xs font-medium text-muted-foreground">
@@ -327,7 +342,6 @@ export function ExtractionReview({
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center justify-between border-t pt-4">
         <button
           type="button"

@@ -78,8 +78,8 @@ export function AttachmentSection({
   onIncludedPendingFileRemove,
 }: AttachmentSectionProps): ReactElement {
   const {
-    uploadProjectAttachment,
-    removeProjectAttachment,
+    uploadAttachment,
+    removeAttachment,
     getAttachmentBlob,
   } = useStorage();
 
@@ -141,7 +141,7 @@ export function AttachmentSection({
       const key = `uploading:${file.name}:${String(Date.now())}`;
       setUploadingKeys((prev) => new Set(prev).add(key));
 
-      void uploadProjectAttachment(projectId, file).then((result) => {
+      void uploadAttachment(projectId, file).then((result) => {
         setUploadingKeys((prev) => {
           const next = new Set(prev);
           next.delete(key);
@@ -156,7 +156,7 @@ export function AttachmentSection({
         }
       });
     },
-    [addPendingFile, attachments.length, mode, projectId, uploadProjectAttachment],
+    [addPendingFile, attachments.length, mode, projectId, uploadAttachment],
   );
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>): void {
@@ -208,7 +208,7 @@ export function AttachmentSection({
 
   function handleRemoveUploaded(fileId: string): void {
     if (mode !== "live") return;
-    void removeProjectAttachment(projectId, fileId);
+    void removeAttachment(projectId, fileId);
   }
 
   return (

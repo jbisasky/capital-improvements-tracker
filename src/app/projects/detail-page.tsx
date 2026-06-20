@@ -5,6 +5,10 @@ import { useStorage } from "@/services/storage-context";
 import { cn } from "@/lib/utils";
 import { type TaxTreatment } from "@/domain/schemas";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
+import {
+  formatDocFieldLabel,
+  RECEIPT_DETAIL_LABELS,
+} from "@/domain/receipt-detail-level";
 import { AttachmentSection } from "@/app/projects/attachment-section";
 
 function formatCurrency(amount: number): string {
@@ -157,6 +161,12 @@ export function ProjectDetailPage(): ReactElement {
                   <dd className="text-sm font-mono">{project.permitNumber}</dd>
                 </div>
               )}
+              {project.receiptDetailLevel && (
+                <div>
+                  <dt className="text-xs text-muted-foreground">Receipt detail</dt>
+                  <dd className="text-sm">{RECEIPT_DETAIL_LABELS[project.receiptDetailLevel]}</dd>
+                </div>
+              )}
               {project.energyCreditType && project.energyCreditType !== "none" && (
                 <div>
                   <dt className="text-xs text-muted-foreground">Energy Credit</dt>
@@ -219,7 +229,7 @@ export function ProjectDetailPage(): ReactElement {
                   {assessment.missing.map((field) => (
                     <li key={field} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <AlertCircle className="size-3 text-red-500" />
-                      {field}
+                      {formatDocFieldLabel(field)}
                     </li>
                   ))}
                 </ul>
@@ -232,7 +242,7 @@ export function ProjectDetailPage(): ReactElement {
                 <ul className="space-y-0.5">
                   {assessment.recommended.map((field) => (
                     <li key={field} className="text-xs text-muted-foreground">
-                      · {field}
+                      · {formatDocFieldLabel(field)}
                     </li>
                   ))}
                 </ul>

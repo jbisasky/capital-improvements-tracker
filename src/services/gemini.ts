@@ -29,12 +29,45 @@ Analyze the attached receipt/invoice and extract the following structured inform
 - category: One of "roof", "hvac", "plumbing", "electrical", "landscaping", "kitchen", "bathroom", "flooring", "windows_doors", "insulation", "foundation", "energy_efficiency", "accessibility", "security", "other", or null
 - paymentMethod: One of "cash", "check", "credit_card", "financing", "mixed", or null if not determinable
 - permitNumber: Any permit number referenced, or null
+- receiptDetailLevel: Whether the receipt shows itemized materials/labor line items vs a single lump-sum total. Use "itemized" if a line-item breakdown (materials, labor, parts, etc.) is visible; "lump_sum" if only a total or single-line amount appears; "unclear" if the image is too blurry or ambiguous to tell
 
 Important rules:
 - For primary residences, most improvements are capital improvements (add to cost basis), not deductions
 - Repairs maintain existing condition; improvements add value or extend useful life
 - Energy credits (25C, 25D) apply to qualifying efficiency upgrades
 - Be conservative with confidence — if text is unclear or amounts ambiguous, lower the confidence
+- Always provide an irsJustification even if confidence is low`;
+
+const MULTI_FILE_SYNTHESIS_PROMPT = `You are a financial document analyzer specializing in home capital improvements for US tax purposes.
+
+The user has attached multiple documents that may relate to ONE home capital improvement project. Documents may include receipts, invoices, payment confirmations, bank statements, permits, or screenshots.
+
+Analyze ALL attached documents together and produce ONE synthesized ExtractionResult for the project:
+- Prefer primary source documents (invoices, contractor receipts, itemized bills) over secondary sources (bank statements, payment app screenshots) when they conflict
+- When documents disagree, choose the single value most likely to be accurate for tax reporting — do not flag uncertainty in the output; make your best reasoned choice
+- Ignore documents that clearly do not describe a home improvement (e.g. unrelated bank activity) rather than letting them dominate fields like title
+- Do not automatically sum amounts from different documents unless they clearly represent partial payments for the same single project
+- Set confidence based on overall evidence quality across all documents (lower if sources are weak or contradictory)
+
+Extract the following structured information:
+- title: A concise project title (e.g. "Roof replacement", "HVAC installation")
+- completionDate: The date of service/completion in YYYY-MM-DD format, or null if not found
+- totalCost: The total amount paid in dollars (as a number, no $ sign), or null if not found
+- suggestedTreatment: Classify as one of: "capital_improvement", "repair", "deductible", "credit", "unknown"
+- costBasisAdjustment: The amount that adds to cost basis (usually same as totalCost for capital improvements), or null
+- deductibleAmount: The amount that is deductible (usually 0 for primary residence improvements), or null
+- irsJustification: A brief explanation of why this qualifies for the suggested tax treatment, referencing IRS Publication 523 or relevant rules
+- vendor: The vendor/contractor business name, or null if not found
+- confidence: Your confidence in the synthesized extraction from 0.0 to 1.0
+- category: One of "roof", "hvac", "plumbing", "electrical", "landscaping", "kitchen", "bathroom", "flooring", "windows_doors", "insulation", "foundation", "energy_efficiency", "accessibility", "security", "other", or null
+- paymentMethod: One of "cash", "check", "credit_card", "financing", "mixed", or null if not determinable
+- permitNumber: Any permit number referenced, or null
+- receiptDetailLevel: "itemized", "lump_sum", or "unclear"
+
+Important rules:
+- For primary residences, most improvements are capital improvements (add to cost basis), not deductions
+- Repairs maintain existing condition; improvements add value or extend useful life
+- Energy credits (25C, 25D) apply to qualifying efficiency upgrades
 - Always provide an irsJustification even if confidence is low`;
 
 /** Gemini-compatible response schema (single `type` strings + `nullable`, no union types). */
@@ -68,11 +101,15 @@ export const EXTRACTION_SCHEMA = {
       enum: ["cash", "check", "credit_card", "financing", "mixed"],
     },
     permitNumber: { type: "string", nullable: true },
+    receiptDetailLevel: {
+      type: "string",
+      enum: ["itemized", "lump_sum", "unclear"],
+    },
   },
   required: [
     "title", "completionDate", "totalCost", "suggestedTreatment",
     "costBasisAdjustment", "deductibleAmount", "irsJustification",
-    "vendor", "confidence",
+    "vendor", "confidence", "receiptDetailLevel",
   ],
 } as const;
 
@@ -195,11 +232,13 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-/** Extract structured data from a receipt/invoice file using Gemini. */
-export async function extractFromDocument(
-  file: File,
+type GeminiContentPart =
+  | { text: string }
+  | { inline_data: { mime_type: string; data: string } };
+
+async function generateExtractionFromParts(
+  parts: GeminiContentPart[],
 ): Promise<Result<ExtractionResponse>> {
-  // Check API key
   const apiKey = getGeminiKey();
   if (apiKey == null) {
     return err(
@@ -210,43 +249,13 @@ export async function extractFromDocument(
     );
   }
 
-  // Check budget
   const budgetCheck = checkBudget();
   if (!budgetCheck.ok) {
     return err(budgetCheck.error);
   }
 
-  // Validate file size for inline
-  if (file.size > MAX_INLINE_SIZE) {
-    return err(
-      appError(
-        "AI_EXTRACTION_FAILED",
-        `File too large for extraction (${String(Math.round(file.size / 1024 / 1024))} MB). Maximum is 15 MB.`,
-      ),
-    );
-  }
-
-  // Encode file
-  let base64: string;
-  try {
-    base64 = await fileToBase64(file);
-  } catch {
-    return err(
-      appError("AI_EXTRACTION_FAILED", "Failed to read the file."),
-    );
-  }
-
-  // Build request
   const body = JSON.stringify({
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: EXTRACTION_PROMPT },
-          { inline_data: { mime_type: file.type, data: base64 } },
-        ],
-      },
-    ],
+    contents: [{ role: "user", parts }],
     generationConfig: {
       temperature: 0,
       response_mime_type: "application/json",
@@ -254,7 +263,6 @@ export async function extractFromDocument(
     },
   });
 
-  // Make the API call
   let response: Response;
   try {
     response = await fetch(buildGenerateContentUrl(apiKey), {
@@ -270,7 +278,6 @@ export async function extractFromDocument(
     return err(await readGeminiHttpError(response));
   }
 
-  // Parse response
   let geminiResponse: GeminiResponse;
   try {
     geminiResponse = (await response.json()) as GeminiResponse;
@@ -280,11 +287,9 @@ export async function extractFromDocument(
     );
   }
 
-  // Record usage
   const tokensUsed = geminiResponse.usageMetadata?.totalTokenCount ?? 0;
   recordUsage(tokensUsed);
 
-  // Extract text from candidates
   const candidate = geminiResponse.candidates?.[0];
   if (candidate == null) {
     return err(
@@ -308,7 +313,6 @@ export async function extractFromDocument(
     );
   }
 
-  // Parse JSON
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -321,7 +325,6 @@ export async function extractFromDocument(
     );
   }
 
-  // Validate with zod
   const validated = ExtractionResultSchema.safeParse(parsed);
   if (!validated.success) {
     return err(
@@ -333,6 +336,77 @@ export async function extractFromDocument(
   }
 
   return ok({ result: validated.data, tokensUsed });
+}
+
+/** Extract structured data from a receipt/invoice file using Gemini. */
+export async function extractFromDocument(
+  file: File,
+): Promise<Result<ExtractionResponse>> {
+  if (file.size > MAX_INLINE_SIZE) {
+    return err(
+      appError(
+        "AI_EXTRACTION_FAILED",
+        `File too large for extraction (${String(Math.round(file.size / 1024 / 1024))} MB). Maximum is 15 MB.`,
+      ),
+    );
+  }
+
+  let base64: string;
+  try {
+    base64 = await fileToBase64(file);
+  } catch {
+    return err(
+      appError("AI_EXTRACTION_FAILED", "Failed to read the file."),
+    );
+  }
+
+  return generateExtractionFromParts([
+    { text: EXTRACTION_PROMPT },
+    { inline_data: { mime_type: file.type, data: base64 } },
+  ]);
+}
+
+/** Synthesize one project extraction from multiple documents in a single Gemini call. */
+export async function extractFromDocumentsCombined(
+  files: File[],
+): Promise<Result<ExtractionResponse>> {
+  if (files.length === 0) {
+    return err(appError("AI_EXTRACTION_FAILED", "No files to extract."));
+  }
+
+  if (files.length === 1) {
+    const file = files[0];
+    if (file == null) {
+      return err(appError("AI_EXTRACTION_FAILED", "No files to extract."));
+    }
+    return extractFromDocument(file);
+  }
+
+  const parts: GeminiContentPart[] = [{ text: MULTI_FILE_SYNTHESIS_PROMPT }];
+
+  for (const file of files) {
+    if (file.size > MAX_INLINE_SIZE) {
+      return err(
+        appError(
+          "AI_EXTRACTION_FAILED",
+          `${file.name} is too large (${String(Math.round(file.size / 1024 / 1024))} MB). Maximum is 15 MB per file.`,
+        ),
+      );
+    }
+
+    let base64: string;
+    try {
+      base64 = await fileToBase64(file);
+    } catch {
+      return err(
+        appError("AI_EXTRACTION_FAILED", `Failed to read ${file.name}.`),
+      );
+    }
+
+    parts.push({ inline_data: { mime_type: file.type, data: base64 } });
+  }
+
+  return generateExtractionFromParts(parts);
 }
 
 /** Test if the API key is valid by making a minimal request. */
@@ -349,16 +423,20 @@ export async function testGeminiKey(apiKey: string): Promise<Result<void>> {
 
     if (response.ok) return ok(undefined);
 
-    const mapped = await readGeminiHttpError(response);
+    if (response.status === 400 || response.status === 403) {
+      return err(
+        appError("AI_EXTRACTION_FAILED", "Invalid or restricted API key."),
+      );
+    }
     if (response.status === 429) {
       return err(appError("RATE_LIMITED", "API key is valid but quota exceeded."));
     }
-    if (response.status === 400 || response.status === 403) {
-      return err(
-        appError("AI_EXTRACTION_FAILED", mapped.message),
-      );
-    }
-    return err(mapped);
+    return err(
+      appError(
+        "AI_EXTRACTION_FAILED",
+        `Unexpected status ${String(response.status)}.`,
+      ),
+    );
   } catch {
     return err(appError("NETWORK_ERROR", "Could not connect to Gemini API."));
   }

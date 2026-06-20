@@ -50,6 +50,8 @@ export const PropertyType = z.enum([
   "vacation",
 ]);
 
+export const ReceiptDetailLevel = z.enum(["itemized", "lump_sum", "unclear"]);
+
 // --- Objects ---
 
 export const AttachmentSchema = z.object({
@@ -95,6 +97,8 @@ export const ProjectSchema = z.object({
   safeHarborElection: z.boolean().optional(),
   sqftAffected: z.number().positive().optional(),
   notes: z.string().optional(),
+  receiptDetailLevel: ReceiptDetailLevel.optional(),
+  projectFolderId: z.string().optional(),
 });
 
 export const PropertyProfileSchema = z.object({
@@ -106,15 +110,15 @@ export const PropertyProfileSchema = z.object({
   sqftTotal: z.number().positive().optional(),
 });
 
+export const ManifestSettingsSchema = z.object({
+  attachmentsFolderId: z.string().optional(),
+});
+
 export const ManifestSchema = z.object({
   schemaVersion: z.literal(2),
   lastUpdated: z.iso.datetime(),
   property: PropertyProfileSchema.optional(),
-  settings: z
-    .object({
-      attachmentsFolderId: z.string().optional(),
-    })
-    .optional(),
+  settings: ManifestSettingsSchema.optional(),
   summary: z.object({
     totalCostBasisAdded: z.number().nonnegative(),
     totalDeductible: z.number().nonnegative(),
@@ -138,6 +142,7 @@ export const ExtractionResultSchema = z.object({
   category: ImprovementCategory.nullable().optional(),
   paymentMethod: PaymentMethod.nullable().optional(),
   permitNumber: z.string().nullable().optional(),
+  receiptDetailLevel: ReceiptDetailLevel,
 });
 
 // --- Inferred Types ---
@@ -147,8 +152,10 @@ export type ImprovementCategory = z.infer<typeof ImprovementCategory>;
 export type PaymentMethod = z.infer<typeof PaymentMethod>;
 export type EnergyCreditType = z.infer<typeof EnergyCreditType>;
 export type PropertyType = z.infer<typeof PropertyType>;
+export type ReceiptDetailLevel = z.infer<typeof ReceiptDetailLevel>;
 export type Attachment = z.infer<typeof AttachmentSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
 export type PropertyProfile = z.infer<typeof PropertyProfileSchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
+export type ManifestSettings = z.infer<typeof ManifestSettingsSchema>;
 export type ExtractionResult = z.infer<typeof ExtractionResultSchema>;

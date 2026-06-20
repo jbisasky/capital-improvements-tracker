@@ -18,8 +18,6 @@
 5. [Drive: appData bootstrap & manifest read](#5-drive-appdata-bootstrap--manifest-read)
 6. [Drive: manifest write (compare-and-swap + backups)](#6-drive-manifest-write-compare-and-swap--backups)
 7. [Drive: attachment upload (resumable)](#7-drive-attachment-upload-resumable)
-7.3. [Application attachment service & StorageDriver API](#73-application-attachment-service--storagedriver-api)
-7.4. [UI integration (AttachmentSection)](#74-ui-integration-attachmentsection)
 8. [AI extraction — Gemini multimodal](#8-ai-extraction--gemini-multimodal)
 9. [End-to-end: "add project from a receipt"](#9-end-to-end-add-project-from-a-receipt)
 10. [Documentation completeness checker](#10-documentation-completeness-checker)
@@ -140,6 +138,12 @@ export const EnergyCreditType = z.enum([
   "25c_efficiency", "25d_solar", "45l", "none",
 ]);
 
+export const ReceiptDetailLevel = z.enum([
+  "itemized",   // receipt shows materials/labor line items
+  "lump_sum",   // single total only, no breakdown
+  "unclear",    // image/text too ambiguous to tell
+]);
+
 export const Project = z.object({
   id: z.string().uuid(),
   title: z.string().min(1),
@@ -167,6 +171,8 @@ export const Project = z.object({
   safeHarborElection: z.boolean().optional(),            // de minimis safe harbor ($2,500/$5,000)
   sqftAffected: z.number().positive().optional(),        // for home office (Form 8829)
   notes: z.string().optional(),                          // free-form audit notes
+  receiptDetailLevel: ReceiptDetailLevel.optional(),     // itemization visible on receipt (AI or manual)
+  projectFolderId: z.string().optional(),                // Drive subfolder for this project's attachments
 });
 
 export const PropertyType = z.enum([
@@ -174,21 +180,23 @@ export const PropertyType = z.enum([
 ]);
 
 export const PropertyProfile = z.object({
-  address: z.string().min(1),              // street address
+  address: z.string().min(1),
   city: z.string().min(1),
-  state: z.string().length(2),             // US state abbreviation
-  zip: z.string().regex(/^\d{5}(-\d{4})?$/), // 5 or 9 digit ZIP
+  state: z.string().length(2),
+  zip: z.string().regex(/^\d{5}(-\d{4})?$/),
   propertyType: PropertyType,
-  sqftTotal: z.number().positive().optional(), // total home sq ft (for home-office %)
+  sqftTotal: z.number().positive().optional(),
+});
+
+export const ManifestSettings = z.object({
+  attachmentsFolderId: z.string().optional(),
 });
 
 export const Manifest = z.object({
   schemaVersion: z.literal(2),
   lastUpdated: z.string().datetime(),
-  property: PropertyProfile.optional(),    // set once in Settings; inherited by all projects
-  settings: z.object({
-    attachmentsFolderId: z.string().optional(), // Drive folder for user-visible attachments (§7.1)
-  }).optional(),
+  property: PropertyProfile.optional(),
+  settings: ManifestSettings.optional(),
   summary: z.object({
     totalCostBasisAdded: z.number().nonnegative(),
     totalDeductible: z.number().nonnegative(),
@@ -218,6 +226,7 @@ export const ExtractionResult = z.object({
   category: ImprovementCategory.nullable().optional(),
   paymentMethod: PaymentMethod.nullable().optional(),
   permitNumber: z.string().nullable().optional(),
+  receiptDetailLevel: ReceiptDetailLevel,                // itemized vs lump-sum vs unclear
 });
 ```
 
@@ -474,6 +483,26 @@ POST https://www.googleapis.com/drive/v3/files
 Cache the folder id in the manifest (`settings.attachmentsFolderId`, added to schema) so it is
 discoverable across devices.
 
+### 7.1.1 Per-project subfolders
+On first attachment for a project, create (or reuse) a subfolder under the root attachments folder:
+```
+Capital Improvements (App Data)/
+  New roof - 2025-04-12/
+    receipt_roof.pdf
+```
+Folder name: `{sanitizedTitle} - {completionDate}` (fallback: `Project {id-prefix}`). Cache
+`project.projectFolderId` on the project record. On manifest load, move any manifest-referenced
+files still sitting in the root folder into the project subfolder (one-time migration per file).
+List unlinked root-level files in Diagnostics for manual cleanup.
+
+### 7.1.2 Multi-file upload (new project)
+On `/projects/new`, the user may queue **multiple** attachments before save (file picker
+`multiple`, drag-and-drop, add/remove list). Limit: 10 per project (`SCALE-06`). All queued files
+are uploaded via `addProjectWithAttachments` (attachments-first, manifest-last). **AI extraction**
+sends **all** pending files in **one Gemini request** that synthesizes a single `ExtractionResult`
+(preferring invoices/receipts over bank statements; best-guess when sources disagree). Human
+review is one editable screen before prefill. See §9.
+
 ### 7.2 Resumable handshake
 ```mermaid
 sequenceDiagram
@@ -499,97 +528,6 @@ sequenceDiagram
 - **Cleanup on cancel:** `DELETE <session_uri>` aborts the session.
 - A file is only referenced in the manifest **after** the upload returns a final `fileId`, so a
   failed upload never leaves a dangling reference.
-
-### 7.3 Application attachment service & StorageDriver API
-
-> **Implementation status (2026-06):** LLD §7.1–§7.2 (Drive protocol) is specified; the app-layer
-> wiring below is **not yet implemented**. Track progress in
-> [`docs/plans/attachment-upload-integration.md`](plans/attachment-upload-integration.md).
-
-#### Domain validation
-
-Pure function in `src/domain/attachment-validation.ts` (no I/O):
-
-```ts
-validateAttachmentFile(file: File, currentCount: number): Result<void>
-```
-
-Enforces LLD §17.2: max **25 MB** per file, max **10** attachments per project, MIME whitelist
-(`application/pdf`, `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`).
-
-#### Drive attachment service
-
-Module: `src/services/drive-attachment.ts`
-
-| Function | Purpose |
-| --- | --- |
-| `ensureAttachmentsFolder(manifest)` | Look up or create `"Capital Improvements (App Data)"`; read/write `manifest.settings.attachmentsFolderId` |
-| `uploadAttachmentResumable(file, folderId)` | Resumable handshake + chunked PUT (§7.2) → `Attachment` |
-| `fetchAttachmentBlob(fileId)` | Authenticated `GET files/{id}?alt=media` for view/download |
-| `deleteDriveFile(fileId)` | Optional Drive delete when user removes an attachment |
-
-Resumable upload requires raw HTTP access (read `Location` header, handle `308 Resume Incomplete`).
-Extend `src/services/http.ts` or add `src/services/http-raw.ts` — do **not** reuse the JSON-only
-success path of `httpFetch` for chunk uploads.
-
-#### StorageDriver extension
-
-`src/services/storage-driver.ts`:
-
-```ts
-interface StorageDriver {
-  // ... existing manifest CRUD ...
-
-  /** Upload file to Drive, append Attachment to project, CAS-write manifest. */
-  uploadProjectAttachment(projectId: string, file: File): Promise<Result<Manifest>>;
-
-  /** Remove attachment ref from project (and optionally delete Drive file). */
-  removeProjectAttachment(projectId: string, fileId: string): Promise<Result<Manifest>>;
-
-  /** Fetch attachment bytes for view/download. */
-  getAttachmentBlob(projectId: string, fileId: string): Promise<Result<Blob>>;
-
-  /** Create flow: upload all files, then addProject with attachments (§9 ordering). */
-  addProjectWithAttachments(project: Project, files: File[]): Promise<Result<Manifest>>;
-}
-```
-
-- **`DriveStorageDriver`:** delegates to `drive-attachment.ts`; attachments-first, manifest-last.
-- **`MockStorageDriver`:** stores blobs in an in-memory `Map<fileId, Blob>` so demo mode supports
-  view/download without Drive.
-
-#### Storage context
-
-`src/services/storage-context.tsx` exposes the four attachment methods above to React routes,
-refreshing in-memory manifest state on success (same pattern as `updateProject`).
-
-### 7.4 UI integration (AttachmentSection)
-
-Shared component: `src/app/projects/attachment-section.tsx`
-
-| Prop / mode | Used on |
-| --- | --- |
-| **Pending-until-save** | Add new project — files held locally until `addProjectWithAttachments`; includes the AI extraction source file |
-| **Live upload** | Project detail, Edit project — calls `uploadProjectAttachment` immediately |
-
-Features (maps to EARs ATT-08–ATT-11, ERR-07):
-
-- Upload file + optional **Scan / take photo** (`capture="environment"` on mobile)
-- Drag-and-drop zone with hover highlight
-- Per-file status: uploading / uploaded / failed (inline retry)
-- Actions: **View**, **Download**, **Remove**
-- Disabled at 10 attachments (tooltip)
-
-**New project wiring (`new-page.tsx`):**
-
-1. Retain `selectedFile` through AI review → form steps.
-2. Pre-assign project `id` before any upload.
-3. On submit: `addProjectWithAttachments(project, [selectedFile, ...extras])`.
-
-**Detail wiring (`detail-page.tsx`):** replace read-only list with `AttachmentSection` in live
-upload mode — users can add attachments without visiting Edit (HLD §4.4).
-
-**Edit wiring (`edit-page.tsx`):** `AttachmentSection` above or below `ProjectForm`.
 
 ---
 
@@ -651,6 +589,13 @@ sequenceDiagram
 - **Errors:** `400 API_KEY_INVALID` → settings CTA; `429 RESOURCE_EXHAUSTED` → backoff + "quota"
   message; `403` → key-permission message. The BYOK key is never logged.
 
+### 8.5 Multi-file synthesis (new project)
+- `extractProjectFromDocuments(files[])` in `src/services/gemini-extraction-batch.ts` routes to
+  `extractFromDocument` (1 file) or `extractFromDocumentsCombined` (2+ files).
+- `extractFromDocumentsCombined` attaches **all files inline** in one `generateContent` call with
+  `MULTI_FILE_SYNTHESIS_PROMPT` — Gemini returns one best-guess `ExtractionResult` for the project.
+- Budget: one AI call regardless of file count (`checkBudget()`).
+
 ---
 
 ## 9. End-to-end: "add project from a receipt"
@@ -663,12 +608,12 @@ sequenceDiagram
     participant Gem as Gemini
     participant Drive as Drive API
 
-    U->>App: choose file(s)
-    App->>App: validate type/size; preview
-    App->>Gem: extract (inline or File API, §8)
-    Gem-->>App: ExtractionResult (validated)
-    App->>U: REVIEW screen (prefilled, confidence badges, editable)
-    U->>App: correct fields, confirm treatment, submit
+    U->>App: choose one or more files (multi-select / drop)
+    App->>App: validate type/size; show pending list (max 10)
+    App->>Gem: extract all pending files in one multimodal request (inline, §8.5)
+    Gem-->>App: synthesized ExtractionResult (validated)
+    App->>U: REVIEW screen (editable project fields, confidence badge)
+    U->>App: correct fields, confirm once
     App->>App: assign id, createdAt/updatedAt; build Project
     App->>Drive: resumable upload attachment(s) (§7) → fileId(s)
     App->>Drive: manifest CAS write (§6) with new project
@@ -679,8 +624,7 @@ sequenceDiagram
 ```
 
 Ordering rationale: **attachments first, manifest last.** This guarantees the manifest never
-references a `fileId` that doesn't exist. The file used for Gemini extraction (§8) is included
-in the upload batch — extraction alone does not count as an attachment (ATT-12, AI-14). If the manifest write ultimately fails after a
+references a `fileId` that doesn't exist. If the manifest write ultimately fails after a
 successful upload, the orphaned Drive file is recorded in an in-memory "pending GC" list and
 cleaned up (or reconciled) on next successful manifest load.
 
@@ -722,6 +666,11 @@ evaluates which are present (non-empty / non-null) to produce the status:
 | `deductible` | title, completionDate, totalCost, ≥1 attachment, irsJustification | vendorName, category, paymentMethod |
 | `credit` | title, completionDate, totalCost, ≥1 attachment, energyCreditType, vendorName | permitNumber, notes (manufacturer cert as attachment) |
 | `unknown` | title, completionDate, totalCost | (everything else — nudge user to classify) |
+
+**Receipt detail (advisory, all treatments):** when `attachments.length > 0` and
+`receiptDetailLevel` is unset, `lump_sum`, or `unclear`, add `receiptDetailLevel` to the
+**recommended** list (UI: *Itemized receipt details*). When `itemized`, do not recommend.
+This never affects required-field score or blocks save (§10.5).
 
 **Additional rules by property type:**
 - If `propertyType === "rental"` and treatment is `capital_improvement`:
@@ -1035,7 +984,7 @@ export default mergeConfig(viteConfig, defineConfig({
 **Mocking strategy (unit/component):**
 - Google APIs (Drive, GIS) → mock at the `httpFetch` wrapper boundary (`vi.mock`);
   never call real Google endpoints in unit tests.
-- Gemini API → mock `extractFromDocument` service; feed canned extraction responses.
+- Gemini API → mock `extractFromDocument` / `extractFromDocumentsCombined` / `extractProjectFromDocuments`; feed canned extraction responses.
 - `localStorage` → use Vitest's jsdom environment (provides `localStorage` natively).
 
 ### 15.3 Playwright — E2E tests
