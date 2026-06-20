@@ -146,37 +146,129 @@ variable in the project settings — do not commit a `.env` file.
 
 The user supplies this key at runtime, but **you** create and lock it down.
 
-1. Get the key from **Google AI Studio**: <https://aistudio.google.com/app/apikey> → **Create API
-   key** → select your project. (This is the same project, so quotas apply.)
-2. Lock it down in Cloud Console → APIs & Services → **Credentials** → click the key:
-   - **API restrictions:** **Restrict key** → allow **only** the **Gemini API** (may still
-     appear as "Generative Language API" in older console UI).
-   - **Application restrictions:** **HTTP referrers (web sites)** → add:
-     - `https://capital-improvements-tracker.pages.dev/*`
-     - `https://<your-custom-domain>/*`
-     - `http://localhost:5173/*` (dev)
-   - Save. A referrer-locked key can't be used from anywhere but your app's domains, so a leaked
-     key has limited blast radius.
-3. Enter the key in the app: **Settings → BYOK** (stored in `localStorage`, or session-only).
+### 5.1 Create the key (Google AI Studio)
+
+1. Open **Google AI Studio**: <https://aistudio.google.com/app/apikey>
+2. **Create API key** → select your Cloud project (`capital-improvements-tracker` or similar).
+3. Copy the key value once — you will paste it in the app under **Settings → BYOK**.
+
+> **Auth keys (2026 default):** New keys from AI Studio are **authorization (auth) keys**, bound to
+> an auto-created service account (often named **"Gemini API Key"**). That is expected. Auth keys
+> are already restricted to the **Gemini API** by default — you do **not** configure restrictions
+> on the service account itself.
+
+### 5.2 Confirm restrictions (Cloud Console)
+
+Go to **APIs & Services → Credentials** (not IAM & Admin → Service accounts).
+
+Under the **API Keys** section, click the **API key** row (shows a truncated value like
+`AIza…`). You should land on an **Edit API key** page — not a service account with
+*Details* / *Permissions* / *Keys* tabs.
+
+If you instead see **IAM & Admin → Service accounts → Gemini API Key**, you opened the
+**bound service account**, not the API key. Go back to **APIs & Services → Credentials** and
+click the entry under **API Keys**.
+
+On the **Edit API key** page:
+
+1. **API restrictions:** confirm **Restrict key → Gemini API** only (auth keys default to this).
+   Do not leave the key unrestricted.
+2. **Application restrictions:** auth keys created via AI Studio are bound to a service account.
+   The console will **not** let you set **Websites (HTTP referrers)** — you may see:
+   *"This option is not available for API keys authenticated through a service account."*
+   Leave **None** (or whatever is allowed). This is expected for auth keys as of 2026.
+3. Click **Save** if you changed anything.
+
+**What you still get with an auth key (without referrers):**
+
+- Restricted to **Gemini API** only (not Maps, Firebase, etc.).
+- Google's **leaked-key enforcement** on auth keys ([Gemini API key docs](https://ai.google.dev/gemini-api/docs/api-key)).
+- **Tier limits** in §6 (Free tier is already capped by Google).
+- **App-level guards** in LLD §13 (per-gesture budgets, circuit breakers, key expiry in Settings).
+
+> **Legacy standard keys:** Older "standard" API keys could use HTTP referrer restrictions, but
+> Google is deprecating them (unrestricted standard keys blocked June 2026; all standard keys
+> September 2026). New AI Studio keys are auth keys — prefer them despite the referrer limitation.
+
+> **Do not** create or download a JSON key under the service account's **Keys** tab — that is for
+> server-side service-account auth, not this browser BYOK flow.
+
+### 5.3 Use the key in the app
+
+Enter the key in **Settings → BYOK** (stored in `localStorage`, or session-only).
 
 ---
 
 ## 6. Set quota caps (runaway-usage backstop)
 
-This is the authoritative ceiling behind LLD §13's client guards — even a buggy build can't exceed
-what Google allows.
+This complements LLD §13's client-side guards. For Gemini, Google's **tier limits are the ceiling** —
+you generally **cannot lower** RPM/RPD in Cloud Console the way older runbooks implied.
 
-1. IAM & Admin → **Quotas** (or APIs & Services → **Gemini API → Quotas & limits**):
+### 6.1 Gemini API — view limits (AI Studio, primary)
+
+Rate limits are **per project** (not per API key), tier-based, and model-specific (RPM, TPM, RPD).
+Google sets them; they update when your usage tier changes. You **view** them here — you do not
+lower them manually on the Free tier.
+
+1. Open **Google AI Studio**: <https://aistudio.google.com/>
+2. Confirm the correct project is selected (project picker, top-left).
+3. **Usage & rate limits:**
+   - Left nav → **Dashboard** → **Usage** — current consumption vs limits ([billing docs](https://ai.google.dev/gemini-api/docs/billing)).
+   - Or use the **rate limits** dashboard in AI Studio (RPM, TPM, RPD per model) if shown in your
+     project's sidebar/settings — Google has been rolling this into the Usage area.
+4. **Your tier:** left nav → **Projects** (or **API keys** page) → **Billing tier** column shows
+   Free / Tier 1 / 2 / 3 for the selected project.
+5. Reference: [Gemini API rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) for tier
+   qualifications and model-specific caps.
+
+**Free tier — you're done.** Limits are already conservative (e.g. ~10–15 RPM and ~1,000–1,500
+RPD per Flash model). That is your provider-side backstop; no Cloud Console edit required.
+
+**Paid tier only — optional spend cap in AI Studio:**
+
+1. AI Studio → **Spend** (or project billing settings).
+2. Set **Monthly spend cap** to a dollar limit you are comfortable with (~10 minute delay before
+   enforcement; see [Google's spend caps announcement](https://blog.google/innovation-and-ai/technology/developers-tools/more-control-over-gemini-api-costs/)).
+
+> **Edit Quotas in Cloud Console** (§6.2) is mainly for requesting **increases**, not lowering caps.
+
+### 6.2 Gemini API — optional Cloud Console view (inspect only)
+
+Skip this on Free tier unless you are curious. You generally **cannot** lower Gemini quotas here.
+
+1. Open **IAM & Admin → Quotas & System Limits**:
    <https://console.cloud.google.com/iam-admin/quotas>
-2. Filter to **Gemini API**. Review/lower the per-minute and per-day request limits
-   (e.g. **Requests per minute**, **Requests per day**) to conservative values appropriate for a
-   single user. The free tier already enforces caps; setting explicit lower limits adds headroom
-   safety. (Some limits are editable; others are fixed by tier.)
-3. **Optional billing guardrail:** if you ever attach billing for higher Gemini limits, set a
-   **Budget & alert** (Billing → Budgets & alerts) with a low monthly cap + email alerts, so any
-   runaway spend is caught quickly.
-4. **Drive API** enforces its own per-user rate limits automatically; the app cooperates with
-   `429` / `403 rateLimitExceeded` via backoff (LLD §1.5) — no manual quota change needed.
+2. In **Filter**, set **Service** to **Gemini API** (or search `generativelanguage.googleapis.com`
+   if that label appears instead).
+3. Scan rows for metrics like `generate_content_*` (requests/tokens per minute or per day).
+
+**Alternative path:** **APIs & Services → Enabled APIs & services** → click **Gemini API** →
+**Quotas & system limits** tab (if present for your project).
+
+If a row shows **Edit quotas**, that submits a request to Google — almost always to **raise** a
+limit, not lower it. Free-tier rows are often read-only or show a fixed min/max range.
+
+### 6.3 Optional billing guardrail (Cloud Console, paid tier)
+
+If you linked a billing account for higher Gemini limits **and** want a second spend alert outside
+AI Studio's monthly spend cap (§6.1):
+
+1. **Billing → Budgets & alerts** → **Create budget**.
+2. Scope it to your project; set a low monthly amount + email notification thresholds.
+3. Keep the project on the **lowest tier** you need — tier upgrades are automatic as spend grows.
+
+### 6.4 Drive API — no manual quota change
+
+Drive enforces its own per-user rate limits automatically; the app cooperates with
+`429` / `403 rateLimitExceeded` via backoff (LLD §1.5). No manual quota edit needed.
+
+### 6.5 What actually protects you (summary)
+
+| Layer | Gemini | Drive |
+| --- | --- | --- |
+| Provider | Tier RPM/RPD/TPM (Free tier is already low) | Per-user rate limits |
+| Cloud Console | View quotas; budget alerts if billed | N/A |
+| App (LLD §13) | Per-gesture budgets, circuit breakers, daily caps | Retry/backoff |
 
 ---
 
@@ -191,8 +283,9 @@ what Google allows.
 - [ ] Web OAuth Client ID created; JS origins include dev + `pages.dev` (+ custom domain later);
       redirect URIs empty.
 - [ ] `GOOGLE_CLIENT_ID` wired into the app build config.
-- [ ] Gemini key created in AI Studio; restricted to Gemini API + HTTP referrers.
-- [ ] Quota caps reviewed/lowered; (optional) billing budget alert set.
+- [ ] Gemini auth key created in AI Studio; **Gemini API** restriction confirmed on **APIs & Services → Credentials → API key** (HTTP referrers N/A for auth keys).
+- [ ] Gemini rate limits reviewed in **AI Studio** (Free tier limits are the provider backstop; Cloud Console quotas are view-only / increase-request for most users).
+- [ ] (Optional, paid tier) Billing budget + alert configured.
 - [ ] Smoke test: sign in, manifest bootstraps in Drive, a sample receipt extracts via Gemini.
 
 ---
@@ -205,7 +298,9 @@ what Google allows.
 | `access_denied` on consent | account not a test user (Testing mode) | add it under OAuth consent screen → Audience → Test users |
 | Drive calls return `403 insufficientPermissions` | missing/partial scope grant | re-consent; verify both scopes in §3 |
 | Gemini `400 API_KEY_INVALID` | wrong/rotated key | re-create key in AI Studio; update Settings |
-| Gemini `403 requests blocked` | referrer restriction mismatch | ensure your domain is in the key's HTTP referrers |
+| Gemini `403 requests blocked` | legacy standard key with referrer mismatch | auth keys cannot use referrers; remove referrer restrictions or migrate to auth key |
+| Opened service account instead of API key | clicked **Gemini API Key** under IAM → Service accounts | use **APIs & Services → Credentials → API Keys** → click the `AIza…` key row |
+| Websites restriction greyed out on auth key | auth key bound to service account (2026 default) | expected — confirm Gemini API restriction only; use quotas + app guards (§6, LLD §13) |
 | Gemini `429 RESOURCE_EXHAUSTED` | quota hit | wait for reset / raise quota; client backs off automatically |
 
 ---

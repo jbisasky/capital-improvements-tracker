@@ -863,12 +863,14 @@ interface UsageBudget {
 ### 14.6 Provider-side limits (defense in depth — owner configures)
 Client guards can be bypassed by a determined bug or a tampered build, so the **authoritative**
 ceiling is set at Google:
-- **AI Studio / Gemini API quotas:** set requests-per-minute and requests-per-day limits on the
-  project/key in the Google Cloud console (Quotas page). The free tier already enforces RPM/RPD
-  caps; explicit lower caps add headroom safety.
-- **API key restrictions:** restrict the BYOK key to the Gemini API only (may appear as
-  "Generative Language API" in older console UI), and add an
-  **HTTP referrer restriction** to the app's domain(s) so a leaked key can't be used elsewhere.
+- **AI Studio / Gemini API quotas:** rate limits are tier-based (RPM, TPM, RPD per model, per
+  project) and are viewed in AI Studio; Free tier limits are fixed by Google. Cloud Console
+  **Quotas & System Limits** can inspect `generativelanguage.googleapis.com` metrics but
+  **Edit quotas** is primarily for requesting increases, not lowering caps. Optional billing
+  budgets apply on paid tiers.
+- **API key restrictions:** restrict the BYOK key to the Gemini API only. HTTP referrer
+  restrictions apply only to legacy standard keys; auth keys from AI Studio (2026 default) cannot
+  use referrers — rely on Gemini-only scope, Google leaked-key enforcement, and quota caps.
 - **Drive API quotas:** Drive enforces per-user rate limits; our backoff (§1.5) + breaker (§14.4)
   cooperate with `429`/`403 rateLimitExceeded` responses rather than fighting them.
 - These steps are in the runbook [`docs/google-cloud-setup.md`](google-cloud-setup.md).
