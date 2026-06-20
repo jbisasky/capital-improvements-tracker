@@ -278,6 +278,9 @@ Two entry modes that converge on the same form:
 </details>
 - Field-level validation (zod-mirrored). `taxTreatment` drives which amount fields are emphasized
   (capital → cost-basis; credit/deductible → deductible amount).
+- The file used for **Extract details with AI** is retained through the review step and persisted
+  as a project attachment on **Create Project** (ATT-12, AI-14). Additional files may be added on
+  the form step before save.
 - Save = attachments-first, manifest-last (LLD §9). Button shows progress; disabled while a budget
   or circuit guard is tripped (LLD §14) with an inline reason.
 
@@ -339,6 +342,9 @@ Two entry modes that converge on the same form:
 
 </details>
 - `⋯` menu: delete (confirm), duplicate, export this project.
+- **Upload on detail:** in addition to view/download on existing files, the attachments card includes
+  an inline upload zone (same `AttachmentSection` as add/edit — HLD §4.4, ATT-13). Users can add
+  receipts after project create without visiting Edit.
 
 ### 5.7 Settings (`/settings`)
 
@@ -466,7 +472,7 @@ Every data-bearing screen must implement these. Mapped to LLD §11 codes where a
 | **Offline** | global | "You're offline — viewing last synced data"; writes disabled/queued (later: queue) |
 | **Sync conflict** | save | diff dialog (`CONFLICT`) |
 | **Read corrupt** | boot | "Couldn't read your data" → restore backup / export (`READ_CORRUPT`) |
-| **Upload failed** | add/edit | inline retry on the attachment (`UPLOAD_FAILED`) |
+| **Upload failed** | add/edit/detail | inline retry on the attachment (`UPLOAD_FAILED`) |
 | **Extraction incomplete** | review | fallback to manual + raw text (`EXTRACTION_INCOMPLETE`) |
 | **AI key invalid** | extract, settings | inline + Settings deep-link (`API_KEY_INVALID`) |
 | **AI quota / budget** | extract | "Daily AI limit reached — raise limit/override" (`AI_BUDGET_EXCEEDED`,`QUOTA`) |

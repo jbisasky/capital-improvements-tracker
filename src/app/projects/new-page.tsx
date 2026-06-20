@@ -13,21 +13,18 @@ import {
 import { hasGeminiKey } from "@/services/gemini-key";
 import { extractFromDocument } from "@/services/gemini";
 import { ExtractionReview } from "@/app/projects/extraction-review";
+import { AttachmentSection } from "@/app/projects/attachment-section";
 import { type ProjectFormData as FormData } from "@/app/projects/project-form-types";
+import {
+  ACCEPTED_ATTACHMENT_ACCEPT,
+  dedupeAttachmentFiles,
+  validateAttachmentFile,
+} from "@/domain/attachment-validation";
 
-const ACCEPTED_TYPES = [
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-];
-
-function formToProject(data: ProjectFormData): Project {
+function formToProject(data: ProjectFormData, projectId: string): Project {
   const now = new Date().toISOString();
   return {
-    id: crypto.randomUUID(),
+    id: projectId,
     title: data.title,
     completionDate: data.completionDate,
     totalCost: parseFloat(data.totalCost) || 0,
@@ -83,14 +80,18 @@ type PageStep = "upload" | "extracting" | "review" | "form";
 export function ProjectNewPage(): ReactElement {
   const navigate = useNavigate();
   const prefix = useRoutePrefix();
-  const { addProject } = useStorage();
+  const { addProjectWithAttachments } = useStorage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<PageStep>("upload");
+  const [projectId] = useState(() => crypto.randomUUID());
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [extractionResult, setExtractionResult] = useState<ExtractionResult | null>(null);
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const [prefilled, setPrefilled] = useState<FormData | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const keyConfigured = hasGeminiKey();
 
@@ -98,12 +99,9 @@ export function ProjectNewPage(): ReactElement {
     const file = e.target.files?.[0];
     if (file == null) return;
 
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      setExtractionError("Unsupported file type. Use PDF, JPEG, PNG, or WebP.");
-      return;
-    }
-    if (file.size > 15 * 1024 * 1024) {
-      setExtractionError("File too large. Maximum 15 MB.");
+    const validation = validateAttachmentFile(file, 0);
+    if (!validation.ok) {
+      setExtractionError(validation.error.message);
       return;
     }
 
@@ -146,11 +144,22 @@ export function ProjectNewPage(): ReactElement {
   }
 
   function handleSubmit(data: ProjectFormData): void {
-    const project = formToProject(data);
-    void addProject(project).then((result) => {
+    const project = formToProject(data, projectId);
+    const files = dedupeAttachmentFiles([
+      ...(selectedFile != null ? [selectedFile] : []),
+      ...pendingFiles,
+    ]);
+
+    setSaving(true);
+    setSaveError(null);
+
+    void addProjectWithAttachments(project, files).then((result) => {
+      setSaving(false);
       if (result.ok) {
         trackProjectCreated(project.taxTreatment);
         void navigate(`${prefix}/projects/${project.id}`);
+      } else {
+        setSaveError(result.error.message);
       }
     });
   }
@@ -185,10 +194,25 @@ export function ProjectNewPage(): ReactElement {
             Fields below were pre-filled from AI extraction. Review and adjust as needed.
           </p>
         )}
+
+        <AttachmentSection
+          projectId={projectId}
+          attachments={[]}
+          mode="pending"
+          pendingFiles={pendingFiles}
+          onPendingFilesChange={setPendingFiles}
+          includedPendingFile={selectedFile}
+          onIncludedPendingFileRemove={() => { setSelectedFile(null); }}
+        />
+
+        {saveError != null && (
+          <p className="text-sm text-red-600">{saveError}</p>
+        )}
+
         <ProjectForm
           {...(prefilled != null ? { initial: prefilled } : {})}
           onSubmit={handleSubmit}
-          submitLabel="Create Project"
+          submitLabel={saving ? "Creating…" : "Create Project"}
         />
       </div>
     );
@@ -202,11 +226,11 @@ export function ProjectNewPage(): ReactElement {
       </Link>
       <h1 className="text-2xl font-semibold">Add New Project</h1>
 
-      {/* File upload section */}
       <div className="space-y-4 rounded-lg border p-4">
         <h3 className="text-sm font-medium">Attachments</h3>
         <p className="text-sm text-muted-foreground">
-          Upload a receipt or invoice to extract details with AI, or skip to enter manually.
+          Upload a receipt or invoice to extract details with AI. The file will be saved as a
+          project attachment when you create the project.
         </p>
 
         <div className="flex flex-wrap gap-3">
@@ -221,7 +245,7 @@ export function ProjectNewPage(): ReactElement {
           <input
             ref={fileInputRef}
             type="file"
-            accept={ACCEPTED_TYPES.join(",")}
+            accept={ACCEPTED_ATTACHMENT_ACCEPT}
             onChange={handleFileSelect}
             className="hidden"
           />
@@ -261,7 +285,6 @@ export function ProjectNewPage(): ReactElement {
         )}
       </div>
 
-      {/* Skip to manual */}
       <button
         type="button"
         onClick={handleSkipToManual}

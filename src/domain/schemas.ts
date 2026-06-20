@@ -110,6 +110,11 @@ export const ManifestSchema = z.object({
   schemaVersion: z.literal(2),
   lastUpdated: z.iso.datetime(),
   property: PropertyProfileSchema.optional(),
+  settings: z
+    .object({
+      attachmentsFolderId: z.string().optional(),
+    })
+    .optional(),
   summary: z.object({
     totalCostBasisAdded: z.number().nonnegative(),
     totalDeductible: z.number().nonnegative(),

@@ -6,6 +6,7 @@ import { ProjectForm, type ProjectFormData } from "@/app/projects/project-form";
 import { type Project } from "@/domain/schemas";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
 import { trackProjectEdited } from "@/services/analytics";
+import { AttachmentSection } from "@/app/projects/attachment-section";
 
 function projectToForm(project: Project): ProjectFormData {
   return {
@@ -96,6 +97,11 @@ export function ProjectEditPage(): ReactElement {
         <ArrowLeft className="size-4" /> Back to project
       </Link>
       <h1 className="text-2xl font-semibold">Edit: {project.title}</h1>
+      <AttachmentSection
+        projectId={project.id}
+        attachments={project.attachments}
+        mode="live"
+      />
       <ProjectForm
         initial={projectToForm(project)}
         onSubmit={handleSubmit}

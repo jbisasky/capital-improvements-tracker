@@ -22,8 +22,12 @@ interface StorageState {
 interface StorageContextValue extends StorageState {
   reload: () => Promise<void>;
   addProject: (project: Project) => Promise<Result<Manifest>>;
+  addProjectWithAttachments: (project: Project, files: File[]) => Promise<Result<Manifest>>;
   updateProject: (id: string, project: Project) => Promise<Result<Manifest>>;
   deleteProject: (id: string) => Promise<Result<Manifest>>;
+  uploadProjectAttachment: (projectId: string, file: File) => Promise<Result<Manifest>>;
+  removeProjectAttachment: (projectId: string, fileId: string) => Promise<Result<Manifest>>;
+  getAttachmentBlob: (projectId: string, fileId: string) => Promise<Result<Blob>>;
   getDocAssessment: (project: Project) => DocAssessment;
 }
 
@@ -32,6 +36,18 @@ const StorageContext = createContext<StorageContextValue | null>(null);
 interface StorageProviderProps {
   driver: StorageDriver;
   children: ReactNode;
+}
+
+function applyManifestResult(
+  setState: React.Dispatch<React.SetStateAction<StorageState>>,
+  result: Result<Manifest>,
+): void {
+  if (result.ok) {
+    setState((prev) => ({
+      ...prev,
+      manifest: result.value,
+    }));
+  }
 }
 
 export function StorageProvider({
@@ -74,12 +90,16 @@ export function StorageProvider({
   const addProject = useCallback(
     async (project: Project): Promise<Result<Manifest>> => {
       const result = await driver.addProject(project);
-      if (result.ok) {
-        setState((prev) => ({
-          ...prev,
-          manifest: result.value,
-        }));
-      }
+      applyManifestResult(setState, result);
+      return result;
+    },
+    [driver],
+  );
+
+  const addProjectWithAttachments = useCallback(
+    async (project: Project, files: File[]): Promise<Result<Manifest>> => {
+      const result = await driver.addProjectWithAttachments(project, files);
+      applyManifestResult(setState, result);
       return result;
     },
     [driver],
@@ -88,12 +108,7 @@ export function StorageProvider({
   const updateProject = useCallback(
     async (id: string, project: Project): Promise<Result<Manifest>> => {
       const result = await driver.updateProject(id, project);
-      if (result.ok) {
-        setState((prev) => ({
-          ...prev,
-          manifest: result.value,
-        }));
-      }
+      applyManifestResult(setState, result);
       return result;
     },
     [driver],
@@ -102,13 +117,33 @@ export function StorageProvider({
   const deleteProject = useCallback(
     async (id: string): Promise<Result<Manifest>> => {
       const result = await driver.deleteProject(id);
-      if (result.ok) {
-        setState((prev) => ({
-          ...prev,
-          manifest: result.value,
-        }));
-      }
+      applyManifestResult(setState, result);
       return result;
+    },
+    [driver],
+  );
+
+  const uploadProjectAttachment = useCallback(
+    async (projectId: string, file: File): Promise<Result<Manifest>> => {
+      const result = await driver.uploadProjectAttachment(projectId, file);
+      applyManifestResult(setState, result);
+      return result;
+    },
+    [driver],
+  );
+
+  const removeProjectAttachment = useCallback(
+    async (projectId: string, fileId: string): Promise<Result<Manifest>> => {
+      const result = await driver.removeProjectAttachment(projectId, fileId);
+      applyManifestResult(setState, result);
+      return result;
+    },
+    [driver],
+  );
+
+  const getAttachmentBlob = useCallback(
+    async (projectId: string, fileId: string): Promise<Result<Blob>> => {
+      return driver.getAttachmentBlob(projectId, fileId);
     },
     [driver],
   );
@@ -124,8 +159,12 @@ export function StorageProvider({
     ...state,
     reload: loadManifest,
     addProject,
+    addProjectWithAttachments,
     updateProject,
     deleteProject,
+    uploadProjectAttachment,
+    removeProjectAttachment,
+    getAttachmentBlob,
     getDocAssessment,
   };
 

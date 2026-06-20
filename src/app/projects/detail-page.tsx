@@ -1,10 +1,11 @@
 import { type ReactElement } from "react";
 import { useParams, Link, useNavigate } from "react-router";
-import { ArrowLeft, Pencil, Trash2, FileText, AlertCircle } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, AlertCircle } from "lucide-react";
 import { useStorage } from "@/services/storage-context";
 import { cn } from "@/lib/utils";
 import { type TaxTreatment } from "@/domain/schemas";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
+import { AttachmentSection } from "@/app/projects/attachment-section";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -186,26 +187,11 @@ export function ProjectDetailPage(): ReactElement {
           )}
 
           {/* Attachments */}
-          <div className="rounded-lg border p-4">
-            <h3 className="mb-3 text-sm font-medium">
-              Attachments ({project.attachments.length})
-            </h3>
-            {project.attachments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No attachments yet.</p>
-            ) : (
-              <ul className="space-y-2">
-                {project.attachments.map((att) => (
-                  <li key={att.fileId} className="flex items-center gap-2 text-sm">
-                    <FileText className="size-4 text-muted-foreground" />
-                    <span>{att.filename}</span>
-                    <span className="text-xs text-muted-foreground">
-                      ({Math.round(att.sizeBytes / 1024)} KB)
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <AttachmentSection
+            projectId={project.id}
+            attachments={project.attachments}
+            mode="live"
+          />
         </div>
 
         {/* Sidebar — Documentation Health */}
