@@ -65,4 +65,16 @@ describe("Cloudflare Pages static hosting files", () => {
     // Assert
     expect(redirects.trim()).toBe("/*    /index.html   200");
   });
+
+  it("ships PWA manifest, service worker, and SEO static files", () => {
+    const manifest = readFileSync(join(publicDir, "manifest.webmanifest"), "utf8");
+    const sw = readFileSync(join(publicDir, "sw.js"), "utf8");
+    const robots = readFileSync(join(publicDir, "robots.txt"), "utf8");
+    const sitemap = readFileSync(join(publicDir, "sitemap.xml"), "utf8");
+
+    expect(manifest).toContain('"display": "standalone"');
+    expect(sw).toContain("CACHE_NAME");
+    expect(robots).toContain("Sitemap:");
+    expect(sitemap).toContain("capital-improvements-tracker.pages.dev");
+  });
 });

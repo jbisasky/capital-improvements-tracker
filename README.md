@@ -70,12 +70,13 @@ This app is a durable, low-maintenance personal ledger that:
 - **Observability** — OpenTelemetry browser SDK → Honeycomb (performance traces, no PII)
 - **Landing page polish** — two-column marketing layout, Google-branded sign-in CTA, decorative dashboard preview card
 - **About page** — fixed documentation links, added Requirements (EARS) link, Badge disclaimer
+- **PWA & offline** — service worker (app shell cache), web manifest, IndexedDB manifest cache, offline read-only mode with write guards
 - **Strict TypeScript** — `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, zero `any`
 - **ESLint** — `strictTypeChecked` + `stylisticTypeChecked`
 
 ### Planned (Task 8)
 
-- **PWA & offline** — service worker, offline read-only mode
+- ~~**PWA & offline** — service worker, offline read-only mode~~ **Done**
 
 ## Tech stack
 
@@ -238,6 +239,8 @@ docs/
 - [Requirements (EARS)](docs/requirements-ears.md) — formal requirements specification (30 sections, 150+ requirements)
 - [UI/UX Design](docs/ui-ux-design.md) — screens, wireframes, user flows, state coverage, responsive/accessibility
 - [Google Cloud Setup](docs/google-cloud-setup.md) — one-time runbook: enable APIs, OAuth consent, BYOK key restrictions
+- [Plausible setup](docs/ops/plausible-setup.md) — register production domain for analytics
+- [Custom domain](docs/ops/custom-domain.md) — optional DNS + OAuth steps
 
 ## Roadmap
 
@@ -250,7 +253,7 @@ docs/
 | 5 | AI extraction + BYOK — Gemini integration, extraction review flow | Done |
 | 6 | Polish — Diagnostics page | Done |
 | 7 | Polish — Landing page & about page refinement | Done |
-| 8 | Polish — PWA/offline & service worker | Planned |
+| 8 | Polish — PWA/offline & service worker | Done |
 
 ## License
 

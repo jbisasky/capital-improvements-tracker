@@ -39,7 +39,7 @@ When you complete a task or a step, **you MUST update the "Completed Tasks" and 
 - [x] **Task 7 (PR #25):** Polish — Landing page & about page refinement.
 
 ### Remaining Tasks
-- [ ] **Task 8:** Polish — PWA/offline & service worker.
+- [x] **Task 8:** Polish — PWA/offline & service worker.
 
 ### Hosting (Cloudflare Pages)
 - [x] `public/_headers` — CSP, HSTS, security headers (EARS HOST-02, SEC-03).
