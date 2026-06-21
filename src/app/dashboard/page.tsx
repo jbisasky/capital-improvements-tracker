@@ -5,6 +5,7 @@ import { useStorage } from "@/services/storage-context";
 import { cn } from "@/lib/utils";
 import { type DocStatus } from "@/domain/doc-completeness";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -46,17 +47,68 @@ function MetricCard({ icon, label, value }: MetricCardProps): ReactElement {
   );
 }
 
+function DashboardSkeleton(): ReactElement {
+  return (
+    <div className="space-y-8">
+      {/* Page heading */}
+      <Skeleton className="h-8 w-36" />
+
+      {/* Metric cards — 2×2 on mobile, 4-col at lg+ */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm ring-1 ring-slate-900/5"
+          >
+            <div className="mb-3 flex items-center gap-1.5">
+              <Skeleton className="size-3.5 rounded-sm" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <Skeleton className="h-8 w-28" />
+          </div>
+        ))}
+      </div>
+
+      {/* Documentation health bar */}
+      <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1 ring-slate-900/5">
+        <div className="mb-3 flex items-center justify-between">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <Skeleton className="h-2 w-full rounded-full" />
+      </div>
+
+      {/* Recent projects section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-36" />
+          <Skeleton className="h-4 w-16" />
+        </div>
+        <div className="divide-y divide-slate-100 rounded-xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-900/5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="size-2.5 rounded-full" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              </div>
+              <Skeleton className="h-3 w-16" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardPage(): ReactElement {
   const { manifest, loading, getDocAssessment } = useStorage();
   const prefix = useRoutePrefix();
 
   if (loading || !manifest) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const projects = manifest.projects;
