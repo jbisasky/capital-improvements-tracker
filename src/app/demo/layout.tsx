@@ -24,7 +24,7 @@ export function DemoLayout(): ReactElement {
           Exit Demo &amp; Connect Drive
         </Link>
       </div>
-      <div className="pt-[36px]">
+      <div className="h-screen pt-[36px]">
         <AppShell>
           <Outlet />
         </AppShell>
