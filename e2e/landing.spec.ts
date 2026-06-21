@@ -33,11 +33,14 @@ test.describe("Landing page", () => {
     await expect(signInBtn).toBeEnabled();
   });
 
-  test("desktop split-screen layout screenshot", async ({ page }) => {
+  test("desktop ghost-layer layout screenshot", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
 
-    await expect(page.locator(".grid-cols-2")).toBeVisible();
+    await expect(page.getByTestId("landing-dashboard-preview")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: /capital improvements/i }),
+    ).toBeVisible();
     await page.screenshot({
       path: "docs/test-reports/task8-screenshots/landing-desktop.png",
       fullPage: true,
@@ -48,7 +51,8 @@ test.describe("Landing page", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
 
-    await expect(page.getByTestId("landing-mobile-canvas")).toBeVisible();
+    await expect(page.getByTestId("landing-mobile-frame")).toBeVisible();
+    await expect(page.getByTestId("landing-mobile-card")).toBeVisible();
     await expect(page.locator("#feature-list")).toBeVisible();
     await page.screenshot({
       path: "docs/test-reports/task8-screenshots/landing-mobile.png",
