@@ -159,6 +159,29 @@ configuration required. To use **live mode** (sign in, read/write your own Drive
 Without `VITE_GOOGLE_CLIENT_ID`, "Sign in with Google" no-ops gracefully and authenticated
 routes redirect to the landing page — demo mode continues to work.
 
+### Deploying to Cloudflare Pages
+
+The repo ships `public/_headers` (CSP + security headers) and `public/_redirects` (SPA
+routing). Connect the GitHub repo in the [Cloudflare Pages dashboard](https://dash.cloudflare.com/):
+
+| Setting | Value |
+| --- | --- |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Node version | 24 |
+
+Set these build-time environment variables in **Pages → Settings → Environment variables**:
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `VITE_GOOGLE_CLIENT_ID` | For live sign-in | Same OAuth Web Client ID as local dev |
+| `VITE_PLAUSIBLE_DOMAIN` | For analytics | e.g. `capital-improvements-tracker.pages.dev` |
+| `VITE_HONEYCOMB_API_KEY` | No | Telemetry no-ops when unset |
+
+After the first deploy, add your `*.pages.dev` URL (and any custom domain) to the OAuth
+client's **Authorized JavaScript origins** in Google Cloud Console — see
+[docs/google-cloud-setup.md](docs/google-cloud-setup.md).
+
 ### Scripts
 
 | Command | Description |
