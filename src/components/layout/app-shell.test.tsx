@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { AppShell } from "./app-shell";
+import { OfflineProvider } from "@/services/offline-context";
 
 // ---------- mocks ----------
 
@@ -17,17 +18,19 @@ vi.mock("@/components/brand/home-chart-logo", () => ({
 
 // ---------- helpers ----------
 
-function renderShell(initialPath: string) {
+function renderShell(initialPath: string): ReturnType<typeof render> {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
-      <AppShell>
-        <div data-testid="children" />
-      </AppShell>
+      <OfflineProvider>
+        <AppShell>
+          <div data-testid="children" />
+        </AppShell>
+      </OfflineProvider>
     </MemoryRouter>,
   );
 }
 
-function getMobileTopBar() {
+function getMobileTopBar(): HTMLElement {
   return screen.getByTestId("mobile-top-bar");
 }
 
@@ -169,16 +172,22 @@ describe("AppShell mobile tab bar", () => {
     // Arrange + Act
     renderShell("/demo/dashboard");
     const nav = document.querySelector("nav");
+    if (nav == null) {
+      throw new Error("Expected mobile nav element");
+    }
 
     // Assert
-    expect(within(nav!).queryByText("Exit Demo")).not.toBeInTheDocument();
+    expect(within(nav).queryByText("Exit Demo")).not.toBeInTheDocument();
   });
 
   it("tab bar has exactly 5 standard items in live mode", () => {
     // Arrange + Act
     renderShell("/dashboard");
     const nav = document.querySelector("nav");
-    const items = within(nav!).getAllByRole("link");
+    if (nav == null) {
+      throw new Error("Expected mobile nav element");
+    }
+    const items = within(nav).getAllByRole("link");
 
     // Assert
     expect(items).toHaveLength(5);
@@ -188,7 +197,10 @@ describe("AppShell mobile tab bar", () => {
     // Arrange + Act
     renderShell("/demo/dashboard");
     const nav = document.querySelector("nav");
-    const items = within(nav!).getAllByRole("link");
+    if (nav == null) {
+      throw new Error("Expected mobile nav element");
+    }
+    const items = within(nav).getAllByRole("link");
 
     // Assert
     expect(items).toHaveLength(5);

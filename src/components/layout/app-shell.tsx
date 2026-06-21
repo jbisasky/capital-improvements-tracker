@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HomeChartLogo } from "@/components/brand/home-chart-logo";
+import { OfflineBanner } from "@/components/layout/offline-banner";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
 import { useAuth } from "@/services/auth-context";
 
@@ -83,6 +84,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col">
+        <OfflineBanner />
         {/* Mobile top bar — hidden at md+; shows session action top-right on all pages */}
         <header
           data-testid="mobile-top-bar"

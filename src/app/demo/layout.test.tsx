@@ -1,3 +1,4 @@
+import type * as ReactRouter from "react-router";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -18,7 +19,7 @@ vi.mock("@/components/layout/app-shell", () => ({
 }));
 
 vi.mock("react-router", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react-router")>();
+  const actual = await importOriginal<typeof ReactRouter>();
   return {
     ...actual,
     Outlet: () => <div data-testid="outlet" />,
@@ -27,7 +28,7 @@ vi.mock("react-router", async (importOriginal) => {
 
 // ---------- helpers ----------
 
-function renderLayout() {
+function renderLayout(): ReturnType<typeof render> {
   return render(
     <MemoryRouter>
       <DemoLayout />

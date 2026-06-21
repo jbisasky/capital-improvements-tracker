@@ -4,6 +4,7 @@ import {
   useState,
   useCallback,
   useRef,
+  useEffect,
   type ReactElement,
   type ReactNode,
 } from "react";
@@ -16,6 +17,12 @@ import {
 } from "@/services/storage-driver";
 import { type Result } from "@/domain/result";
 import { ATTACHMENTS_ROOT_FOLDER_NAME } from "@/services/drive-attachment";
+import {
+  loadManifestCache,
+  saveManifestCache,
+} from "@/services/offline-manifest-cache";
+import { offlineWriteResult } from "@/services/offline-error";
+import { useOffline } from "@/services/offline-context";
 
 interface StorageState {
   manifest: Manifest | null;
@@ -26,6 +33,8 @@ interface StorageState {
 
 interface StorageContextValue extends StorageState {
   reload: () => Promise<void>;
+  isViewingCachedData: boolean;
+  writesDisabled: boolean;
   addProject: (project: Project) => Promise<Result<Manifest>>;
   addProjectWithAttachments: (
     project: Project,
@@ -63,31 +72,51 @@ export function StorageProvider({
   driver,
   children,
 }: StorageProviderProps): ReactElement {
+  const { isOnline } = useOffline();
   const [state, setState] = useState<StorageState>({
     manifest: null,
     etag: null,
     loading: true,
     error: null,
   });
+  const [isViewingCachedData, setIsViewingCachedData] = useState(false);
 
   const loadManifest = useCallback(async (): Promise<void> => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     const result: Result<ManifestReadResult> = await driver.readManifest();
     if (result.ok) {
+      await saveManifestCache(result.value.manifest);
+      setIsViewingCachedData(false);
       setState({
         manifest: result.value.manifest,
         etag: result.value.etag,
         loading: false,
         error: null,
       });
-    } else {
-      setState({
-        manifest: null,
-        etag: null,
-        loading: false,
-        error: result.error.message,
-      });
+      return;
     }
+
+    if (!navigator.onLine) {
+      const cached = await loadManifestCache();
+      if (cached != null) {
+        setIsViewingCachedData(true);
+        setState({
+          manifest: cached,
+          etag: null,
+          loading: false,
+          error: null,
+        });
+        return;
+      }
+    }
+
+    setIsViewingCachedData(false);
+    setState({
+      manifest: null,
+      etag: null,
+      loading: false,
+      error: result.error.message,
+    });
   }, [driver]);
 
   const initialized = useRef<boolean | null>(null);
@@ -96,70 +125,111 @@ export function StorageProvider({
     void loadManifest();
   }
 
+  useEffect(() => {
+    const handleOnline = (): void => {
+      void loadManifest();
+    };
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [loadManifest]);
+
+  const guardWrite = useCallback((): Result<never> | null => {
+    if (!isOnline) {
+      return offlineWriteResult();
+    }
+    return null;
+  }, [isOnline]);
+
   const addProject = useCallback(
     async (project: Project): Promise<Result<Manifest>> => {
+      const blocked = guardWrite();
+      if (blocked != null) {
+        return blocked;
+      }
       const result = await driver.addProject(project);
       if (result.ok) {
         applyManifestUpdate(setState, result.value);
       }
       return result;
     },
-    [driver],
+    [driver, guardWrite],
   );
 
   const addProjectWithAttachments = useCallback(
     async (project: Project, files: File[]): Promise<Result<Manifest>> => {
+      const blocked = guardWrite();
+      if (blocked != null) {
+        return blocked;
+      }
       const result = await driver.addProjectWithAttachments(project, files);
       if (result.ok) {
         applyManifestUpdate(setState, result.value);
       }
       return result;
     },
-    [driver],
+    [driver, guardWrite],
   );
 
   const updateProject = useCallback(
     async (id: string, project: Project): Promise<Result<Manifest>> => {
+      const blocked = guardWrite();
+      if (blocked != null) {
+        return blocked;
+      }
       const result = await driver.updateProject(id, project);
       if (result.ok) {
         applyManifestUpdate(setState, result.value);
       }
       return result;
     },
-    [driver],
+    [driver, guardWrite],
   );
 
   const deleteProject = useCallback(
     async (id: string): Promise<Result<Manifest>> => {
+      const blocked = guardWrite();
+      if (blocked != null) {
+        return blocked;
+      }
       const result = await driver.deleteProject(id);
       if (result.ok) {
         applyManifestUpdate(setState, result.value);
       }
       return result;
     },
-    [driver],
+    [driver, guardWrite],
   );
 
   const uploadAttachment = useCallback(
     async (projectId: string, file: File): Promise<Result<Manifest>> => {
+      const blocked = guardWrite();
+      if (blocked != null) {
+        return blocked;
+      }
       const result = await driver.uploadAttachment(projectId, file);
       if (result.ok) {
         applyManifestUpdate(setState, result.value);
       }
       return result;
     },
-    [driver],
+    [driver, guardWrite],
   );
 
   const removeAttachment = useCallback(
     async (projectId: string, fileId: string): Promise<Result<Manifest>> => {
+      const blocked = guardWrite();
+      if (blocked != null) {
+        return blocked;
+      }
       const result = await driver.removeAttachment(projectId, fileId);
       if (result.ok) {
         applyManifestUpdate(setState, result.value);
       }
       return result;
     },
-    [driver],
+    [driver, guardWrite],
   );
 
   const getAttachmentBlob = useCallback(
@@ -183,6 +253,8 @@ export function StorageProvider({
   const value: StorageContextValue = {
     ...state,
     reload: loadManifest,
+    isViewingCachedData,
+    writesDisabled: !isOnline,
     addProject,
     addProjectWithAttachments,
     updateProject,

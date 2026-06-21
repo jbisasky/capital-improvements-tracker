@@ -3,6 +3,8 @@ import { Link } from "react-router";
 import { useStorage } from "@/services/storage-context";
 import { type PropertyType } from "@/domain/schemas";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
+import { useAuth } from "@/services/auth-context";
+import { clearLocalDeviceData } from "@/services/clear-local-data";
 import { trackClearAllData, trackBYOKKeySaved } from "@/services/analytics";
 import {
   getGeminiKey,
@@ -36,6 +38,7 @@ const EXPIRY_OPTIONS: { value: ExpiryDays; label: string }[] = [
 
 export function SettingsPage(): ReactElement {
   const prefix = useRoutePrefix();
+  const { signOut } = useAuth();
   const { manifest, attachmentsFolderId, attachmentsFolderName } = useStorage();
   const property = manifest?.property;
 
@@ -100,9 +103,11 @@ export function SettingsPage(): ReactElement {
 
   function handleClearData(): void {
     trackClearAllData();
-    localStorage.clear();
-    setShowClearConfirm(false);
-    window.location.reload();
+    void (async (): Promise<void> => {
+      signOut();
+      await clearLocalDeviceData();
+      window.location.href = "/";
+    })();
   }
 
   return (
