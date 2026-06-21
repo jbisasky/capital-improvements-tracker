@@ -45,3 +45,4 @@ When you complete a task or a step, **you MUST update the "Completed Tasks" and 
 - [x] `public/_headers` — CSP, HSTS, security headers (EARS HOST-02, SEC-03).
 - [x] `public/_redirects` — SPA fallback (`/* → /index.html 200`).
 - [x] `VITE_PLAUSIBLE_DOMAIN` — build-time Plausible script injection via Vite.
+- [x] **Production:** https://capital-improvements-tracker.pages.dev — SEO/OG meta via `VITE_SITE_URL`, `public/og-image.png`.

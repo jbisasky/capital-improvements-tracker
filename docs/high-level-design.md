@@ -313,6 +313,11 @@ Pages can only do a weaker `<meta http-equiv>` CSP).
   JavaScript origins (§5.4).
 - **CI/CD:** Cloudflare Pages builds directly from the GitHub repo on push to `main`
   (preview deployments for PRs).
+- **Production URL:** [https://capital-improvements-tracker.pages.dev](https://capital-improvements-tracker.pages.dev)
+  (deployed June 2026). Demo mode: `/demo`.
+- **SEO:** build-time `<title>`, description, canonical, Open Graph, and Twitter Card tags
+  injected into `index.html`; `public/og-image.png` for social previews. Configured via
+  `VITE_SITE_URL` (defaults to the production URL).
 
 ### 8.1 Hosting is portable (why D10 is low-stakes / reversible)
 
