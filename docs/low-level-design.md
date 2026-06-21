@@ -1426,7 +1426,7 @@ Build-time injection via `src/hosting/inject-site-meta.ts` replaces the `<!-- SI
 marker in `index.html` with `<title>`, description, canonical, Open Graph, and Twitter Card
 tags. Absolute URLs (`og:url`, `og:image`, `twitter:image`, `link rel="canonical"`) are emitted
 when `VITE_SITE_URL` is set, or default to `https://capital-improvements-tracker.pages.dev` in
-production builds. Social preview image: `public/og-image.png` (served at `/og-image.png`).
+production builds. Social preview image: `public/og-image.jpg` (served at `/og-image.jpg`; ~95 KB JPEG, 1200×630).
 
 The `defer` attribute ensures it never blocks rendering.
 

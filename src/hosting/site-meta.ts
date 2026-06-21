@@ -11,7 +11,7 @@ export const SITE_TAGLINE =
 /** Production URL (Cloudflare Pages). Used as build-time default in `.env.example`. */
 export const DEFAULT_SITE_URL = "https://capital-improvements-tracker.pages.dev";
 
-export const OG_IMAGE_PATH = "/og-image.png";
+export const OG_IMAGE_PATH = "/og-image.jpg";
 
 export const THEME_COLOR = "#11262c";
 
