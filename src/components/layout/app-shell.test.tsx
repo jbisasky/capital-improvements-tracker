@@ -110,7 +110,49 @@ describe("AppShell live mode", () => {
     renderShell("/dashboard");
 
     // Assert
-    expect(within(getMobileTopBar()).getByText("Capital Tracker")).toBeInTheDocument();
+    expect(within(getMobileTopBar()).getByText("Capital Improvements")).toBeInTheDocument();
+  });
+
+  it("mobile top bar brand is a link to /dashboard", () => {
+    // Arrange + Act
+    renderShell("/dashboard");
+
+    // Assert
+    const link = within(getMobileTopBar()).getByRole("link", { name: /capital improvements/i });
+    expect(link).toHaveAttribute("href", "/dashboard");
+  });
+});
+
+describe("AppShell brand logo link", () => {
+  it("desktop sidebar brand links to /dashboard in live mode", () => {
+    // Arrange + Act
+    renderShell("/dashboard");
+
+    // Assert — sidebar is the aside element
+    const sidebar = document.querySelector("aside");
+    if (sidebar == null) throw new Error("Expected sidebar");
+    const link = within(sidebar as HTMLElement).getByRole("link", { name: /capital improvements/i });
+    expect(link).toHaveAttribute("href", "/dashboard");
+  });
+
+  it("desktop sidebar brand links to /demo/dashboard in demo mode", () => {
+    // Arrange + Act
+    renderShell("/demo/dashboard");
+
+    // Assert
+    const sidebar = document.querySelector("aside");
+    if (sidebar == null) throw new Error("Expected sidebar");
+    const link = within(sidebar as HTMLElement).getByRole("link", { name: /capital improvements/i });
+    expect(link).toHaveAttribute("href", "/demo/dashboard");
+  });
+
+  it("mobile top bar brand links to /demo/dashboard in demo mode", () => {
+    // Arrange + Act
+    renderShell("/demo/dashboard");
+
+    // Assert
+    const link = within(getMobileTopBar()).getByRole("link", { name: /capital improvements/i });
+    expect(link).toHaveAttribute("href", "/demo/dashboard");
   });
 });
 

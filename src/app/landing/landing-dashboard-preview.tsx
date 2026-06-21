@@ -91,7 +91,7 @@ export function LandingDashboardPreview({
       <aside className="w-60 shrink-0 border-r bg-sidebar">
         <div className="flex h-14 items-center gap-2 border-b px-4">
           <HomeChartLogo decorative className="size-5 text-primary" />
-          <span className="text-sm font-semibold">Capital Tracker</span>
+          <span className="text-sm font-semibold">Capital Improvements</span>
         </div>
         <nav className="flex flex-col gap-1 p-3">
           {NAV_ITEMS.map(({ label, icon: Icon, active }) => (

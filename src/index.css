@@ -51,13 +51,16 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
+  html,
+  body,
+  #root {
+    @apply h-full bg-background text-foreground;
   }
 }
 
 :root {
   --background: oklch(1 0 0);
+  --canvas-gradient: linear-gradient(135deg, #faf9f7 0%, #f4f5f7 40%, #edf0f4 100%);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -81,7 +84,7 @@
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: #f0f2f5;
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.28 0.04 200);
   --sidebar-primary-foreground: oklch(0.985 0 0);
