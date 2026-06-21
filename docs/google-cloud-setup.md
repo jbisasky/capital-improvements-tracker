@@ -136,6 +136,8 @@ VITE_GOOGLE_CLIENT_ID=xxxxxxxxxxxx.apps.googleusercontent.com
 For production (Cloudflare Pages), set `VITE_GOOGLE_CLIENT_ID` as a build-time environment
 variable in the project settings — do not commit a `.env` file.
 
+**Production site:** https://capital-improvements-tracker.pages.dev
+
 > Whenever the hosting domain changes, come back and add the new origin here (LLD §5.4). A missing
 > origin is the #1 cause of GIS sign-in failing with `idpiframe_initialization_failed` / origin
 > mismatch errors.
@@ -280,9 +282,8 @@ Drive enforces its own per-user rate limits automatically; the app cooperates wi
 - [ ] Consent screen: External, Testing; wizard completed (App info → Audience → Contact → Finish).
 - [ ] Consent scopes = `drive.appdata` + `drive.file` only (added under Data Access after wizard).
 - [ ] Test user(s) added under Audience.
-- [ ] Web OAuth Client ID created; JS origins include dev + `pages.dev` (+ custom domain later);
-      redirect URIs empty.
-- [ ] `GOOGLE_CLIENT_ID` wired into the app build config.
+- [ ] Web OAuth Client ID created; JS origins include `http://localhost:5173`, `https://capital-improvements-tracker.pages.dev` (+ custom domain later); redirect URIs empty.
+- [ ] `VITE_GOOGLE_CLIENT_ID` set in Cloudflare Pages env vars; production smoke test at https://capital-improvements-tracker.pages.dev
 - [ ] Gemini auth key created in AI Studio; **Gemini API** restriction confirmed on **APIs & Services → Credentials → API key** (HTTP referrers N/A for auth keys).
 - [ ] Gemini rate limits reviewed in **AI Studio** (Free tier limits are the provider backstop; Cloud Console quotas are view-only / increase-request for most users).
 - [ ] (Optional, paid tier) Billing budget + alert configured.

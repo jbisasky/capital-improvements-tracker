@@ -95,6 +95,10 @@ the same keys as environment variables on the static host (e.g. Cloudflare Pages
 | `VITE_HONEYCOMB_API_KEY` | No | unset | Honeycomb ingest key. When unset, `initTelemetry()` no-ops. |
 | `VITE_OTEL_SAMPLE_RATE` | No | `0.1` | Head-sampling ratio for browser traces (0.0–1.0). |
 | `VITE_APP_VERSION` | No | `dev` | `service.version` resource attribute on exported spans. |
+| `VITE_SITE_URL` | No | `https://capital-improvements-tracker.pages.dev` | Canonical URL + Open Graph / Twitter Card absolute URLs in `index.html`. |
+| `VITE_PLAUSIBLE_DOMAIN` | No | unset | Plausible site domain; when unset, analytics script omitted from build. |
+
+**Production URL:** `https://capital-improvements-tracker.pages.dev` (Cloudflare Pages, June 2026).
 
 **Repository contract (EARS HOST-06/07):** `.env.example` is committed as the canonical template;
 `.env` is never committed. The OAuth Client ID is a public identifier (embedded in the JS bundle)
@@ -1411,10 +1415,18 @@ export function trackPageView(): void {
 }
 ```
 
-**Script tag** (added to `index.html`):
+**Script tag** (injected at build time when `VITE_PLAUSIBLE_DOMAIN` is set; see `src/hosting/inject-plausible.ts`):
 ```html
-<script defer data-domain="YOUR_DOMAIN" src="https://plausible.io/js/script.js"></script>
+<script defer data-domain="capital-improvements-tracker.pages.dev" src="https://plausible.io/js/script.js"></script>
 ```
+
+### 18.4 Site meta / SEO (Open Graph)
+
+Build-time injection via `src/hosting/inject-site-meta.ts` replaces the `<!-- SITE_META -->`
+marker in `index.html` with `<title>`, description, canonical, Open Graph, and Twitter Card
+tags. Absolute URLs (`og:url`, `og:image`, `twitter:image`, `link rel="canonical"`) are emitted
+when `VITE_SITE_URL` is set, or default to `https://capital-improvements-tracker.pages.dev` in
+production builds. Social preview image: `public/og-image.png` (served at `/og-image.png`).
 
 The `defer` attribute ensures it never blocks rendering.
 

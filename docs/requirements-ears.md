@@ -441,6 +441,8 @@
 | HOST-06 | Ubiquitous | The repository shall ship a committed `.env.example` documenting every supported `VITE_*` build-time variable with placeholder values and inline comments. |
 | HOST-07 | Ubiquitous | The `.env` file (developer-local copy of `.env.example`) shall be listed in `.gitignore` and shall never be committed to version control. |
 | HOST-08 | Ubiquitous | Production deployments shall set `VITE_GOOGLE_CLIENT_ID` (and any other required `VITE_*` variables) as build-time environment variables on the static host (e.g. Cloudflare Pages project settings), not via a committed `.env` file. |
+| HOST-09 | Ubiquitous | The built `index.html` shall include `<title>`, meta description, Open Graph, and Twitter Card tags for the landing page; canonical and absolute social image URLs shall use `VITE_SITE_URL` (production default: `https://capital-improvements-tracker.pages.dev`). |
+| HOST-10 | Ubiquitous | The production deployment shall be available at `https://capital-improvements-tracker.pages.dev` until a custom domain is attached. |
 
 ---
 

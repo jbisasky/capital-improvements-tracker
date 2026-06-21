@@ -1,5 +1,7 @@
 # Capital Improvements Tracker
 
+**Live:** [capital-improvements-tracker.pages.dev](https://capital-improvements-tracker.pages.dev) · **Demo:** [capital-improvements-tracker.pages.dev/demo](https://capital-improvements-tracker.pages.dev/demo)
+
 A **100% serverless, client-side Single Page Application (SPA)** for tracking
 residential home improvement projects, extracting tax-relevant data from receipts
 with AI, and persisting structured records to the user's **personal Google Drive**.
@@ -175,10 +177,14 @@ Set these build-time environment variables in **Pages → Settings → Environme
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `VITE_GOOGLE_CLIENT_ID` | For live sign-in | Same OAuth Web Client ID as local dev |
-| `VITE_PLAUSIBLE_DOMAIN` | For analytics | e.g. `capital-improvements-tracker.pages.dev` |
+| `VITE_SITE_URL` | Recommended | `https://capital-improvements-tracker.pages.dev` — canonical + Open Graph |
+| `VITE_PLAUSIBLE_DOMAIN` | For analytics | `capital-improvements-tracker.pages.dev` |
 | `VITE_HONEYCOMB_API_KEY` | No | Telemetry no-ops when unset |
+| `NODE_VERSION` | Recommended | `24` |
 
-After the first deploy, add your `*.pages.dev` URL (and any custom domain) to the OAuth
+Production site: **https://capital-improvements-tracker.pages.dev**
+
+After deploy, add the production origin to the OAuth
 client's **Authorized JavaScript origins** in Google Cloud Console — see
 [docs/google-cloud-setup.md](docs/google-cloud-setup.md).
 
