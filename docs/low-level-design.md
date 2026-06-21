@@ -2,7 +2,7 @@
 
 **Status:** Draft v0.1 — companion to [`high-level-design.md`](high-level-design.md)
 **Author:** Devin (on behalf of @jbisasky)
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-20
 
 > This document specifies the **granular handshaking** behind each edge of the §2 architecture
 > flowchart in the HLD: exact API calls, headers, request/response shapes, ordering, retries,
@@ -102,6 +102,44 @@ but local/prod values are kept out of git so configuration stays centralized per
 
 **Runtime BYOK (not env):** the Gemini API key is entered by the user in Settings and stored in
 `localStorage` — it is intentionally absent from `.env.example`.
+
+### 1.8 Visual tokens & Tailwind mapping
+
+Source of truth: [UI/UX design §11](ui-ux-design.md#11-visual-design--theming) (HLD D17).
+
+**Implementation:** [`src/index.css`](../src/index.css) — `@theme inline` maps Tailwind utilities to
+CSS variables; `:root` / `.dark` define token values.
+
+| Token | Light mode value | Purpose |
+| --- | --- | --- |
+| `--primary` | `oklch(0.28 0.04 200)` | Rich dark slate-teal — buttons, logo, active nav, focus ring |
+| `--primary-foreground` | `oklch(0.985 0 0)` | Text/icons on primary fills |
+| `--ring` | same as `--primary` | Focus rings |
+| `--muted-foreground` | `oklch(0.45 0.01 286)` | Zinc-equivalent secondary copy |
+| `--sidebar-primary` | same as `--primary` | Sidebar active states |
+
+**Forbidden in product UI:** generic corporate blue (`oklch(0.45 0.2 260)` / `blue-600` class
+equivalents) and washed `text-slate-500` as the default body color.
+
+**Landing (presentational only — no storage/auth):**
+
+| File | Role |
+| --- | --- |
+| [`src/app/landing/page.tsx`](../src/app/landing/page.tsx) | Layered full-bleed layout orchestration; exports `LandingPage` |
+| `MobileHeroBlock` (in `page.tsx`) | Dark hero section — nav row, H1, subhead; `rounded-b-[2rem] overflow-hidden` |
+| `FeatureList` (in `page.tsx`) | Teal-badged privacy bullet points; shared by mobile and desktop `LandingActions` branches |
+| `LandingActions` (in `page.tsx`) | Split render: `layout="mobile"` = two-column-at-sm CTA+list; `layout="desktop"` = stacked row with size-scaled buttons |
+| `MobileDisclaimerFooter` (in `page.tsx`) | `mt-auto` pinned uppercase footer strip |
+| [`src/app/landing/landing-dashboard-preview.tsx`](../src/app/landing/landing-dashboard-preview.tsx) | Static sidebar + dashboard mock; accepts `className` to strip its own border/shadow when rendered full-bleed |
+| [`src/app/landing/landing-preview-data.ts`](../src/app/landing/landing-preview-data.ts) | Preview rows derived from `DEMO_MANIFEST` |
+
+**App shell:** [`src/components/layout/app-shell.tsx`](../src/components/layout/app-shell.tsx)
+consumes the same tokens via shadcn `Button` and sidebar CSS variables.
+
+**Breakpoints:**
+- `<640px` (mobile): native full-screen dark-hero + floating card; no phone-frame canvas.
+- `640–767px` (sm): same mobile DOM; floating card switches to two-column flex; hero text `sm:max-w-xl`.
+- `≥768px` (md/lg/xl): desktop section shown (`hidden md:flex`); ghost-layer layout — dashboard `absolute inset-0 opacity-20`, hero `relative z-20 justify-center` (HLD D18).
 
 ---
 
@@ -1123,6 +1161,10 @@ The landing page offers a **"See a demo"** button (HLD D14) that drops the user 
 read-only sandbox with no authentication required. This section specifies how it works.
 
 ### 16.1 Activation & routing
+
+The landing page at `/` also renders a **static dashboard preview** (`LandingDashboardPreview`) as
+marketing chrome beside sign-in copy (UI/UX §5.1). This is separate from demo mode: it is not
+routed through `/demo/*`, requires no auth, and does not mount `DemoProvider`.
 
 Clicking "See a demo" navigates to `/demo/dashboard`. All `/demo/*` routes mirror the
 authenticated routes (`/dashboard`, `/projects`, `/projects/:id`, `/settings`, `/export`) but
