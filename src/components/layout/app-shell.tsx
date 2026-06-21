@@ -1,5 +1,5 @@
 import { type ReactElement, type ReactNode } from "react";
-import { NavLink } from "react-router";
+import { Link, NavLink } from "react-router";
 import {
   LayoutDashboard,
   FolderOpen,
@@ -59,8 +59,8 @@ export function AppShell({ children }: AppShellProps): ReactElement {
             </NavLink>
           ))}
         </nav>
-        {isLiveMode && (
-          <div className="mt-auto border-t border-zinc-100 p-3">
+        <div className="mt-auto border-t border-zinc-100 p-3">
+          {isLiveMode ? (
             <button
               type="button"
               onClick={auth.signOut}
@@ -69,12 +69,50 @@ export function AppShell({ children }: AppShellProps): ReactElement {
               <LogOut className="size-4" />
               Sign out
             </button>
-          </div>
-        )}
+          ) : (
+            <Link
+              to="/"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-800"
+            >
+              <LogOut className="size-4" />
+              Exit Demo
+            </Link>
+          )}
+        </div>
       </aside>
 
       {/* Main content */}
       <div className="flex flex-1 flex-col">
+        {/* Mobile top bar — hidden at md+; shows session action top-right on all pages */}
+        <header
+          data-testid="mobile-top-bar"
+          className="flex items-center justify-between border-b border-zinc-100 bg-background px-4 py-2.5 md:hidden"
+        >
+          <div className="flex items-center gap-2">
+            <HomeChartLogo decorative className="size-4 text-primary" />
+            <span className="text-sm font-semibold tracking-tight text-zinc-900">
+              Capital Tracker
+            </span>
+          </div>
+          {isLiveMode ? (
+            <button
+              type="button"
+              onClick={auth.signOut}
+              className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-800"
+            >
+              <LogOut className="size-4" />
+              Sign out
+            </button>
+          ) : (
+            <Link
+              to="/"
+              className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-800"
+            >
+              <LogOut className="size-4" />
+              Exit Demo
+            </Link>
+          )}
+        </header>
         <main className="flex-1 p-6 pb-20 md:pb-6">{children}</main>
       </div>
 
