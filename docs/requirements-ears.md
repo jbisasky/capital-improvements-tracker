@@ -2,7 +2,7 @@
 
 **Status:** Draft v0.1 — derived from the [HLD](high-level-design.md), [LLD](low-level-design.md), and [UI/UX design](ui-ux-design.md)
 **Author:** Devin (on behalf of @jbisasky)
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-20
 **Notation:** [EARS — Easy Approach to Requirements Syntax](https://alistairmavin.com/ears/)
 
 > Each requirement uses one of the five EARS templates:
@@ -46,6 +46,7 @@
 28. [Documentation completeness](#28-documentation-completeness)
 29. [Analytics](#29-analytics)
 30. [Observability (OpenTelemetry)](#30-observability-opentelemetry)
+31. [Visual design & landing presentation](#31-visual-design--landing-presentation)
 
 ---
 
@@ -569,6 +570,28 @@
 | OTEL-15 | Ubiquitous | The OTel SDK shall be initialized asynchronously after the app shell renders, so it does not impact LCP or FID. |
 | OTEL-16 | Ubiquitous | The `fetch` instrumentation shall ignore requests to `plausible.io` to avoid tracing analytics pings. |
 | OTEL-17 | Ubiquitous | Unit tests shall use the OTel API's default no-op tracer. Integration tests may use an in-memory exporter to assert span creation and attributes. |
+
+---
+
+## 31. Visual design & landing presentation
+
+Cross-references: UI/UX §5.1, §9.1, §11; LLD §1.8; HLD D17, D18; A11Y-01; MOB-01; DEMO-01.
+
+| ID | Type | Requirement |
+| --- | --- | --- |
+| UX-01 | Ubiquitous | The app shall use a rich dark **slate-teal** `--primary` token (`oklch(0.28 0.04 200)`) for primary actions, brand mark, and active navigation — not generic corporate blue. |
+| UX-02 | Ubiquitous | Secondary text shall use a zinc hierarchy (`zinc-500` / `zinc-600` / `zinc-800` / `zinc-900`); washed-out slate-gray defaults shall not be used for body copy. |
+| UX-03 | Ubiquitous | Page titles (`h1`, `h2`) shall use `font-extrabold` or `font-black` with tightened tracking (`tracking-tighter` or `tracking-tight`). |
+| UX-04 | Ubiquitous | Landing value-prop bullets shall use a two-tier typography split: lead anchor phrase `font-semibold text-zinc-900`; trailing descriptor `font-normal text-zinc-500`. |
+| UX-05 | Ubiquitous | Feature list icon tiles shall use a teal-wash brand badge (`bg-teal-50/80 text-teal-950 rounded-xl`) rather than generic gray. |
+| LND-01 | Ubiquitous | Landing hero copy (headline, subhead, CTAs) shall always be readable — guaranteed by rendering text at a higher z-index than the dashboard preview, with a gradient mask covering the text column. |
+| LND-02 | State-driven | While viewport ≥ 768px (`md`/`lg`/`xl`), the landing page shall use a ghost-layer layout: `LandingDashboardPreview` at `absolute inset-0 z-0 opacity-20`; a gradient shield at `z-10` (`from-zinc-50 via-zinc-50/90 via-[40%] to-transparent`); hero text + CTAs at `relative z-20`, centred horizontally. Canvas background shall be `bg-zinc-50/50`. |
+| LND-03 | State-driven | While viewport < 768px, the landing page shall render a native full-screen layout (no phone-frame canvas wrapper): dark hero block edge-to-edge at the top, white floating interaction card overlapping it with `-mt-6 z-10`, and a `bg-[#f4f6f7]` canvas fill to footer. |
+| LND-04 | State-driven | While viewport ≥ 640px and < 768px, the floating interaction card shall switch to a two-column layout (`sm:flex-row`): CTA buttons at `sm:w-[45%]`, feature list at `sm:w-[55%]`. Hero text shall be constrained to `sm:max-w-xl`. |
+| LND-05 | Ubiquitous | Landing CTA buttons shall have adequate vertical padding; on desktop (`md+`) the primary and secondary buttons shall both apply `py-4 px-6 text-base font-semibold` for touch-friendly proportions. |
+| LND-06 | Ubiquitous | The authenticated app shell (sidebar + mobile tab bar) shall apply the same slate-teal primary and zinc neutral palette as the landing page. |
+| LND-07 | Ubiquitous | The landing dashboard preview shall remain static presentational markup derived from demo fixture data — no live routes or auth. It shall accept a `className` prop to allow callers to override its default border/shadow/rounding. |
+| LND-08 | Ubiquitous | The subtitle paragraph on both the desktop and mobile landing hero shall use `text-balance` (`text-wrap: balance`) and a constrained `max-width` to produce visually even line lengths. |
 
 ---
 

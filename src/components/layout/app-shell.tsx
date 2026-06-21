@@ -9,6 +9,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HomeChartLogo } from "@/components/brand/home-chart-logo";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
 import { useAuth } from "@/services/auth-context";
 
@@ -32,9 +33,12 @@ export function AppShell({ children }: AppShellProps): ReactElement {
   return (
     <div className="flex min-h-screen">
       {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 border-r bg-sidebar md:block">
-        <div className="flex h-14 items-center border-b px-4">
-          <span className="text-sm font-semibold">Capital Tracker</span>
+      <aside className="hidden w-60 shrink-0 border-r border-zinc-100 bg-sidebar md:block">
+        <div className="flex h-14 items-center gap-2 border-b border-zinc-100 px-4">
+          <HomeChartLogo decorative className="size-5 text-primary" />
+          <span className="text-sm font-semibold tracking-tight text-zinc-900">
+            Capital Tracker
+          </span>
         </div>
         <nav className="flex flex-col gap-1 p-3">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
@@ -45,8 +49,8 @@ export function AppShell({ children }: AppShellProps): ReactElement {
                 cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+                    ? "bg-zinc-100 text-primary"
+                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-800",
                 )
               }
             >
@@ -56,11 +60,11 @@ export function AppShell({ children }: AppShellProps): ReactElement {
           ))}
         </nav>
         {isLiveMode && (
-          <div className="mt-auto border-t p-3">
+          <div className="mt-auto border-t border-zinc-100 p-3">
             <button
               type="button"
               onClick={auth.signOut}
-              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/50"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-800"
             >
               <LogOut className="size-4" />
               Sign out
@@ -75,7 +79,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
       </div>
 
       {/* Mobile bottom tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t bg-background md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-zinc-100 bg-background md:hidden">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
@@ -85,7 +89,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
                 "flex flex-col items-center gap-0.5 px-2 py-1 text-xs transition-colors",
                 isActive
                   ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground",
+                  : "text-zinc-600 hover:text-zinc-800",
               )
             }
           >

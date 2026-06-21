@@ -2,7 +2,7 @@
 
 **Status:** v1.0 — decisions locked, ready to build
 **Author:** Devin (on behalf of @jbisasky)
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-20
 
 > This document captures the architecture and design *intent* before any code is written.
 > All previously open questions have been resolved with the owner; see the **Decisions Log**
@@ -33,6 +33,10 @@ prospective users explore the full UI and understand the app's value proposition
 to auth. The demo environment uses static fixture data baked into the build and bypasses all
 Drive/Gemini calls. A persistent banner indicates "Demo mode — sign in to use your own data."
 Specified in LLD §16.
+
+On desktop, the landing page shows a **full-bleed `LandingDashboardPreview`** as marketing chrome
+(not the `/demo/*` routes): the preview is absolutely positioned, dimmed to `opacity-20`, and
+masked by a `zinc-50 → transparent` gradient so the copy column is always unobscured; see UI/UX §5.1.
 
 ---
 
@@ -104,7 +108,7 @@ codebase where dependencies will be swapped over time.
 | Layer | Choice | Notes / risks |
 | --- | --- | --- |
 | Routing/build | React Router v7 **SPA mode** | Compiles to static HTML/JS/CSS. No loaders/actions that require a server runtime — data is fetched client-side. Confirm `ssr: false` in `react-router.config.ts`. |
-| Styling | Tailwind v4 (Oxide/Rust engine) | v4 changes config (CSS-first `@theme`, no `tailwind.config.js` required). shadcn/ui has a v4-compatible track — pin versions. |
+| Styling | Tailwind v4 (Oxide/Rust engine) | v4 changes config (CSS-first `@theme`, no `tailwind.config.js` required). shadcn/ui has a v4-compatible track — pin versions. Brand tokens implement UI/UX §11: rich dark slate-teal primary + zinc neutral hierarchy (D17). |
 | Components | shadcn/ui + Radix | Copied-in components (not a dependency) → good for longevity (you own the code). |
 | Language | TypeScript strict | `strict: true`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`. Lint rule banning `any`. |
 | Validation | **zod** (decided) | Runtime validation of manifest + API payloads. Critical because Drive data and AI output are untrusted at parse time. |
@@ -425,6 +429,8 @@ All questions resolved with the owner on 2026-06-12.
 | D14 | Onboarding | "See a demo" on landing page? | **Yes — static demo mode** |
 | D15 | HTTP | HTTP client library choice? | **Native `fetch` only — no Axios** |
 | D16 | Testing | Test framework choices? | **Vitest (unit/component) + Playwright (E2E)** |
+| D17 | Visual identity | Generic blue vs premium financial palette? | **Rich dark slate-teal primary + zinc neutral hierarchy** (UI/UX §11) |
+| D18 | Landing desktop layout | Two-column split vs full-bleed layered? | **Ghost-layer watermark across all desktop breakpoints:** dashboard `absolute inset-0 opacity-20` at `z-0`, gradient shield at `z-10`, hero text `relative z-20` centred. Native full-screen mobile at `<768px`. |
 
 ---
 

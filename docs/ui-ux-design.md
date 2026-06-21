@@ -2,7 +2,7 @@
 
 **Status:** Draft v0.1 — companion to the [HLD](high-level-design.md) and [LLD](low-level-design.md)
 **Author:** Devin (on behalf of @jbisasky)
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-20
 
 > This document specifies **what the user sees and does**: the feature set, information
 > architecture, every screen (with wireframes), the core flows, and — critically — the
@@ -20,6 +20,7 @@
 7. [State coverage matrix](#7-state-coverage-matrix)
 8. [Component inventory (shadcn/ui)](#8-component-inventory-shadcnui)
 9. [Responsive & mobile capture](#9-responsive--mobile-capture)
+   - [9.1 Landing mobile rules](#91-landing-mobile-rules)
 10. [Accessibility](#10-accessibility)
 11. [Visual design & theming](#11-visual-design--theming)
 12. [Loading & perceived performance](#12-loading--perceived-performance)
@@ -39,6 +40,8 @@
   the "not tax advice" disclaimer near any tax figure (HLD §6).
 - **Every state is designed.** Loading, empty, error, offline, and conflict are not afterthoughts.
 - **Reversible & recoverable.** Destructive actions confirm; data is exportable; backups exist.
+- **Premium financial-record aesthetic.** High-contrast dark slate-teal primary on clean white
+  surfaces; editorial typography with tightened headings; no generic demo-template blue.
 
 ---
 
@@ -149,6 +152,20 @@ Persistent elements:
 - **"Not tax advice"** chip: always visible, links to the disclaimer in /about.
 - **Account menu** `(J)`: email, sign out, switch is N/A (single account, HLD D12).
 
+### Visual treatment (app shell)
+
+Wireframe PNGs in this section are **legacy reference**; final colors, typography, and spacing
+follow [§11 Visual design & theming](#11-visual-design--theming) (HLD D17).
+
+- **Brand mark:** `HomeChartLogo` (house + bar chart SVG), colored via `--primary` (rich dark
+  slate-teal). Used in the landing header, sidebar rail, and favicon.
+- **Sidebar / mobile tab bar:** zinc neutrals for labels (`text-zinc-600` idle,
+  `text-zinc-800` emphasis); active nav and selected tabs use slate-teal (`text-primary`), not
+  corporate blue; dividers and borders use `border-zinc-100`.
+- **Shell chrome headings:** app rail title uses `font-semibold tracking-tight`; route-level
+  `<h1>` / `<h2>` use `font-extrabold tracking-tighter` (see §11).
+- **Implementation:** [`src/components/layout/app-shell.tsx`](../src/components/layout/app-shell.tsx).
+
 ---
 
 ## 5. Screen inventory (wireframes)
@@ -157,33 +174,122 @@ Persistent elements:
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Landing page — sign-in + demo button, privacy bullets, disclaimer](mockups/01-landing.png) | ![Mobile landing](mockups/m01-landing.png) |
+| ![Landing page — legacy reference](mockups/01-landing.png) | ![Mobile landing — legacy reference](mockups/m01-landing.png) |
 
-<details><summary>ASCII wireframe (original)</summary>
+> PNG mockups above are **legacy reference**. Authoritative layout is the split-screen spec below
+> and [§11](#11-visual-design--theming).
+
+<details><summary>ASCII wireframe — layered full-bleed desktop + native mobile (authoritative)</summary>
 
 ```
-┌───────────────────────────────────────────┐
-│              ◑  Capital Improvements        │
-│   Track home improvements & their tax       │
-│   impact — privately, in your own Drive.    │
-│                                             │
-│        [  Sign in with Google  ]            │
-│        [  See a demo           ]            │
-│                                             │
-│  • Your data stays in YOUR Google Drive     │
-│  • No server ever sees your files or keys   │
-│  • Bring your own Gemini key for AI         │
-│                                             │
-│  ⚠ Not tax advice. For recordkeeping only.  │
-└───────────────────────────────────────────┘
+md / lg (768–1279px)  —  ghost-layered, centred hero
+┌──────────────────────────────────────────────────────────────────┐
+│ [logo] Capital Improvements              (header, bg-zinc-50/50) │
+├──────────────────────────────────────────────────────────────────┤
+│ <main relative overflow-hidden>                                  │
+│  │                                                               │
+│  ├─ z-10 absolute inset-0 ── LandingDashboardPreview            │
+│  │       min-w-[1200px] opacity-20 border shadow-lg             │
+│  │                                                               │
+│  └─ z-20 relative flex justify-center items-center  px-8 py-12  │
+│          ┌──────────────────────────────────────────────┐       │
+│          │ H1  text-5xl font-black tracking-tighter     │       │
+│          │ subhead  max-w-md text-balance text-xl       │       │
+│          │ [pointer-events-auto] LandingActions:        │       │
+│          │   [Sign in with Google]  [See a demo]        │       │
+│          │   FeatureList (teal badge tiles)             │       │
+│          └──────────────────────────────────────────────┘       │
+├──────────────────────────────────────────────────────────────────┤
+│ footer disclaimer                             (border-zinc-100) │
+└──────────────────────────────────────────────────────────────────┘
+
+DESKTOP (xl+, ≥1280px)  —  same ghost-layer watermark, wider viewport
+┌──────────────────────────────────────────────────────────────────┐
+│ [logo] Capital Improvements                            (header)  │
+├──────────────────────────────────────────────────────────────────┤
+│ <main relative overflow-hidden bg-zinc-50/50>                   │
+│  ├─ z-0 absolute inset-0 ── LandingDashboardPreview             │
+│  │       min-w-[1200px] opacity-20 border shadow-lg             │
+│  ├─ z-10 gradient shield  from-zinc-50 via-zinc-50/90 to-trans.  │
+│  └─ z-20 relative flex justify-center items-center  px-8 py-12  │
+│          ┌──────────────────────────────────────────────┐       │
+│          │ H1  text-5xl font-black tracking-tighter     │       │
+│          │ subhead  max-w-md text-balance text-xl       │       │
+│          │ [Sign in with Google]  [See a demo]          │       │
+│          │ FeatureList (teal badge tiles)               │       │
+│          └──────────────────────────────────────────────┘       │
+├──────────────────────────────────────────────────────────────────┤
+│ footer disclaimer                                               │
+└──────────────────────────────────────────────────────────────────┘
+
+SMALL TABLET (sm, 640–767px)  —  same mobile layout, 2-col card
+┌──────────────────────────────────────────────────────────────────┐
+│ ┌ dark hero  bg-[#11262c] rounded-b-[2rem] sm:px-8 ───────────┐  │
+│ │ [logo mark] Capital Improvements                             │  │
+│ │ <div sm:max-w-xl> H1 · subhead text-balance </div>          │  │
+│ └──────────────────────────────────────────────────────────────┘  │
+│   ┌ floating white card  sm:mx-8 ────────────────────────────┐   │
+│   │ [Sign in…]  [See a demo]   │  • Your data stays …        │   │
+│   │       sm:w-[45%]           │  • No server …              │   │
+│   │                            │  • Bring your own …         │   │
+│   │                            │       sm:w-[55%]            │   │
+│   └───────────────────────────────────────────────────────────┘   │
+│ footer strip                                                     │
+└──────────────────────────────────────────────────────────────────┘
+
+MOBILE (<640px)  —  native full-screen, no phone-frame wrapper
+┌──────────────────────────────────────────────────────────────────┐
+│ ┌ dark hero  bg-[#11262c] rounded-b-[2rem] overflow-hidden ───┐  │
+│ │ [logo mark] Capital Improvements (white, sm)                │  │
+│ │ H1  text-3xl font-black text-white                          │  │
+│ │ subhead  max-w-sm text-balance text-sm text-slate-300/90    │  │
+│ └─────────────────────────────────────────────────────────────┘  │
+│   ┌ floating white card  -mt-6 z-10 rounded-2xl mx-5 ────────┐   │
+│   │ [Sign in with Google]  (bg-[#11262c])                     │   │
+│   │ [See a demo]  (bg-transparent border-zinc-200)            │   │
+│   │ • **Your data stays**  in YOUR Google Drive               │   │
+│   │ • **No server**  ever sees your files or keys             │   │
+│   │ • **Bring your own**  Gemini key for AI                   │   │
+│   └───────────────────────────────────────────────────────────┘   │
+│ flex-1 spacer  (bg-[#f4f6f7])                                    │
+│ footer  bg-zinc-100/80 uppercase text-[10px] text-zinc-500       │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 </details>
 
-- **Primary CTA:** "Sign in with Google." **Secondary CTA:** "See a demo" — navigates to
-  `/demo/dashboard` with pre-populated fixture data (HLD D14, LLD §16). No auth required.
-- Below the fold: privacy explainer + what you'll need (Google account, an AI
-  Studio key). Error inline if GIS init fails (origin mismatch → friendly "config issue" note).
+**Layout rules (no collision):**
+- Hero copy and CTAs always sit at a **higher z-index than the dashboard preview** and are
+  guaranteed opaque by the gradient mask — never directly overlaid on unmasked preview content.
+- **All desktop breakpoints (`md`/`lg`/`xl`, ≥768 px):** three-layer stacking — ① `LandingDashboardPreview`
+  at `absolute inset-0 z-0`, dimmed to `opacity-20`, `min-w-[1200px]` preventing sidebar reflow.
+  ② Gradient shield at `z-10` (`from-zinc-50 via-zinc-50/90 via-[40%] to-transparent`) ensures
+  the text column is always legible. ③ Hero copy + CTAs at `relative z-20`, centred horizontally
+  (`justify-center`) with `px-8 py-12` breathing room. Desktop canvas is `bg-zinc-50/50`.
+- **Small tablet (`sm`, 640–767 px):** same mobile DOM renders; the floating card switches to a
+  two-column flex row (`sm:flex-row sm:gap-8`): CTAs left (`sm:w-[45%]`), feature list right
+  (`sm:w-[55%]`). Hero text constrained to `sm:max-w-xl`; card margins widen to `sm:mx-8`.
+- **Mobile (`<640 px`):** native full-screen — no phone-frame canvas wrapper. Dark hero block
+  (`bg-[#11262c] rounded-b-[2rem] overflow-hidden`) fills edge-to-edge. White floating card
+  (`-mt-6 relative z-10 rounded-2xl mx-5`) overlaps the hero bottom. Canvas body (`bg-[#f4f6f7]`)
+  fills the spacer and provides the ear-cutout fill behind the hero's rounded bottom.
+- **Feature bullets:** bold **anchor phrases** (`font-semibold text-zinc-900`) for scannability;
+  trailing description text relaxes to `text-zinc-500 font-normal`.
+
+**CTAs & behavior:**
+- **Primary CTA:** "Sign in with Google" — slate-teal fill (`bg-[#11262c]`). On desktop: `size="lg"
+  md:h-auto md:py-4 md:px-6 md:text-base md:font-semibold` for touch-friendly proportions.
+- **Secondary CTA:** "See a demo" — `bg-white border-zinc-200 shadow-sm hover:bg-zinc-50
+  hover:border-zinc-300 transition-all`. Navigates to `/demo/dashboard` (HLD D14, LLD §16).
+- Error inline if GIS init fails (origin mismatch → friendly "config issue" note).
+
+**Static preview (marketing chrome):**
+- [`LandingDashboardPreview`](../src/app/landing/landing-dashboard-preview.tsx) — presentational
+  sidebar + dashboard mock; data from [`landing-preview-data.ts`](../src/app/landing/landing-preview-data.ts)
+  (derived from demo fixtures). **Not** the same as `/demo/*` routes — no auth, no live navigation.
+- Orchestrated by [`landing/page.tsx`](../src/app/landing/page.tsx).
+
+See also [§9.1 Landing mobile rules](#91-landing-mobile-rules).
 
 ### 5.2 Dashboard (`/dashboard`)
 
@@ -521,6 +627,30 @@ Every data-bearing screen must implement these. Mapped to LLD §11 codes where a
 - **Touch targets:** ≥44px; primary actions thumb-reachable (bottom of viewport).
 - Tables degrade to stacked rows; long numbers right-aligned and never truncated silently.
 
+### 9.1 Landing mobile rules
+
+Cross-reference: [§5.1 Landing / Sign-in](#51-landing--sign-in-).
+
+- **Full-screen native layout:** the mobile view is a plain `min-h-screen flex-col bg-[#f4f6f7]`
+  column — no phone-frame canvas wrapper, no outer rounded card. The page fills the device
+  viewport edge-to-edge exactly as a native app would on real hardware.
+- **Dark hero block:** `MobileHeroBlock` — `overflow-hidden rounded-b-[2rem] bg-[#11262c]`,
+  `px-6 sm:px-8 pt-8 pb-12`. Contains: compact nav row + `<div sm:max-w-xl>` wrapping the H1
+  (`text-3xl font-black text-white`) and subhead (`max-w-sm text-balance text-sm
+  text-slate-300/90`). The logo mark appears in a `bg-white/10 rounded-lg` tile.
+- **Floating interaction card:** white `rounded-2xl` card with `-mt-6 relative z-10 mx-5 sm:mx-8`
+  overlaps the hero's rounded bottom. Contains only: CTA buttons + `#feature-list`. The hero
+  headline is **not** inside this card.
+- **Small tablet two-column card (601–767 px):** within the card, `LandingActions` switches to
+  `sm:flex-row sm:gap-8` — buttons column `sm:w-[45%]`, feature list column `sm:w-[55%]`.
+- **Feature rows:** `text-base`; icon tiles use `bg-teal-50/80 p-2.5 rounded-xl text-teal-950`
+  (brand teal wash); rows use `items-center gap-4`; lead phrase `font-semibold text-zinc-900`;
+  trailing text `font-normal text-zinc-500`.
+- **Footer:** `MobileDisclaimerFooter` — `mt-auto bg-zinc-100/80 text-[10px] font-bold uppercase
+  tracking-wider text-zinc-500 border-t border-zinc-200/50`.
+- **Breakpoints:** mobile at `<md` (`md:hidden`); desktop section at `md+` (`hidden md:flex`);
+  within the desktop section, ghost-layer layout at `md`–`lg`, 12-column grid split at `xl+` (1280 px). Consistent with MOB-01.
+
 ---
 
 ## 10. Accessibility
@@ -537,10 +667,40 @@ Every data-bearing screen must implement these. Mapped to LLD §11 codes where a
 ## 11. Visual design & theming
 
 - **Tailwind v4** CSS-first `@theme`; tokenized colors/spacing/radii. Light + dark + system.
-- Restrained palette: neutral surfaces, one accent for primary actions, semantic colors for
-  success/warn/error/info. Tax-treatment chips use distinct but accessible hues + labels.
-- Typography: a single legible system/UI font; tabular numerals for money columns.
-- Density: comfortable default; compact toggle later for power users.
+  Implementation: [`src/index.css`](../src/index.css) (LLD §1.3).
+- **Density:** comfortable default; compact toggle later for power users.
+- Tax-treatment chips and semantic states (success/warn/error/info) use distinct but accessible
+  hues + text labels — never color alone (A11Y-03).
+
+### 11.1 Brand palette
+
+| Role | Tailwind / CSS token | Notes |
+| --- | --- | --- |
+| Primary action | `--primary` → rich dark slate-teal (`oklch(0.28 0.04 200)`) | Buttons, logo, active nav, focus ring |
+| Primary on-color text | `--primary-foreground` → near-white (`oklch(0.985 0 0)`) | WCAG AA on primary fills (A11Y-01) |
+| Body / headings | `text-zinc-800`, `text-zinc-900` | Page titles; pair with extrabold + tracking |
+| Lead anchor phrases | `font-semibold text-zinc-900` | Bold openers in feature bullets (e.g. **Your data stays**) |
+| Trailing descriptor text | `font-normal text-zinc-500` | Softer second half of feature bullets |
+| Secondary copy | `text-zinc-600` | Subheads, nav idle labels |
+| Tertiary / footer | `text-zinc-500` | Disclaimers, meta, timestamps, uppercase footer strips |
+| Page canvas (desktop) | `bg-zinc-50/50` | Warm off-white tint — desktop landing, shell bg |
+| Feature icon badges | `bg-teal-50/80 text-teal-950 rounded-xl` | Teal wash tiles; replaces generic gray |
+| Cards / floating surfaces | `bg-white border-zinc-200/80 shadow-[…]` | Floating card, dashboard mockup |
+| Shell dividers | `border-zinc-100` | Header bottom, footer top, sidebar rail |
+| **Forbidden** | `bg-blue-*`, `text-blue-*`, `bg-white` as desktop page canvas, washed `text-slate-500` as body | No generic demo blue; pure white canvas replaced by `zinc-50/50` |
+
+Dark mode: map `--primary` to a lighter slate-teal tint for contrast on dark surfaces (e.g.
+`oklch(0.72 0.06 200)` in `.dark`). Pixel-perfect dark landing polish may follow in a later pass.
+
+### 11.2 Typography
+
+- **Font stack:** Inter (via `--font-sans`); single legible UI font throughout.
+- **Page titles (`h1`, `h2`):** `font-extrabold tracking-tighter` (or `tracking-tight` on smaller
+  sub-section headings).
+- **Shell chrome:** `font-semibold tracking-tight` for sidebar brand and compact labels.
+- **Money columns:** tabular numerals (`font-variant-numeric: tabular-nums`).
+- **List scannability:** value-prop and feature bullets use `<strong>` on the **leading anchor
+  phrase** (e.g. **Your data stays** in YOUR Google Drive).
 
 ---
 
@@ -614,7 +774,8 @@ async operation in the app maps to one of the tiers below, with a prescribed ind
   qualified professional." Shown near every tax figure and in /about.
 - **Cost-basis education:** inline `HoverCard` on "cost basis" / "deductible" / "credit" explaining
   the difference (HLD §6), so the UI actively prevents the common misconception.
-- **Privacy reassurance:** "Your data lives in your Google Drive. This app has no server."
+- **Privacy reassurance:** "**Your data lives** in your Google Drive. **This app has no server.**"
+  (bold anchor phrases on landing bullets; see §5.1).
 - **Tone:** calm, factual, second person. Avoid jargon; expand IRS terms on first use.
 
 ---
