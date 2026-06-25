@@ -1,25 +1,37 @@
-import { useEffect, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/services/auth-context";
 
 /**
  * Landing point for the Google OAuth2 PKCE redirect.
- * AuthProvider handles the code exchange on mount; we just wait for the
- * auth state to resolve then navigate to the dashboard (or back to "/" on
- * failure so the user sees the error message on the landing page).
+ * AuthProvider handles the code exchange on mount. We wait for the status
+ * to leave "authenticating" before deciding where to navigate — this
+ * prevents an immediate redirect caused by the initial "unauthenticated"
+ * state before the token exchange resolves.
  */
 export function AuthCallbackPage(): ReactElement {
   const { status } = useAuth();
   const navigate = useNavigate();
 
+  // Track whether we've seen at least one "authenticating" status, meaning
+  // handleRedirectCallback has started its async work.
+  const [exchangeStarted, setExchangeStarted] = useState(false);
+
+  useEffect(() => {
+    if (status === "authenticating") {
+      setExchangeStarted(true);
+    }
+  }, [status]);
+
   useEffect(() => {
     if (status === "authenticated") {
       void navigate("/dashboard", { replace: true });
-    } else if (status === "unauthenticated" || status === "needs_interaction") {
+    } else if (exchangeStarted && (status === "unauthenticated" || status === "needs_interaction")) {
+      // Exchange finished but failed — go back to landing so the error
+      // message on the landing page is shown.
       void navigate("/", { replace: true });
     }
-    // While "authenticating" we stay on this page and show the spinner.
-  }, [status, navigate]);
+  }, [status, exchangeStarted, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50">
