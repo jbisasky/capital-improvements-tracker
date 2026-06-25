@@ -1,7 +1,6 @@
 # Cloudflare Pages config — used for local dev of Pages Functions (functions/).
 # Production build/deploy settings are configured in the Cloudflare dashboard.
 name = "capital-improvements-tracker"
-pages_build_output_dir = "dist"
 compatibility_date = "2024-11-01"
 
 # Secrets are NOT defined here. Set them via:
