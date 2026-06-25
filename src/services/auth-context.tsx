@@ -14,6 +14,7 @@ import {
   signIn as authSignIn,
   signOut as authSignOut,
   getAuthState,
+  handleRedirectCallback,
   subscribe,
   unsubscribe,
 } from "@/services/auth";
@@ -42,6 +43,10 @@ export function AuthProvider({ children }: AuthProviderProps): ReactElement {
     if (CLIENT_ID !== "") {
       initAuth(CLIENT_ID);
     }
+
+    // Handle OAuth redirect callback (PKCE code exchange) before subscribing
+    // so auth state is set before the first render after redirect.
+    void handleRedirectCallback();
 
     const listener = (state: AuthState): void => {
       setAuthState({ ...state });

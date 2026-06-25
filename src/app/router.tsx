@@ -13,6 +13,7 @@ import { ExportPage } from "@/app/export/page";
 import { AboutPage } from "@/app/about/page";
 import { DemoLayout } from "@/app/demo/layout";
 import { DemoDashboardPage } from "@/app/demo/dashboard-page";
+import { AuthCallbackPage } from "@/app/auth/callback-page";
 
 export const router = createBrowserRouter([
   {
@@ -21,6 +22,10 @@ export const router = createBrowserRouter([
       {
         path: "/",
         element: <LandingPage />,
+      },
+      {
+        path: "/auth/callback",
+        element: <AuthCallbackPage />,
       },
       {
         element: <AppLayout />,
