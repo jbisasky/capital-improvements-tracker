@@ -211,6 +211,16 @@ export async function handleRedirectCallback(): Promise<boolean> {
 
   const storedState = sessionStorage.getItem(STATE_KEY);
   const verifier = sessionStorage.getItem(VERIFIER_KEY);
+
+  console.debug("[auth] callback received", {
+    hasCode: code != null,
+    hasError: error != null,
+    returnedState,
+    storedState,
+    hasVerifier: verifier != null,
+    clientId: clientId !== "" ? "set" : "EMPTY",
+  });
+
   sessionStorage.removeItem(VERIFIER_KEY);
   sessionStorage.removeItem(STATE_KEY);
 
@@ -257,6 +267,7 @@ export async function handleRedirectCallback(): Promise<boolean> {
     });
 
     const raw = (await res.json()) as RawTokenResponse;
+    console.debug("[auth] token response", { status: res.status, error: raw.error, hasToken: raw.access_token != null });
     applyTokenResponse(raw);
   } catch (err) {
     state = {

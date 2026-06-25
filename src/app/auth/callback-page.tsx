@@ -18,10 +18,11 @@ export function AuthCallbackPage(): ReactElement {
   const [exchangeStarted, setExchangeStarted] = useState(false);
 
   useEffect(() => {
+    console.debug("[callback] status changed", { status, exchangeStarted });
     if (status === "authenticating") {
       setExchangeStarted(true);
     }
-  }, [status]);
+  }, [status, exchangeStarted]);
 
   useEffect(() => {
     if (status === "authenticated") {
