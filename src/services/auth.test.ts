@@ -9,6 +9,7 @@ import {
   signOut,
   subscribe,
   unsubscribe,
+  _resetForTesting,
   type AuthState,
 } from "@/services/auth";
 
@@ -113,8 +114,8 @@ describe("computeCodeChallenge", () => {
 
 describe("handleRedirectCallback", () => {
   beforeEach(() => {
-    // Reset auth state between tests
-    signOut();
+    // Reset all module-level state (including callbackHandled guard) between tests
+    _resetForTesting();
     initAuth("test-client-id");
     sessionStorage.clear();
     setUrl("");

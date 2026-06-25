@@ -50,6 +50,17 @@ let clientId = "";
 let state: AuthState = { ...INITIAL_STATE };
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<AuthListener>();
+// Guards against React StrictMode double-invoking the callback exchange.
+let callbackHandled = false;
+
+/** Reset module-level state — for testing only. */
+export function _resetForTesting(): void {
+  callbackHandled = false;
+  clientId = "";
+  state = { ...INITIAL_STATE };
+  clearRefreshTimer();
+  listeners.clear();
+}
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -208,6 +219,13 @@ export async function handleRedirectCallback(): Promise<boolean> {
 
   // Not a callback URL — nothing to do.
   if (code == null && error == null) return false;
+
+  // Prevent React StrictMode double-invoke from consuming the auth code twice.
+  if (callbackHandled) {
+    console.debug("[auth] callback already handled, skipping");
+    return true;
+  }
+  callbackHandled = true;
 
   const storedState = sessionStorage.getItem(STATE_KEY);
   const verifier = sessionStorage.getItem(VERIFIER_KEY);
