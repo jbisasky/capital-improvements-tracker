@@ -260,6 +260,8 @@ export async function handleRedirectCallback(): Promise<boolean> {
       redirect_uri: redirectUri(),
     });
 
+    console.debug("[auth] token request body", Object.fromEntries(body));
+
     const res = await fetch(GOOGLE_TOKEN_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -267,7 +269,7 @@ export async function handleRedirectCallback(): Promise<boolean> {
     });
 
     const raw = (await res.json()) as RawTokenResponse;
-    console.debug("[auth] token response", { status: res.status, error: raw.error, hasToken: raw.access_token != null });
+    console.debug("[auth] token response", { status: res.status, error: raw.error, error_description: raw.error_description, hasToken: raw.access_token != null });
     applyTokenResponse(raw);
   } catch (err) {
     state = {
