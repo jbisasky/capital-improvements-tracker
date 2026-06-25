@@ -6,7 +6,6 @@ import {
   handleRedirectCallback,
   initAuth,
   getAuthState,
-  signOut,
   subscribe,
   unsubscribe,
   _resetForTesting,
@@ -209,14 +208,15 @@ describe("handleRedirectCallback", () => {
     expect(getAuthState().status).toBe("authenticated");
     expect(getAuthState().accessToken).toBe("tok_abc");
 
-    // Verify token endpoint was called with correct params
+    // Verify token proxy was called with correct params
     const [url, options] = (mockFetch as Mock).mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://oauth2.googleapis.com/token");
+    expect(url).toBe("/api/auth/token");
     expect(options.method).toBe("POST");
-    const body = new URLSearchParams(options.body as string);
-    expect(body.get("code")).toBe("auth-code-123");
-    expect(body.get("code_verifier")).toBe("my-verifier");
-    expect(body.get("grant_type")).toBe("authorization_code");
+    expect((options.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+    const body = JSON.parse(options.body as string) as Record<string, string>;
+    expect(body["code"]).toBe("auth-code-123");
+    expect(body["code_verifier"]).toBe("my-verifier");
+    expect(body["redirect_uri"]).toMatch(/^https?:\/\//); // passes origin-relative URI
   });
 
   it("sets needs_interaction when token response is missing required scopes", async () => {

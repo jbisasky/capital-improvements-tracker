@@ -3,10 +3,15 @@
 **Status:** Draft v0.1 — companion to the [HLD](high-level-design.md) and [LLD](low-level-design.md)
 **Audience:** the app owner (one-time setup, plus a 20-year recovery reference)
 
-This app is 100% client-side, but it still needs a small, **mandatory** Google Cloud footprint:
-an OAuth Client ID (so users can sign in) and two enabled APIs (Drive + Gemini). It also relies
-on **provider-side quota caps** and **API-key restrictions** as the authoritative backstop for
-the runaway-usage failsafes in [LLD §13](low-level-design.md#13-runaway-usage-failsafes-apitoken-budget-protection).
+This app has no first-party database or application server, but it does use a thin
+**Cloudflare Pages Function** (`functions/api/auth/token.ts`) to perform the server-side leg of
+the Google OAuth token exchange — keeping the `client_secret` out of the browser bundle. Beyond
+that one endpoint, all data storage goes directly from the browser to the user's Google Drive.
+
+A small, **mandatory** Google Cloud footprint is still needed: an OAuth Client ID + secret
+(sign-in), and two enabled APIs (Drive + Gemini). The project also relies on
+**provider-side quota caps** and **API-key restrictions** as the authoritative backstop for the
+runaway-usage failsafes in [LLD §13](low-level-design.md#13-runaway-usage-failsafes-apitoken-budget-protection).
 
 > Keep this document current. If the Cloud project is ever lost, these steps recreate everything;
 > the app's *data* is unaffected because it lives in your personal Google Drive, not in the project.
@@ -22,8 +27,9 @@ the runaway-usage failsafes in [LLD §13](low-level-design.md#13-runaway-usage-f
 - A **Gemini API key** (BYOK) — restricted to the Gemini API + your domain, with
   conservative per-minute / per-day quota caps.
 
-Two values feed the app:
-- `GOOGLE_CLIENT_ID` — build-time config (public; safe to ship in the bundle).
+Three values feed the app:
+- `GOOGLE_CLIENT_ID` — build-time config (public; safe to ship in the bundle). Also set as a Pages Function secret (used server-side by `token.ts`).
+- `GOOGLE_CLIENT_SECRET` — **server-side only**; stored as a Cloudflare Pages encrypted secret, never in the bundle. See §4a.
 - The **Gemini API key** — entered by the user at runtime in Settings (never committed/shipped).
 
 ---
@@ -110,20 +116,31 @@ The wizard does **not** add OAuth scopes. On the OAuth consent screen overview p
 
 ## 4. Create the OAuth 2.0 Web Client ID
 
+> **Architecture note (PKCE redirect flow):** The app uses the standard OAuth 2.0 Authorization
+> Code flow with PKCE. The browser is redirected to Google, then back to `/auth/callback`. Because
+> Google's "Web application" clients require a `client_secret` for the code→token exchange (even
+> with PKCE), the token exchange is performed server-side by a **Cloudflare Pages Function**
+> (`functions/api/auth/token.ts`). The `client_secret` is stored as a Pages secret (never in the
+> browser bundle). See §4a below.
+
 APIs & Services → **Credentials** → **+ Create credentials** → **OAuth client ID**.
 
 1. **Application type: Web application.**
-2. **Name:** e.g. "Web SPA (Cloudflare Pages)".
+2. **Name:** e.g. "Web SPA (Cloudflare Pages — PKCE)".
 3. **Authorized JavaScript origins** — add every origin the app is served from (scheme + host,
    **no path, no trailing slash**):
-   - `http://localhost:5173` (or whatever the dev server uses) — for local development.
+   - `http://localhost:8788` — `wrangler pages dev` local port (Pages Function dev server).
+   - `http://localhost:5173` — plain Vite dev server (no Functions).
    - `https://capital-improvements-tracker.pages.dev` — the Cloudflare Pages URL.
    - `https://<your-custom-domain>` — later, if/when you add one.
-4. **Authorized redirect URIs:** **leave empty.** The GIS token model
-   (`google.accounts.oauth2.initTokenClient`) uses JavaScript origins, not redirect URIs.
-5. **Create**, then copy the **Client ID** (looks like `xx….apps.googleusercontent.com`).
+4. **Authorized redirect URIs** — add the `/auth/callback` path for every origin above:
+   - `http://localhost:8788/auth/callback`
+   - `http://localhost:5173/auth/callback`
+   - `https://capital-improvements-tracker.pages.dev/auth/callback`
+   - `https://<your-custom-domain>/auth/callback`
+5. **Create**, then note **both** the **Client ID** and the **Client Secret**.
 
-Put it in the app's build config:
+Put the Client ID in the app's build config:
 
 ```bash
 # Local dev: copy the template, then edit .env (gitignored)
@@ -133,14 +150,55 @@ cp .env.example .env
 VITE_GOOGLE_CLIENT_ID=xxxxxxxxxxxx.apps.googleusercontent.com
 ```
 
-For production (Cloudflare Pages), set `VITE_GOOGLE_CLIENT_ID` as a build-time environment
+For production (Cloudflare Pages), set `VITE_GOOGLE_CLIENT_ID` as a **build-time** environment
 variable in the project settings — do not commit a `.env` file.
 
-**Production site:** https://capital-improvements-tracker.pages.dev
+See **§4a** for how to supply the `client_secret` to the Pages Function.
 
-> Whenever the hosting domain changes, come back and add the new origin here (LLD §5.4). A missing
-> origin is the #1 cause of GIS sign-in failing with `idpiframe_initialization_failed` / origin
-> mismatch errors.
+> Whenever the hosting domain changes, add the new origin **and** redirect URI here. A missing
+> redirect URI will cause Google to reject the callback with `redirect_uri_mismatch`.
+
+---
+
+## 4a. Supply the OAuth client_secret to Cloudflare Pages
+
+The `client_secret` must **never** appear in the browser bundle. It is consumed exclusively by
+the server-side Pages Function (`functions/api/auth/token.ts`).
+
+### Local development
+
+```bash
+# Copy the example file and fill in your real values
+cp .dev.vars.example .dev.vars
+# Edit .dev.vars:
+#   GOOGLE_CLIENT_ID=xxxxxxxxxxxx.apps.googleusercontent.com
+#   GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxx
+```
+
+Then start the local Pages dev server (runs on port 8788 by default):
+
+```bash
+npm run dev:cf          # wrangler pages dev --proxy 5173 -- vite
+```
+
+`.dev.vars` is gitignored — never commit it.
+
+### Production (Cloudflare dashboard)
+
+1. Go to **Cloudflare Dashboard** → your Pages project → **Settings** → **Environment variables**.
+2. Under **Production** (and optionally **Preview**), click **Add variables**.
+3. Add each secret, marking them **Encrypted**:
+   - `GOOGLE_CLIENT_ID` — your OAuth Client ID (same value as `VITE_GOOGLE_CLIENT_ID`).
+   - `GOOGLE_CLIENT_SECRET` — the client secret from step 4 above.
+4. **Save and deploy** (or trigger a new deployment so the Function picks up the secrets).
+
+### Alternative: Wrangler CLI
+
+```bash
+# Production secrets (requires `npx wrangler login` first)
+npx wrangler pages secret put GOOGLE_CLIENT_ID
+npx wrangler pages secret put GOOGLE_CLIENT_SECRET
+```
 
 ---
 

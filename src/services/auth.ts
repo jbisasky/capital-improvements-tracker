@@ -17,7 +17,9 @@ const REQUIRED_SCOPES = [
 ];
 
 const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
-const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
+// Token exchange goes through our own Pages Function so the client_secret
+// (required by Google for Web clients) stays server-side. See functions/api/auth/token.ts.
+const TOKEN_EXCHANGE_ENDPOINT = "/api/auth/token";
 const REDIRECT_PATH = "/auth/callback";
 const VERIFIER_KEY = "pkce_verifier";
 const STATE_KEY = "pkce_state";
@@ -222,22 +224,12 @@ export async function handleRedirectCallback(): Promise<boolean> {
 
   // Prevent React StrictMode double-invoke from consuming the auth code twice.
   if (callbackHandled) {
-    console.debug("[auth] callback already handled, skipping");
     return true;
   }
   callbackHandled = true;
 
   const storedState = sessionStorage.getItem(STATE_KEY);
   const verifier = sessionStorage.getItem(VERIFIER_KEY);
-
-  console.debug("[auth] callback received", {
-    hasCode: code != null,
-    hasError: error != null,
-    returnedState,
-    storedState,
-    hasVerifier: verifier != null,
-    clientId: clientId !== "" ? "set" : "EMPTY",
-  });
 
   sessionStorage.removeItem(VERIFIER_KEY);
   sessionStorage.removeItem(STATE_KEY);
@@ -270,24 +262,18 @@ export async function handleRedirectCallback(): Promise<boolean> {
   notify();
 
   try {
-    const body = new URLSearchParams({
-      client_id: clientId,
-      code,
-      code_verifier: verifier,
-      grant_type: "authorization_code",
-      redirect_uri: redirectUri(),
-    });
-
-    console.debug("[auth] token request body", Object.fromEntries(body));
-
-    const res = await fetch(GOOGLE_TOKEN_ENDPOINT, {
+    // The client_secret is added server-side by our Pages Function.
+    const res = await fetch(TOKEN_EXCHANGE_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code,
+        code_verifier: verifier,
+        redirect_uri: redirectUri(),
+      }),
     });
 
     const raw = (await res.json()) as RawTokenResponse;
-    console.debug("[auth] token response", { status: res.status, error: raw.error, error_description: raw.error_description, hasToken: raw.access_token != null });
     applyTokenResponse(raw);
   } catch (err) {
     state = {
