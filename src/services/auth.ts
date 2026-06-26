@@ -209,6 +209,9 @@ function applyTokenResponse(raw: RawTokenResponse): void {
 export function initAuth(id: string): void {
   clientId = id;
 
+  // If already authenticated (e.g. called twice) don't re-restore.
+  if (state.status === "authenticated") return;
+
   // Restore a persisted token from sessionStorage (survives page refresh).
   try {
     const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
