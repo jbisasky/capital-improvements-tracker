@@ -1,14 +1,20 @@
 /**
  * PKCE OAuth2 flow — manages auth state, redirect-based sign-in, token
  * exchange, silent refresh via prompt=none, and sign-out.
- * Token is held in memory only (never persisted). See LLD §4.
+ *
+ * The access token is persisted to sessionStorage so that a page refresh
+ * within the same tab does not require re-authentication. sessionStorage is
+ * scoped to the tab and is cleared when the tab closes, so the token never
+ * survives beyond the browsing session. See LLD §4.
  *
  * Flow:
  *  1. signIn()        — generates code_verifier/challenge, stores verifier in
  *                       sessionStorage, redirects to Google's auth endpoint.
  *  2. /auth/callback  — Google redirects back with ?code=&state=
  *  3. handleRedirectCallback() — called on app mount; exchanges code for token
- *                       via fetch to token endpoint; clears sessionStorage.
+ *                       via fetch to token endpoint; clears PKCE sessionStorage.
+ *  4. initAuth()      — on every mount, restores a still-valid token from
+ *                       sessionStorage if one exists.
  */
 
 const REQUIRED_SCOPES = [
@@ -23,6 +29,9 @@ const TOKEN_EXCHANGE_ENDPOINT = "/api/auth/token";
 const REDIRECT_PATH = "/auth/callback";
 const VERIFIER_KEY = "pkce_verifier";
 const STATE_KEY = "pkce_state";
+// Persisted token — survives page refresh within same tab (cleared on tab close).
+const SESSION_TOKEN_KEY = "auth_access_token";
+const SESSION_EXPIRY_KEY = "auth_expires_at";
 const REFRESH_MARGIN_MS = 60_000; // refresh 60 s before expiry
 
 export type AuthStatus =
@@ -62,6 +71,8 @@ export function _resetForTesting(): void {
   state = { ...INITIAL_STATE };
   clearRefreshTimer();
   listeners.clear();
+  sessionStorage.removeItem(SESSION_TOKEN_KEY);
+  sessionStorage.removeItem(SESSION_EXPIRY_KEY);
 }
 
 // ---------------------------------------------------------------------------
@@ -78,6 +89,24 @@ function clearRefreshTimer(): void {
   if (refreshTimer != null) {
     clearTimeout(refreshTimer);
     refreshTimer = null;
+  }
+}
+
+function saveTokenToSession(token: string, expiresAt: number): void {
+  try {
+    sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+    sessionStorage.setItem(SESSION_EXPIRY_KEY, String(expiresAt));
+  } catch {
+    // sessionStorage unavailable (private mode, storage full) — silently ignore
+  }
+}
+
+function clearTokenFromSession(): void {
+  try {
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    sessionStorage.removeItem(SESSION_EXPIRY_KEY);
+  } catch {
+    // ignore
   }
 }
 
@@ -136,6 +165,7 @@ interface RawTokenResponse {
 
 function applyTokenResponse(raw: RawTokenResponse): void {
   if (raw.error != null || raw.access_token == null) {
+    clearTokenFromSession();
     state = {
       status: "needs_interaction",
       accessToken: null,
@@ -149,6 +179,7 @@ function applyTokenResponse(raw: RawTokenResponse): void {
   const grantedScopes = new Set((raw.scope ?? "").split(" "));
   const missing = REQUIRED_SCOPES.filter((s) => !grantedScopes.has(s));
   if (missing.length > 0) {
+    clearTokenFromSession();
     state = {
       status: "needs_interaction",
       accessToken: null,
@@ -159,10 +190,12 @@ function applyTokenResponse(raw: RawTokenResponse): void {
     return;
   }
 
+  const expiresAt = Date.now() + ((raw.expires_in ?? 3600) - 60) * 1000;
+  saveTokenToSession(raw.access_token, expiresAt);
   state = {
     status: "authenticated",
     accessToken: raw.access_token,
-    expiresAt: Date.now() + ((raw.expires_in ?? 3600) - 60) * 1000,
+    expiresAt,
     error: null,
   };
   notify();
@@ -175,6 +208,25 @@ function applyTokenResponse(raw: RawTokenResponse): void {
 
 export function initAuth(id: string): void {
   clientId = id;
+
+  // Restore a persisted token from sessionStorage (survives page refresh).
+  try {
+    const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
+    const expiresAtRaw = sessionStorage.getItem(SESSION_EXPIRY_KEY);
+    if (token != null && expiresAtRaw != null) {
+      const expiresAt = Number(expiresAtRaw);
+      if (!Number.isNaN(expiresAt) && Date.now() < expiresAt) {
+        state = { status: "authenticated", accessToken: token, expiresAt, error: null };
+        scheduleRefresh();
+        notify();
+      } else {
+        // Token has expired — clear it so the user is prompted to re-sign-in.
+        clearTokenFromSession();
+      }
+    }
+  } catch {
+    // sessionStorage unavailable — start unauthenticated
+  }
 }
 
 /** Redirect the browser to Google's OAuth2 authorization endpoint. */
@@ -298,6 +350,7 @@ async function silentRefresh(): Promise<void> {
   // PKCE silent refresh: redirect with prompt=none is not reliable in SPAs
   // because we can't intercept a redirect in a background context.
   // Instead we signal needs_interaction so the user is prompted to sign in.
+  clearTokenFromSession();
   state = {
     status: "needs_interaction",
     accessToken: null,
@@ -309,6 +362,7 @@ async function silentRefresh(): Promise<void> {
 
 export function signOut(): void {
   clearRefreshTimer();
+  clearTokenFromSession();
   const token = state.accessToken;
   state = { ...INITIAL_STATE };
   notify();
