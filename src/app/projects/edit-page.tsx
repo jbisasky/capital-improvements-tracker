@@ -64,9 +64,9 @@ export function ProjectEditPage(): ReactElement {
   const { id } = useParams();
   const navigate = useNavigate();
   const prefix = useRoutePrefix();
-  const { manifest, loading, updateProject } = useStorage();
+  const { manifest, updateProject } = useStorage();
 
-  if (loading || !manifest) {
+  if (!manifest) {
     return <p className="text-muted-foreground">Loading...</p>;
   }
 

@@ -82,7 +82,22 @@ export function StorageProvider({
   const [isViewingCachedData, setIsViewingCachedData] = useState(false);
 
   const loadManifest = useCallback(async (): Promise<void> => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    // Stale-while-revalidate: show cached data immediately so the dashboard
+    // renders without waiting for the Drive round-trip (~5–15s). The Drive
+    // fetch runs in the background and replaces the cached data when it lands.
+    const cached = await loadManifestCache();
+    if (cached != null) {
+      setIsViewingCachedData(true);
+      setState({
+        manifest: cached,
+        etag: null,
+        loading: true, // still loading — background refresh in progress
+        error: null,
+      });
+    } else {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+    }
+
     const result: Result<ManifestReadResult> = await driver.readManifest();
     if (result.ok) {
       await saveManifestCache(result.value.manifest);
@@ -96,18 +111,30 @@ export function StorageProvider({
       return;
     }
 
-    if (!navigator.onLine) {
-      const cached = await loadManifestCache();
-      if (cached != null) {
+    // Drive fetch failed. If we already showed cached data, keep showing it
+    // (offline or transient error) rather than blanking the screen.
+    if (cached != null) {
+      if (!navigator.onLine) {
+        // Already showing cached data — just mark as not loading.
+        setState((prev) => ({ ...prev, loading: false }));
+      } else {
+        // Online but Drive call failed — show cached data with an error banner.
         setIsViewingCachedData(true);
-        setState({
-          manifest: cached,
-          etag: null,
+        setState((prev) => ({
+          ...prev,
           loading: false,
-          error: null,
-        });
-        return;
+          error: result.error.message,
+        }));
       }
+      return;
+    }
+
+    // No cache at all and Drive failed.
+    if (!navigator.onLine) {
+      // Nothing we can do offline without a cache.
+      setIsViewingCachedData(false);
+      setState({ manifest: null, etag: null, loading: false, error: result.error.message });
+      return;
     }
 
     setIsViewingCachedData(false);
@@ -250,11 +277,15 @@ export function StorageProvider({
     [state.manifest?.property?.propertyType],
   );
 
+  // Writes are disabled when offline OR when we're still waiting for the
+  // fresh Drive manifest (etag is null — the driver's fileId isn't set yet).
+  const isRevalidating = state.loading && state.manifest != null;
+
   const value: StorageContextValue = {
     ...state,
     reload: loadManifest,
     isViewingCachedData,
-    writesDisabled: !isOnline,
+    writesDisabled: !isOnline || isRevalidating,
     addProject,
     addProjectWithAttachments,
     updateProject,

@@ -35,7 +35,7 @@ function json(body: unknown, status = 200): Response {
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
 
-  if (env.GOOGLE_CLIENT_ID == null || env.GOOGLE_CLIENT_SECRET == null) {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
     return json({ error: "server_misconfigured", error_description: "OAuth env vars not set." }, 500);
   }
 

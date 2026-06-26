@@ -9,12 +9,14 @@ import {
   LogOut,
   Menu,
   PanelLeftClose,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HomeChartLogo } from "@/components/brand/home-chart-logo";
 import { OfflineBanner } from "@/components/layout/offline-banner";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
 import { useAuth } from "@/services/auth-context";
+import { useStorage } from "@/services/storage-context";
 
 interface AppShellProps {
   children: ReactNode;
@@ -31,8 +33,12 @@ const NAV_ITEMS = [
 export function AppShell({ children }: AppShellProps): ReactElement {
   const prefix = useRoutePrefix();
   const auth = useAuth();
+  const { loading, manifest } = useStorage();
   const isLiveMode = prefix === "";
   const [collapsed, setCollapsed] = useState(false);
+  // True only during background revalidation (cached data is showing, Drive
+  // fetch is still in progress). Not true on first load (manifest is null).
+  const isRevalidating = loading && manifest != null;
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -138,6 +144,16 @@ export function AppShell({ children }: AppShellProps): ReactElement {
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <OfflineBanner />
+        {isRevalidating && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center justify-center gap-1.5 bg-zinc-50 py-1 text-xs text-zinc-400"
+          >
+            <RefreshCw className="size-3 animate-spin" />
+            Syncing with Drive…
+          </div>
+        )}
         {/* Mobile top bar — hidden at md+; shows session action top-right on all pages */}
         <header
           data-testid="mobile-top-bar"
