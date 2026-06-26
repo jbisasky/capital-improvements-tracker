@@ -1,0 +1,13 @@
+# Copy to `.dev.vars` for local Pages Function development (gitignored):
+#
+#   cp .dev.vars.example .dev.vars
+#
+# These are read by `wrangler pages dev` and injected into the
+# functions/api/auth/token.ts environment. They are server-side only and
+# never exposed to the browser bundle.
+#
+# Get both values from Google Cloud Console → APIs & Services → Credentials →
+# your OAuth 2.0 Web Client. See docs/google-cloud-setup.md.
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=

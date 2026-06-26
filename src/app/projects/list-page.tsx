@@ -40,7 +40,7 @@ const TREATMENT_LABELS: Record<TaxTreatment, string> = {
 type FilterStatus = "all" | DocStatus;
 
 export function ProjectsListPage(): ReactElement {
-  const { manifest, loading, getDocAssessment } = useStorage();
+  const { manifest, getDocAssessment } = useStorage();
   const prefix = useRoutePrefix();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
@@ -66,7 +66,7 @@ export function ProjectsListPage(): ReactElement {
     return result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }, [projects, search, filterStatus, getDocAssessment]);
 
-  if (loading) {
+  if (!manifest) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Projects</h1>

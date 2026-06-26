@@ -209,14 +209,15 @@ describe("handleRedirectCallback", () => {
     expect(getAuthState().status).toBe("authenticated");
     expect(getAuthState().accessToken).toBe("tok_abc");
 
-    // Verify token endpoint was called with correct params
+    // Verify token proxy was called with correct params
     const [url, options] = (mockFetch as Mock).mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://oauth2.googleapis.com/token");
+    expect(url).toBe("/api/auth/token");
     expect(options.method).toBe("POST");
-    const body = new URLSearchParams(options.body as string);
-    expect(body.get("code")).toBe("auth-code-123");
-    expect(body.get("code_verifier")).toBe("my-verifier");
-    expect(body.get("grant_type")).toBe("authorization_code");
+    expect((options.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+    const body = JSON.parse(options.body as string) as Record<string, string>;
+    expect(body["code"]).toBe("auth-code-123");
+    expect(body["code_verifier"]).toBe("my-verifier");
+    expect(body["redirect_uri"]).toMatch(/^https?:\/\//); // passes origin-relative URI
   });
 
   it("sets needs_interaction when token response is missing required scopes", async () => {
@@ -260,5 +261,105 @@ describe("handleRedirectCallback", () => {
     // Assert
     expect(sessionStorage.getItem("pkce_verifier")).toBeNull();
     expect(sessionStorage.getItem("pkce_state")).toBeNull();
+  });
+
+  it("saves access token to sessionStorage on successful exchange", async () => {
+    // Arrange
+    const oauthState = "valid-state";
+    sessionStorage.setItem("pkce_state", oauthState);
+    sessionStorage.setItem("pkce_verifier", "verifier");
+    setUrl(`?code=c&state=${oauthState}`);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      json: async () => ({
+        access_token: "tok_persist",
+        expires_in: 3600,
+        scope: "https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file",
+        token_type: "Bearer",
+      }),
+    }));
+
+    // Act
+    await handleRedirectCallback();
+
+    // Assert — token saved to sessionStorage
+    expect(sessionStorage.getItem("auth_access_token")).toBe("tok_persist");
+    expect(Number(sessionStorage.getItem("auth_expires_at"))).toBeGreaterThan(Date.now());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// initAuth — session token restoration
+// ---------------------------------------------------------------------------
+
+describe("initAuth session token restoration", () => {
+  beforeEach(() => {
+    _resetForTesting();
+    setUrl("");
+    vi.restoreAllMocks();
+  });
+
+  it("restores authenticated state from a valid sessionStorage token", () => {
+    // Arrange — simulate a previously-saved token
+    const expiresAt = Date.now() + 3_600_000;
+    sessionStorage.setItem("auth_access_token", "restored_token");
+    sessionStorage.setItem("auth_expires_at", String(expiresAt));
+
+    // Act
+    initAuth("test-client-id");
+
+    // Assert
+    expect(getAuthState().status).toBe("authenticated");
+    expect(getAuthState().accessToken).toBe("restored_token");
+    expect(getAuthState().expiresAt).toBe(expiresAt);
+  });
+
+  it("starts unauthenticated when sessionStorage token has expired", () => {
+    // Arrange — expired token
+    const expiresAt = Date.now() - 1000;
+    sessionStorage.setItem("auth_access_token", "old_token");
+    sessionStorage.setItem("auth_expires_at", String(expiresAt));
+
+    // Act
+    initAuth("test-client-id");
+
+    // Assert
+    expect(getAuthState().status).toBe("unauthenticated");
+    expect(sessionStorage.getItem("auth_access_token")).toBeNull(); // cleaned up
+  });
+
+  it("starts unauthenticated when sessionStorage has no token", () => {
+    // Act
+    initAuth("test-client-id");
+
+    // Assert
+    expect(getAuthState().status).toBe("unauthenticated");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// signOut
+// ---------------------------------------------------------------------------
+
+describe("signOut", () => {
+  beforeEach(() => {
+    _resetForTesting();
+    setUrl("");
+  });
+
+  it("clears the sessionStorage token on sign out", () => {
+    // Arrange — simulate signed-in state
+    const expiresAt = Date.now() + 3_600_000;
+    sessionStorage.setItem("auth_access_token", "tok");
+    sessionStorage.setItem("auth_expires_at", String(expiresAt));
+    initAuth("test-client-id");
+    expect(getAuthState().status).toBe("authenticated");
+
+    // Act
+    signOut();
+
+    // Assert
+    expect(getAuthState().status).toBe("unauthenticated");
+    expect(sessionStorage.getItem("auth_access_token")).toBeNull();
+    expect(sessionStorage.getItem("auth_expires_at")).toBeNull();
   });
 });

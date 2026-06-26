@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, type MockInstance } from "vitest";
+import * as storageContext from "@/services/storage-context";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { AppShell } from "./app-shell";
@@ -10,6 +11,10 @@ const mockSignOut = vi.fn();
 
 vi.mock("@/services/auth-context", () => ({
   useAuth: () => ({ signOut: mockSignOut }),
+}));
+
+vi.mock("@/services/storage-context", () => ({
+  useStorage: vi.fn(() => ({ loading: false, manifest: null })),
 }));
 
 vi.mock("@/components/brand/home-chart-logo", () => ({
@@ -246,5 +251,45 @@ describe("AppShell mobile tab bar", () => {
 
     // Assert
     expect(items).toHaveLength(5);
+  });
+});
+
+// ---------- revalidation banner ----------
+
+describe("AppShell revalidation banner", () => {
+  const useStorageMock = storageContext.useStorage as unknown as MockInstance;
+
+  it("is hidden when not revalidating (loading=false)", () => {
+    // Arrange
+    useStorageMock.mockReturnValue({ loading: false, manifest: null });
+
+    // Act
+    renderShell("/dashboard");
+
+    // Assert
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("is hidden on first load (loading=true, manifest=null — no cache yet)", () => {
+    // Arrange
+    useStorageMock.mockReturnValue({ loading: true, manifest: null });
+
+    // Act
+    renderShell("/dashboard");
+
+    // Assert
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("shows 'Syncing with Drive' when revalidating (loading=true, manifest set)", () => {
+    // Arrange — cached data is present, background refresh in progress
+    useStorageMock.mockReturnValue({ loading: true, manifest: { projects: [] } });
+
+    // Act
+    renderShell("/dashboard");
+
+    // Assert
+    const banner = screen.getByRole("status");
+    expect(banner).toHaveTextContent(/syncing with drive/i);
   });
 });

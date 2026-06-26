@@ -104,10 +104,10 @@ function DashboardSkeleton(): ReactElement {
 }
 
 export function DashboardPage(): ReactElement {
-  const { manifest, loading, getDocAssessment } = useStorage();
+  const { manifest, getDocAssessment } = useStorage();
   const prefix = useRoutePrefix();
 
-  if (loading || !manifest) {
+  if (!manifest) {
     return <DashboardSkeleton />;
   }
 

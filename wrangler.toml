@@ -1,0 +1,10 @@
+# Cloudflare Pages config — used for local dev of Pages Functions (functions/).
+# Production build/deploy settings are configured in the Cloudflare dashboard.
+name = "capital-improvements-tracker"
+compatibility_date = "2024-11-01"
+
+# Secrets are NOT defined here. Set them via:
+#   - Local:      .dev.vars  (gitignored)
+#   - Production: Cloudflare dashboard → Pages → Settings → Environment variables
+#                 (or `npx wrangler pages secret put GOOGLE_CLIENT_SECRET`)
+#   Required: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET

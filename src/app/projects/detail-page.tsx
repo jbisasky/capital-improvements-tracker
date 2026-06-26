@@ -32,9 +32,9 @@ export function ProjectDetailPage(): ReactElement {
   const { id } = useParams();
   const navigate = useNavigate();
   const prefix = useRoutePrefix();
-  const { manifest, loading, deleteProject, getDocAssessment } = useStorage();
+  const { manifest, deleteProject, getDocAssessment } = useStorage();
 
-  if (loading || !manifest) {
+  if (!manifest) {
     return (
       <div className="space-y-6">
         <p className="text-muted-foreground">Loading...</p>

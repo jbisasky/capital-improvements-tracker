@@ -15,7 +15,7 @@ function formatCurrency(amount: number): string {
 }
 
 export function ExportPage(): ReactElement {
-  const { manifest, loading } = useStorage();
+  const { manifest } = useStorage();
   const [format, setFormat] = useState<ExportFormat>("json");
 
   function handleExport(): void {
@@ -65,7 +65,7 @@ export function ExportPage(): ReactElement {
     trackExport(format);
   }
 
-  if (loading) {
+  if (!manifest) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Export</h1>
