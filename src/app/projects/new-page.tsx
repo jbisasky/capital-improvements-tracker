@@ -246,7 +246,7 @@ export function ProjectNewPage(): ReactElement {
       <button
         type="button"
         onClick={handleSkipToManual}
-        className="rounded-md border px-4 py-2 text-sm hover:bg-accent"
+        className="cursor-pointer rounded-md border px-4 py-2 text-sm hover:bg-accent"
       >
         Enter details manually
       </button>

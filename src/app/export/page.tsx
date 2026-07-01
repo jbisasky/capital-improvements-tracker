@@ -107,7 +107,7 @@ export function ExportPage(): ReactElement {
           type="button"
           onClick={handleExport}
           disabled={projectCount === 0}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
+          className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Download className="size-4" />
           Export {format.toUpperCase()}

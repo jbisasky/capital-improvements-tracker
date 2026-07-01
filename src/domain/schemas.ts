@@ -103,9 +103,16 @@ export const ProjectSchema = z.object({
 
 export const PropertyProfileSchema = z.object({
   address: z.string().min(1),
+  address2: z.string().optional(),
   city: z.string().min(1),
   state: z.string().length(2),
-  zip: z.string().regex(/^\d{5}(-\d{4})?$/),
+  zip: z.preprocess((v) => {
+    if (typeof v !== "string") return v;
+    const digits = v.replace(/\D/g, "");
+    if (digits.length === 9) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    if (digits.length === 5) return digits;
+    return v.trim();
+  }, z.string().regex(/^\d{5}(-\d{4})?$/)),
   propertyType: PropertyType,
   sqftTotal: z.number().positive().optional(),
 });
@@ -117,7 +124,7 @@ export const ManifestSettingsSchema = z.object({
 export const ManifestSchema = z.object({
   schemaVersion: z.literal(2),
   lastUpdated: z.iso.datetime(),
-  property: PropertyProfileSchema.optional(),
+  property: PropertyProfileSchema.optional().catch(undefined),
   settings: ManifestSettingsSchema.optional(),
   summary: z.object({
     totalCostBasisAdded: z.number().nonnegative(),

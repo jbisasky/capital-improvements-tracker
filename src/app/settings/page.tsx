@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useState, useEffect } from "react";
 import { Link } from "react-router";
 import { useStorage } from "@/services/storage-context";
 import { type PropertyType } from "@/domain/schemas";
@@ -21,6 +21,71 @@ import {
   type UsageBudget,
 } from "@/services/ai-budget";
 import { testGeminiKey } from "@/services/gemini";
+import { useTheme } from "@/services/theme-context";
+import { type ThemePreference } from "@/services/theme";
+import { Sun, Moon, Monitor } from "lucide-react";
+
+const US_STATES: { abbr: string; name: string }[] = [
+  { abbr: "AL", name: "Alabama" },
+  { abbr: "AK", name: "Alaska" },
+  { abbr: "AZ", name: "Arizona" },
+  { abbr: "AR", name: "Arkansas" },
+  { abbr: "CA", name: "California" },
+  { abbr: "CO", name: "Colorado" },
+  { abbr: "CT", name: "Connecticut" },
+  { abbr: "DE", name: "Delaware" },
+  { abbr: "FL", name: "Florida" },
+  { abbr: "GA", name: "Georgia" },
+  { abbr: "HI", name: "Hawaii" },
+  { abbr: "ID", name: "Idaho" },
+  { abbr: "IL", name: "Illinois" },
+  { abbr: "IN", name: "Indiana" },
+  { abbr: "IA", name: "Iowa" },
+  { abbr: "KS", name: "Kansas" },
+  { abbr: "KY", name: "Kentucky" },
+  { abbr: "LA", name: "Louisiana" },
+  { abbr: "ME", name: "Maine" },
+  { abbr: "MD", name: "Maryland" },
+  { abbr: "MA", name: "Massachusetts" },
+  { abbr: "MI", name: "Michigan" },
+  { abbr: "MN", name: "Minnesota" },
+  { abbr: "MS", name: "Mississippi" },
+  { abbr: "MO", name: "Missouri" },
+  { abbr: "MT", name: "Montana" },
+  { abbr: "NE", name: "Nebraska" },
+  { abbr: "NV", name: "Nevada" },
+  { abbr: "NH", name: "New Hampshire" },
+  { abbr: "NJ", name: "New Jersey" },
+  { abbr: "NM", name: "New Mexico" },
+  { abbr: "NY", name: "New York" },
+  { abbr: "NC", name: "North Carolina" },
+  { abbr: "ND", name: "North Dakota" },
+  { abbr: "OH", name: "Ohio" },
+  { abbr: "OK", name: "Oklahoma" },
+  { abbr: "OR", name: "Oregon" },
+  { abbr: "PA", name: "Pennsylvania" },
+  { abbr: "RI", name: "Rhode Island" },
+  { abbr: "SC", name: "South Carolina" },
+  { abbr: "SD", name: "South Dakota" },
+  { abbr: "TN", name: "Tennessee" },
+  { abbr: "TX", name: "Texas" },
+  { abbr: "UT", name: "Utah" },
+  { abbr: "VT", name: "Vermont" },
+  { abbr: "VA", name: "Virginia" },
+  { abbr: "WA", name: "Washington" },
+  { abbr: "WV", name: "West Virginia" },
+  { abbr: "WI", name: "Wisconsin" },
+  { abbr: "WY", name: "Wyoming" },
+  { abbr: "DC", name: "District of Columbia" },
+  { abbr: "PR", name: "Puerto Rico" },
+  { abbr: "VI", name: "U.S. Virgin Islands" },
+  { abbr: "GU", name: "Guam" },
+  { abbr: "AS", name: "American Samoa" },
+  { abbr: "MP", name: "Northern Mariana Islands" },
+  { abbr: "AA", name: "Armed Forces Americas" },
+  { abbr: "AE", name: "Armed Forces Europe" },
+  { abbr: "AP", name: "Armed Forces Pacific" },
+];
 
 const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: "primary_residence", label: "Primary Residence" },
@@ -29,6 +94,8 @@ const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: "vacation", label: "Vacation Home" },
 ];
 
+type FieldErrors = Partial<Record<"address" | "city" | "state" | "zip", string>>;
+
 const EXPIRY_OPTIONS: { value: ExpiryDays; label: string }[] = [
   { value: 7, label: "7 days" },
   { value: 30, label: "30 days" },
@@ -36,13 +103,21 @@ const EXPIRY_OPTIONS: { value: ExpiryDays; label: string }[] = [
   { value: null, label: "Never" },
 ];
 
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: Monitor },
+];
+
 export function SettingsPage(): ReactElement {
   const prefix = useRoutePrefix();
   const { signOut } = useAuth();
-  const { manifest, attachmentsFolderId, attachmentsFolderName } = useStorage();
+  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
+  const { manifest, attachmentsFolderId, attachmentsFolderName, saveProperty } = useStorage();
   const property = manifest?.property;
 
   const [address, setAddress] = useState(property?.address ?? "");
+  const [address2, setAddress2] = useState(property?.address2 ?? "");
   const [city, setCity] = useState(property?.city ?? "");
   const [state, setState] = useState(property?.state ?? "");
   const [zip, setZip] = useState(property?.zip ?? "");
@@ -52,6 +127,20 @@ export function SettingsPage(): ReactElement {
   const [sqftTotal, setSqftTotal] = useState(
     property?.sqftTotal != null ? String(property.sqftTotal) : "",
   );
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  useEffect(() => {
+    if (property == null) return;
+    setAddress(property.address);
+    setAddress2(property.address2 ?? "");
+    setCity(property.city);
+    setState(property.state);
+    setZip(property.zip);
+    setPropertyType(property.propertyType);
+    setSqftTotal(property.sqftTotal != null ? String(property.sqftTotal) : "");
+  }, [property]);
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
@@ -67,8 +156,63 @@ export function SettingsPage(): ReactElement {
   const [budget, setBudget] = useState<UsageBudget>(getBudgetSettings());
   const usage = getUsageCounters();
 
+  function clearFieldError(key: "address" | "city" | "state" | "zip"): void {
+    setFieldErrors((fe) => {
+      const copy = { ...fe };
+      delete copy[key];
+      return copy;
+    });
+  }
+
+  function handleZipChange(raw: string): void {
+    const digits = raw.replace(/\D/g, "").slice(0, 9);
+    setZip(digits.length <= 5 ? digits : `${digits.slice(0, 5)}-${digits.slice(5)}`);
+  }
+
   function handleSaveProperty(e: React.SyntheticEvent<HTMLFormElement>): void {
     e.preventDefault();
+    const addressTrimmed = address.trim();
+    const errors: FieldErrors = {};
+
+    if (addressTrimmed === "") {
+      errors.address = "Please enter your street address.";
+    } else if (addressTrimmed.length < 5 || !/[a-zA-Z]/.test(addressTrimmed) || !/\d/.test(addressTrimmed)) {
+      errors.address = "Include a house number and street name — e.g. 123 Main St.";
+    }
+    if (city.trim().length < 2) {
+      errors.city = city.trim() === "" ? "Please enter your city." : "City name must be at least 2 characters.";
+    }
+    if (state.trim() === "") {
+      errors.state = "Please select a state.";
+    }
+    if (zip.trim() === "") {
+      errors.zip = "Please enter your ZIP code.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
+    setSaveError("");
+    setSaveStatus("saving");
+    void saveProperty({
+      address: addressTrimmed,
+      ...(address2.trim() !== "" ? { address2: address2.trim() } : {}),
+      city: city.trim(),
+      state: state.trim(),
+      zip,
+      propertyType,
+      ...(sqftTotal !== "" ? { sqftTotal: Number(sqftTotal) } : {}),
+    }).then((result) => {
+      if (result.ok) {
+        setSaveStatus("saved");
+        setTimeout(() => { setSaveStatus("idle"); }, 2000);
+      } else {
+        setSaveStatus("error");
+        setSaveError(`Couldn't save your property: ${result.error.message}`);
+      }
+    });
   }
 
   function handleSaveKey(): void {
@@ -114,6 +258,34 @@ export function SettingsPage(): ReactElement {
     <div className="space-y-8">
       <h1 className="text-2xl font-semibold">Settings</h1>
 
+      {/* Appearance */}
+      <div className="space-y-4 rounded-lg border p-4">
+        <h2 className="text-lg font-medium">Appearance</h2>
+        <div
+          role="radiogroup"
+          aria-label="Theme"
+          className="inline-flex gap-1 rounded-md border bg-muted/30 p-1"
+        >
+          {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={themePreference === value}
+              onClick={() => { setThemePreference(value); }}
+              className={`flex cursor-pointer items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
+                themePreference === value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className="size-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Property Profile */}
       <form onSubmit={handleSaveProperty} className="space-y-4 rounded-lg border p-4">
         <h2 className="text-lg font-medium">Your Property</h2>
@@ -123,53 +295,95 @@ export function SettingsPage(): ReactElement {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label htmlFor="address" className="mb-1 block text-xs font-medium text-muted-foreground">
-              Street Address
+              Street Address <span className="text-destructive">*</span>
             </label>
             <input
               id="address"
               type="text"
+              required
+              minLength={5}
               value={address}
-              onChange={(e) => { setAddress(e.target.value); }}
+              onChange={(e) => { setAddress(e.target.value); clearFieldError("address"); }}
+              placeholder="123 Main St"
+              autoComplete="street-address"
+              className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring${fieldErrors.address != null ? " border-destructive" : ""}`}
+            />
+            {fieldErrors.address != null && (
+              <p className="mt-1 text-xs text-destructive">{fieldErrors.address}</p>
+            )}
+          </div>
+          <div className="sm:col-span-2">
+            <label htmlFor="address2" className="mb-1 block text-xs font-medium text-muted-foreground">
+              Street Address 2 <span className="text-xs font-normal">(optional)</span>
+            </label>
+            <input
+              id="address2"
+              type="text"
+              value={address2}
+              onChange={(e) => { setAddress2(e.target.value); }}
+              placeholder="Apt, suite, unit, etc."
               className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
           <div>
             <label htmlFor="city" className="mb-1 block text-xs font-medium text-muted-foreground">
-              City
+              City <span className="text-destructive">*</span>
             </label>
             <input
               id="city"
               type="text"
+              required
+              minLength={2}
               value={city}
-              onChange={(e) => { setCity(e.target.value); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              onChange={(e) => { setCity(e.target.value.replace(/\d/g, "")); clearFieldError("city"); }}
+              autoComplete="address-level2"
+              className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring${fieldErrors.city != null ? " border-destructive" : ""}`}
             />
+            {fieldErrors.city != null && (
+              <p className="mt-1 text-xs text-destructive">{fieldErrors.city}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="state" className="mb-1 block text-xs font-medium text-muted-foreground">
-                State
+                State <span className="text-destructive">*</span>
               </label>
-              <input
+              <select
                 id="state"
-                type="text"
-                maxLength={2}
+                required
                 value={state}
-                onChange={(e) => { setState(e.target.value.toUpperCase()); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
+                onChange={(e) => { setState(e.target.value); clearFieldError("state"); }}
+                autoComplete="address-level1"
+                className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring${fieldErrors.state != null ? " border-destructive" : ""}`}
+              >
+                <option value="">State…</option>
+                {US_STATES.map((s) => (
+                  <option key={s.abbr} value={s.abbr}>{s.abbr} — {s.name}</option>
+                ))}
+              </select>
+              {fieldErrors.state != null && (
+                <p className="mt-1 text-xs text-destructive">{fieldErrors.state}</p>
+              )}
             </div>
             <div>
               <label htmlFor="zip" className="mb-1 block text-xs font-medium text-muted-foreground">
-                ZIP
+                ZIP <span className="text-destructive">*</span>
               </label>
               <input
                 id="zip"
                 type="text"
+                inputMode="numeric"
+                required
+                maxLength={10}
                 value={zip}
-                onChange={(e) => { setZip(e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                onChange={(e) => { handleZipChange(e.target.value); clearFieldError("zip"); }}
+                placeholder="12345"
+                autoComplete="postal-code"
+                className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring${fieldErrors.zip != null ? " border-destructive" : ""}`}
               />
+              {fieldErrors.zip != null && (
+                <p className="mt-1 text-xs text-destructive">{fieldErrors.zip}</p>
+              )}
             </div>
           </div>
           <div>
@@ -201,11 +415,15 @@ export function SettingsPage(): ReactElement {
             />
           </div>
         </div>
+        {saveError !== "" && (
+          <p className="text-sm text-destructive">{saveError}</p>
+        )}
         <button
           type="submit"
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+          disabled={saveStatus === "saving"}
+          className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Save Property
+          {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved ✓" : "Save Property"}
         </button>
       </form>
 
@@ -230,14 +448,14 @@ export function SettingsPage(): ReactElement {
                 type="button"
                 onClick={handleTestKey}
                 disabled={testStatus === "testing"}
-                className="rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+                className="cursor-pointer rounded-md border px-3 py-2 text-sm hover:border-primary/40 hover:bg-primary/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {testStatus === "testing" ? "Testing…" : "Test Key"}
               </button>
               <button
                 type="button"
                 onClick={handleRemoveKey}
-                className="rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                className="cursor-pointer rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
               >
                 Remove Key
               </button>
@@ -264,7 +482,7 @@ export function SettingsPage(): ReactElement {
                 type="button"
                 onClick={handleSaveKey}
                 disabled={keyInput.trim().length === 0}
-                className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
+                className="cursor-pointer rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Save Key
               </button>
@@ -272,7 +490,7 @@ export function SettingsPage(): ReactElement {
                 type="button"
                 onClick={handleTestKey}
                 disabled={keyInput.trim().length === 0 || testStatus === "testing"}
-                className="rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+                className="cursor-pointer rounded-md border px-3 py-2 text-sm hover:border-primary/40 hover:bg-primary/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {testStatus === "testing" ? "Testing…" : "Test"}
               </button>
@@ -381,7 +599,7 @@ export function SettingsPage(): ReactElement {
         <button
           type="button"
           onClick={handleSaveBudget}
-          className="rounded-md border px-3 py-2 text-sm hover:bg-accent"
+          className="cursor-pointer rounded-md border px-3 py-2 text-sm hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
         >
           Save Limits
         </button>
@@ -444,14 +662,14 @@ export function SettingsPage(): ReactElement {
             <button
               type="button"
               onClick={handleClearData}
-              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              className="cursor-pointer rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
             >
               Yes, clear everything
             </button>
             <button
               type="button"
               onClick={() => { setShowClearConfirm(false); }}
-              className="rounded-md border px-4 py-2 text-sm"
+              className="cursor-pointer rounded-md border px-4 py-2 text-sm"
             >
               Cancel
             </button>
@@ -460,7 +678,7 @@ export function SettingsPage(): ReactElement {
           <button
             type="button"
             onClick={() => { setShowClearConfirm(true); }}
-            className="rounded-md border border-red-200 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+            className="cursor-pointer rounded-md border border-red-200 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
           >
             Clear All Local Data
           </button>

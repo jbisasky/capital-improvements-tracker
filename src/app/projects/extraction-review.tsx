@@ -346,14 +346,14 @@ export function ExtractionReview({
         <button
           type="button"
           onClick={onDiscard}
-          className="rounded-md border px-4 py-2 text-sm hover:bg-accent"
+          className="cursor-pointer rounded-md border px-4 py-2 text-sm hover:bg-accent"
         >
           Discard
         </button>
         <button
           type="button"
           onClick={() => { onAccept(fields); }}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+          className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
         >
           Looks good — continue
         </button>

@@ -8,7 +8,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { type Manifest, type Project } from "@/domain/schemas";
+import { type Manifest, type Project, type PropertyProfile } from "@/domain/schemas";
 import { type DocAssessment, assessDocumentation } from "@/domain/doc-completeness";
 import {
   type StorageDriver,
@@ -47,6 +47,7 @@ interface StorageContextValue extends StorageState {
   getAttachmentBlob: (projectId: string, fileId: string) => Promise<Result<Blob>>;
   listUnlinkedDriveFiles: () => Promise<Result<UnlinkedDriveFile[]>>;
   getDocAssessment: (project: Project) => DocAssessment;
+  saveProperty: (property: PropertyProfile) => Promise<Result<Manifest>>;
   attachmentsFolderId: string | null;
   attachmentsFolderName: string;
 }
@@ -277,6 +278,21 @@ export function StorageProvider({
     [state.manifest?.property?.propertyType],
   );
 
+  const saveProperty = useCallback(
+    async (property: PropertyProfile): Promise<Result<Manifest>> => {
+      const blocked = guardWrite();
+      if (blocked != null) {
+        return blocked;
+      }
+      const result = await driver.saveProperty(property);
+      if (result.ok) {
+        applyManifestUpdate(setState, result.value);
+      }
+      return result;
+    },
+    [driver, guardWrite],
+  );
+
   // Writes are disabled when offline OR when we're still waiting for the
   // fresh Drive manifest (etag is null — the driver's fileId isn't set yet).
   const isRevalidating = state.loading && state.manifest != null;
@@ -295,6 +311,7 @@ export function StorageProvider({
     getAttachmentBlob,
     listUnlinkedDriveFiles,
     getDocAssessment,
+    saveProperty,
     attachmentsFolderId: state.manifest?.settings?.attachmentsFolderId ?? null,
     attachmentsFolderName: ATTACHMENTS_ROOT_FOLDER_NAME,
   };

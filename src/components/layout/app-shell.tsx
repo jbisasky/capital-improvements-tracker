@@ -10,6 +10,9 @@ import {
   Menu,
   PanelLeftClose,
   RefreshCw,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HomeChartLogo } from "@/components/brand/home-chart-logo";
@@ -17,6 +20,8 @@ import { OfflineBanner } from "@/components/layout/offline-banner";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
 import { useAuth } from "@/services/auth-context";
 import { useStorage } from "@/services/storage-context";
+import { useTheme } from "@/services/theme-context";
+import { type ThemePreference } from "@/services/theme";
 
 interface AppShellProps {
   children: ReactNode;
@@ -30,15 +35,36 @@ const NAV_ITEMS = [
   { to: "/about", label: "About", icon: Info },
 ] as const;
 
+const THEME_CYCLE: Record<ThemePreference, ThemePreference> = {
+  light: "dark",
+  dark: "system",
+  system: "light",
+};
+
+const THEME_ICON: Record<ThemePreference, typeof Sun> = {
+  light: Sun,
+  dark: Moon,
+  system: Monitor,
+};
+
+const THEME_LABEL: Record<ThemePreference, string> = {
+  light: "Light",
+  dark: "Dark",
+  system: "System",
+};
+
 export function AppShell({ children }: AppShellProps): ReactElement {
   const prefix = useRoutePrefix();
   const auth = useAuth();
   const { loading, manifest } = useStorage();
+  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
   const isLiveMode = prefix === "";
   const [collapsed, setCollapsed] = useState(false);
   // True only during background revalidation (cached data is showing, Drive
   // fetch is still in progress). Not true on first load (manifest is null).
   const isRevalidating = loading && manifest != null;
+  const ThemeIcon = THEME_ICON[themePreference];
+  const cycleTheme = (): void => { setThemePreference(THEME_CYCLE[themePreference]); };
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -59,7 +85,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
               type="button"
               aria-label="Expand sidebar"
               onClick={() => { setCollapsed(false); }}
-              className="flex w-full items-center justify-center text-zinc-500 transition-colors hover:text-zinc-900"
+              className="flex w-full cursor-pointer items-center justify-center text-zinc-500 transition-colors hover:text-zinc-900"
             >
               <Menu className="size-6" />
             </button>
@@ -78,7 +104,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
                 type="button"
                 aria-label="Collapse sidebar"
                 onClick={() => { setCollapsed(true); }}
-                className="shrink-0 px-3 text-zinc-400 transition-colors hover:text-zinc-700"
+                className="shrink-0 cursor-pointer px-3 text-zinc-400 transition-colors hover:text-zinc-700"
               >
                 <PanelLeftClose className="size-5" />
               </button>
@@ -109,8 +135,21 @@ export function AppShell({ children }: AppShellProps): ReactElement {
           ))}
         </nav>
 
-        {/* Collapse toggle + sign out / exit demo */}
+        {/* Theme toggle + sign out / exit demo */}
         <div className="shrink-0 border-t border-zinc-100 p-2">
+          <button
+            type="button"
+            title={`Theme: ${THEME_LABEL[themePreference]} (click to cycle)`}
+            aria-label={`Theme: ${THEME_LABEL[themePreference]}`}
+            onClick={cycleTheme}
+            className={cn(
+              "flex w-full cursor-pointer items-center rounded-md px-2 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-800",
+              collapsed ? "justify-center" : "gap-3 px-3",
+            )}
+          >
+            <ThemeIcon className="size-4 shrink-0" />
+            {!collapsed && THEME_LABEL[themePreference]}
+          </button>
 
           {isLiveMode ? (
             <button
@@ -118,7 +157,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
               title={collapsed ? "Sign out" : undefined}
               onClick={auth.signOut}
               className={cn(
-                "flex w-full items-center rounded-md px-2 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-800",
+                "flex w-full cursor-pointer items-center rounded-md px-2 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-800",
                 collapsed ? "justify-center" : "gap-3 px-3",
               )}
             >
@@ -168,24 +207,35 @@ export function AppShell({ children }: AppShellProps): ReactElement {
               Capital Improvements
             </span>
           </Link>
-          {isLiveMode ? (
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={auth.signOut}
-              className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-800"
+              title={`Theme: ${THEME_LABEL[themePreference]} (tap to cycle)`}
+              aria-label={`Theme: ${THEME_LABEL[themePreference]}`}
+              onClick={cycleTheme}
+              className="flex cursor-pointer items-center text-zinc-500 transition-colors hover:text-zinc-800"
             >
-              <LogOut className="size-4" />
-              Sign out
+              <ThemeIcon className="size-4" />
             </button>
-          ) : (
-            <Link
-              to="/"
-              className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-800"
-            >
-              <LogOut className="size-4" />
-              Exit Demo
-            </Link>
-          )}
+            {isLiveMode ? (
+              <button
+                type="button"
+                onClick={auth.signOut}
+                className="flex cursor-pointer items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-800"
+              >
+                <LogOut className="size-4" />
+                Sign out
+              </button>
+            ) : (
+              <Link
+                to="/"
+                className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-800"
+              >
+                <LogOut className="size-4" />
+                Exit Demo
+              </Link>
+            )}
+          </div>
         </header>
         <main
           className="flex-1 overflow-y-auto p-6 pb-20 md:pb-6"

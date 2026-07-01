@@ -7,6 +7,19 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <!-- SITE_META -->
     <!-- PLAUSIBLE -->
+    <script>
+      // Apply the theme before first paint to avoid a light/dark flash.
+      // Keep "theme_preference" in sync with THEME_STORAGE_KEY in src/services/theme.ts.
+      (function () {
+        try {
+          var pref = localStorage.getItem("theme_preference");
+          var isDark =
+            pref === "dark"
+            || (pref !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (isDark) document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
