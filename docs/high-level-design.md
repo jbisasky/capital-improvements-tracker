@@ -2,7 +2,7 @@
 
 **Status:** v1.0 — decisions locked, ready to build
 **Author:** Devin (on behalf of @jbisasky)
-**Last updated:** 2026-06-20
+**Last updated:** 2026-06-30
 
 > This document captures the architecture and design *intent* before any code is written.
 > All previously open questions have been resolved with the owner; see the **Decisions Log**
@@ -141,9 +141,10 @@ original single-`taxDeductibleAmount` shape is retained only as a migration sour
   "lastUpdated": "ISO-8601",
   "property": {                        // set once in Settings → "Your Property"
     "address": "123 Main St",
+    "address2": "Apt 4B",              // optional (suite / unit)
     "city": "Austin",
-    "state": "TX",
-    "zip": "78701",
+    "state": "TX",                     // two-letter USPS abbreviation (all 59 entries)
+    "zip": "78701",                    // 5-digit or ZIP+4 (e.g. 78701-1234)
     "propertyType": "primary_residence", // | "rental" | "home_office" | "vacation"
     "sqftTotal": 2400                  // optional — needed for home-office % calc
   },

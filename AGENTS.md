@@ -41,6 +41,12 @@ When you complete a task or a step, **you MUST update the "Completed Tasks" and 
 ### Remaining Tasks
 - [x] **Task 8:** Polish — PWA/offline & service worker.
 
+### Bug Fixes
+- [x] **Save Property fix:** Implemented `saveProperty` end-to-end (schema → StorageDriver interface → MockStorageDriver → DriveStorageDriver → StorageContext). Fixed Settings page to wire the handler, sync form state from late-loading manifest via `useEffect`, add optional `address2` field, add required-field validation with inline error, and show Saving…/Saved ✓/error button states. 194/194 tests pass.
+
+### Polish
+- [x] **Dark/Light/System theme:** Added `src/services/theme.ts` + `theme-context.tsx` (`ThemeProvider`/`useTheme`), persisted to `localStorage` (`theme_preference`) — a device-local preference, kept out of `manifest.json` to match the BYOK key/AI budget pattern. Settings page "Appearance" section (Light/Dark/System radiogroup) + sidebar/mobile-top-bar quick-cycle icon toggle. Inline `index.html` script prevents theme flash on load. 218/218 tests pass. See `docs/test-reports/dark-light-mode.md`.
+
 ### Hosting (Cloudflare Pages)
 - [x] `public/_headers` — CSP, HSTS, security headers (EARS HOST-02, SEC-03).
 - [x] `public/_redirects` — SPA fallback (`/* → /index.html 200`).

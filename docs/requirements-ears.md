@@ -2,7 +2,7 @@
 
 **Status:** Draft v0.1 — derived from the [HLD](high-level-design.md), [LLD](low-level-design.md), and [UI/UX design](ui-ux-design.md)
 **Author:** Devin (on behalf of @jbisasky)
-**Last updated:** 2026-06-20
+**Last updated:** 2026-06-30
 **Notation:** [EARS — Easy Approach to Requirements Syntax](https://alistairmavin.com/ears/)
 
 > Each requirement uses one of the five EARS templates:
@@ -109,7 +109,7 @@
 | DRV-13 | Ubiquitous | The `summary` object (`totalCostBasisAdded`, `totalDeductible`) shall always be recomputed from the `projects` array after any mutation; it shall never be merged directly. |
 | DRV-14 | Event-driven | When a manifest read and all backups fail validation (or if a critical CAS merge failure occurs), the app shall surface `READ_CORRUPT` with a straightforward UI flow to "Restore from backup" that overwrites the current `manifest.json` with a selected `.bak.` file, or to export raw data. |
 | DRV-15 | Event-driven | When a legacy-schema manifest is detected during boot, the app shall migrate it forward silently (no user interaction required) and display a brief toast: "Data updated to latest format." The original is preserved as a backup before migration. |
-| DRV-16 | Ubiquitous | The manifest shall support an optional top-level `property` field (`PropertyProfile`: address, city, state, zip, propertyType, sqftTotal) set via Settings → "Your Property." |
+| DRV-16 | Ubiquitous | The manifest shall support an optional top-level `property` field (`PropertyProfile`: address, address2, city, state, zip, propertyType, sqftTotal) set via Settings → "Your Property." |
 | DRV-17 | Ubiquitous | Each project shall support optional IRS-relevant fields: `category`, `vendorName`, `vendorTin`, `paymentMethod`, `datePaymentMade`, `permitNumber`, `usefulLifeYears`, `depreciationStartDate`, `energyCreditType`, `safeHarborElection`, `sqftAffected`, `notes`. All shall be optional (nullable/absent) to keep the form simple for casual users. |
 | DRV-18 | Ubiquitous | The `PropertyProfile.propertyType` field shall be one of: `primary_residence`, `rental`, `home_office`, or `vacation`. |
 | DRV-19 | Ubiquitous | The `ImprovementCategory` field shall be one of: `roof`, `hvac`, `plumbing`, `electrical`, `landscaping`, `kitchen`, `bathroom`, `flooring`, `windows_doors`, `insulation`, `foundation`, `energy_efficiency`, `accessibility`, `security`, or `other`. |
@@ -244,9 +244,16 @@
 | SET-08 | Ubiquitous | The appearance section shall provide three options: System, Light, Dark. The selection shall be persisted in `localStorage`. |
 | SET-09 | Ubiquitous | The settings page shall display a "Key expiry" selector with options: 7 days, 30 days (default), 90 days, Never. The selection controls how long the BYOK key persists in `localStorage` before auto-deletion. |
 | SET-10 | Event-driven | When the user clicks "Clear all data from this device," the app shall wipe all local state and redirect to the landing page (see SEC-13/SEC-14). |
-| SET-11 | Ubiquitous | The settings page shall include a "Your Property" section with fields: address, city, state (dropdown), ZIP, property type, and total sq ft (optional). |
-| SET-12 | Event-driven | When the user saves the property profile, the app shall write the `property` field to the manifest's top level. |
+| SET-11 | Ubiquitous | The settings page shall include a "Your Property" section with fields: Street Address (required), Street Address 2 (optional), City (required), State (required dropdown), ZIP (required), Property Type, and Total Sq Ft (optional). |
+| SET-12 | Event-driven | When the user saves the property profile, the app shall write the `property` field to the manifest's top level via `saveProperty`. |
 | SET-13 | Ubiquitous | The property profile shall be set once and inherited by all projects (no per-project address in v1, per decision D12: single account). |
+| SET-14 | Ubiquitous | The Street Address field shall require at least 5 characters containing both a digit and a letter (e.g. "123 Main St"). If the field fails this rule on submit, the app shall display: "Include a house number and street name — e.g. 123 Main St." |
+| SET-15 | Ubiquitous | The City field shall reject digit input on keystroke and require at least 2 characters; minimum ensures coverage of the shortest US city names (e.g. "Ed", "Ob"). |
+| SET-16 | Ubiquitous | The State field shall be a `<select>` containing all 59 USPS entries (50 states + DC + territories + military APO/FPO designations). On mobile it shall present the native OS picker. |
+| SET-17 | Ubiquitous | The ZIP field shall accept digits only (`inputMode="numeric"`), limit input to 10 characters, and automatically insert a hyphen after the 5th digit when 9 or 10 characters are typed (e.g. "201904530" → "20190-4530"). |
+| SET-18 | If-then | If any required property field (address, city, state, ZIP) is empty or invalid on submit, the app shall display a per-field inline error message beneath the offending input and a red border; it shall not call `saveProperty`. Errors shall clear individually as the user corrects each field. |
+| SET-19 | Event-driven | When the manifest loads asynchronously after the Settings page has already rendered, the app shall sync all property form fields to the loaded values via `useEffect`. |
+| SET-20 | Ubiquitous | The `PropertyProfileSchema` zip field shall normalize stored values on parse (strip non-digits, auto-insert hyphen for 9-digit inputs) so legacy Drive data does not fail manifest validation. The manifest `property` field shall use `.catch(undefined)` so any malformed property block never blocks the manifest from loading. |
 
 ---
 

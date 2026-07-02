@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, type MockInstance } from "vitest";
+import { describe, it, expect, vi, beforeEach, type MockInstance } from "vitest";
 import * as storageContext from "@/services/storage-context";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -8,9 +8,19 @@ import { OfflineProvider } from "@/services/offline-context";
 // ---------- mocks ----------
 
 const mockSignOut = vi.fn();
+const mockSetThemePreference = vi.fn();
+let mockThemePreference: "light" | "dark" | "system" = "system";
 
 vi.mock("@/services/auth-context", () => ({
   useAuth: () => ({ signOut: mockSignOut }),
+}));
+
+vi.mock("@/services/theme-context", () => ({
+  useTheme: () => ({
+    preference: mockThemePreference,
+    resolvedTheme: "light",
+    setPreference: mockSetThemePreference,
+  }),
 }));
 
 vi.mock("@/services/storage-context", () => ({
@@ -251,6 +261,52 @@ describe("AppShell mobile tab bar", () => {
 
     // Assert
     expect(items).toHaveLength(5);
+  });
+});
+
+// ---------- theme toggle ----------
+
+describe("AppShell theme toggle", () => {
+  beforeEach(() => {
+    mockThemePreference = "system";
+    mockSetThemePreference.mockReset();
+  });
+
+  it("renders a theme toggle button reflecting the current preference", () => {
+    // Arrange
+    mockThemePreference = "dark";
+
+    // Act
+    renderShell("/dashboard");
+
+    // Assert
+    expect(screen.getAllByRole("button", { name: /theme: dark/i }).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("clicking the desktop sidebar toggle cycles light \u2192 dark", () => {
+    // Arrange
+    mockThemePreference = "light";
+    renderShell("/dashboard");
+    const sidebar = document.querySelector("aside");
+    if (sidebar == null) throw new Error("Expected sidebar");
+
+    // Act
+    fireEvent.click(within(sidebar as HTMLElement).getByRole("button", { name: /theme: light/i }));
+
+    // Assert
+    expect(mockSetThemePreference).toHaveBeenCalledWith("dark");
+  });
+
+  it("clicking the mobile top bar toggle cycles dark \u2192 system", () => {
+    // Arrange
+    mockThemePreference = "dark";
+    renderShell("/dashboard");
+
+    // Act
+    fireEvent.click(within(getMobileTopBar()).getByRole("button", { name: /theme: dark/i }));
+
+    // Assert
+    expect(mockSetThemePreference).toHaveBeenCalledWith("system");
   });
 });
 

@@ -2,7 +2,7 @@
 
 **Status:** Draft v0.1 — companion to [`high-level-design.md`](high-level-design.md)
 **Author:** Devin (on behalf of @jbisasky)
-**Last updated:** 2026-06-20
+**Last updated:** 2026-06-30
 
 > This document specifies the **granular handshaking** behind each edge of the §2 architecture
 > flowchart in the HLD: exact API calls, headers, request/response shapes, ordering, retries,
@@ -221,11 +221,19 @@ export const PropertyType = z.enum([
   "primary_residence", "rental", "home_office", "vacation",
 ]);
 
-export const PropertyProfile = z.object({
+export const PropertyProfileSchema = z.object({
   address: z.string().min(1),
-  city: z.string().min(1),
-  state: z.string().length(2),
-  zip: z.string().regex(/^\d{5}(-\d{4})?$/),
+  address2: z.string().optional(),            // suite / unit / floor
+  city: z.string().min(2),
+  state: z.string().length(2),               // USPS two-letter abbreviation
+  zip: z.preprocess((v) => {
+    // Normalize on read: strip non-digit chars, then format as 5 or 5+4
+    if (typeof v !== "string") return v;
+    const digits = v.replace(/\D/g, "");
+    if (digits.length === 9) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    if (digits.length === 5) return digits;
+    return v.trim();
+  }, z.string().regex(/^\d{5}(-\d{4})?$/)),
   propertyType: PropertyType,
   sqftTotal: z.number().positive().optional(),
 });
@@ -237,7 +245,9 @@ export const ManifestSettings = z.object({
 export const Manifest = z.object({
   schemaVersion: z.literal(2),
   lastUpdated: z.string().datetime(),
-  property: PropertyProfile.optional(),
+  property: PropertyProfileSchema.optional().catch(undefined),
+  // .catch(undefined): if Drive data has a malformed property block (e.g. legacy zip
+  // format), the manifest still loads; the form shows blank fields for the user to re-enter.
   settings: ManifestSettings.optional(),
   summary: z.object({
     totalCostBasisAdded: z.number().nonnegative(),

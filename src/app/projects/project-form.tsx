@@ -184,7 +184,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
         <button
           type="button"
           onClick={() => { setShowIrs(!showIrs); }}
-          className="flex w-full items-center justify-between text-sm font-medium"
+          className="flex w-full cursor-pointer items-center justify-between text-sm font-medium"
         >
           IRS Details (optional)
           <span className="text-muted-foreground">{showIrs ? "▾" : "▸"}</span>
@@ -375,7 +375,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
       <div className="flex justify-end">
         <button
           type="submit"
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+          className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
         >
           {submitLabel}
         </button>

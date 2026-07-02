@@ -1,5 +1,5 @@
 import { type Result } from "@/domain/result";
-import { type Manifest, type Project } from "@/domain/schemas";
+import { type Manifest, type Project, type PropertyProfile } from "@/domain/schemas";
 
 export interface ManifestReadResult {
   manifest: Manifest;
@@ -47,4 +47,7 @@ export interface StorageDriver {
 
   /** Files in the root attachments folder not linked in the manifest (Drive only). */
   listUnlinkedDriveFiles(): Promise<Result<UnlinkedDriveFile[]>>;
+
+  /** Save (upsert) the property profile in the manifest. */
+  saveProperty(property: PropertyProfile): Promise<Result<Manifest>>;
 }

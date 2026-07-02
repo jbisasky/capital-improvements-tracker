@@ -58,6 +58,40 @@
   }
 }
 
+/* Force the landing page to always render in light mode, regardless of the
+   user's dark/system preference. The landing page uses hardcoded light-palette
+   values throughout, so we pin the CSS variables back to their light defaults. */
+.force-light {
+  --background: oklch(1 0 0);
+  --canvas-gradient: linear-gradient(135deg, #faf9f7 0%, #f4f5f7 40%, #edf0f4 100%);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.28 0.04 200);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.45 0.01 286);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.28 0.04 200);
+  --sidebar: #f0f2f5;
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.28 0.04 200);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.28 0.04 200);
+  color-scheme: light;
+}
+
 :root {
   --background: oklch(1 0 0);
   --canvas-gradient: linear-gradient(135deg, #faf9f7 0%, #f4f5f7 40%, #edf0f4 100%);
@@ -96,6 +130,7 @@
 
 .dark {
   --background: oklch(0.145 0 0);
+  --canvas-gradient: linear-gradient(135deg, oklch(0.18 0 0) 0%, oklch(0.16 0 0) 40%, oklch(0.14 0 0) 100%);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);

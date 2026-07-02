@@ -1,7 +1,7 @@
 import { type Result } from "@/domain/result";
 import { ok, err } from "@/domain/result";
 import { appError } from "@/domain/errors";
-import { type Attachment, type Manifest, type Project } from "@/domain/schemas";
+import { type Attachment, type Manifest, type Project, type PropertyProfile } from "@/domain/schemas";
 import { MAX_ATTACHMENTS_PER_PROJECT, validateAttachmentFile } from "@/domain/attachment-validation";
 import {
   type StorageDriver,
@@ -254,5 +254,15 @@ export class MockStorageDriver implements StorageDriver {
 
   listUnlinkedDriveFiles(): Promise<Result<UnlinkedDriveFile[]>> {
     return Promise.resolve(ok([]));
+  }
+
+  saveProperty(property: PropertyProfile): Promise<Result<Manifest>> {
+    this.manifest = {
+      ...this.manifest,
+      property: structuredClone(property),
+      lastUpdated: new Date().toISOString(),
+    };
+    this.etag = crypto.randomUUID();
+    return Promise.resolve(ok(structuredClone(this.manifest)));
   }
 }

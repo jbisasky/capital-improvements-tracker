@@ -244,7 +244,7 @@ export function AttachmentSection({
             type="button"
             disabled={atLimit}
             onClick={() => { cameraInputRef.current?.click(); }}
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
             title={atLimit ? `Maximum ${String(MAX_ATTACHMENTS_PER_PROJECT)} attachments` : undefined}
           >
             <Camera className="size-4" />
@@ -254,7 +254,7 @@ export function AttachmentSection({
             type="button"
             disabled={atLimit}
             onClick={() => { fileInputRef.current?.click(); }}
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
             title={atLimit ? `Maximum ${String(MAX_ATTACHMENTS_PER_PROJECT)} attachments` : undefined}
           >
             <Upload className="size-4" />
@@ -295,7 +295,7 @@ export function AttachmentSection({
                 return next;
               });
             }}
-            className="inline-flex items-center gap-1 underline"
+            className="inline-flex cursor-pointer items-center gap-1 underline"
           >
             <RotateCcw className="size-3" /> Dismiss
           </button>
@@ -324,7 +324,7 @@ export function AttachmentSection({
                     onClick={() => {
                       void handleView(item.fileId ?? "", item.mimeType);
                     }}
-                    className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs hover:bg-accent"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-0.5 text-xs hover:bg-accent"
                   >
                     <Eye className="size-3" /> View
                   </button>
@@ -333,14 +333,14 @@ export function AttachmentSection({
                     onClick={() => {
                       void handleDownload(item.fileId ?? "", item.filename, item.mimeType);
                     }}
-                    className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs hover:bg-accent"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-0.5 text-xs hover:bg-accent"
                   >
                     <Download className="size-3" /> Download
                   </button>
                   <button
                     type="button"
                     onClick={() => { handleRemoveUploaded(item.fileId ?? ""); }}
-                    className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-0.5 text-xs text-red-600 hover:bg-red-50"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded border border-red-200 px-2 py-0.5 text-xs text-red-600 hover:bg-red-50"
                   >
                     <Trash2 className="size-3" /> Remove
                   </button>

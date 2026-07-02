@@ -86,7 +86,7 @@ export function NewProjectAttachments({
             type="button"
             onClick={() => { fileInputRef.current?.click(); }}
             disabled={files.length >= MAX_ATTACHMENTS_PER_PROJECT}
-            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Upload className="size-4" />
             {files.length === 0 ? "Upload files" : "Add more files"}
@@ -124,7 +124,7 @@ export function NewProjectAttachments({
               <button
                 type="button"
                 onClick={() => { handleRemove(index); }}
-                className="rounded p-1 hover:bg-accent"
+                className="cursor-pointer rounded p-1 hover:bg-accent"
                 title="Remove"
               >
                 <X className="size-4" />
@@ -139,7 +139,7 @@ export function NewProjectAttachments({
           type="button"
           onClick={onExtract}
           disabled={extracting}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
+          className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Sparkles className="size-4" />
           {extractLabel ?? (extracting ? "Extracting…" : "Extract details with AI")}

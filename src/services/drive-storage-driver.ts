@@ -5,7 +5,7 @@
 
 import { type Result, ok, err } from "@/domain/result";
 import { appError } from "@/domain/errors";
-import { ManifestSchema, type Manifest, type Project } from "@/domain/schemas";
+import { ManifestSchema, type Manifest, type Project, type PropertyProfile } from "@/domain/schemas";
 import { MAX_ATTACHMENTS_PER_PROJECT } from "@/domain/attachment-validation";
 import {
   type StorageDriver,
@@ -387,6 +387,16 @@ export class DriveStorageDriver implements StorageDriver {
     }
 
     return listUnlinkedDriveFiles(readResult.value.manifest, rootId);
+  }
+
+  async saveProperty(property: PropertyProfile): Promise<Result<Manifest>> {
+    const readResult = await this.ensureLoaded();
+    if (!readResult.ok) return readResult;
+
+    const updated: Manifest = { ...readResult.value.manifest, property };
+    const writeResult = await this.writeManifest(updated, readResult.value.etag);
+    if (!writeResult.ok) return writeResult;
+    return ok(writeResult.value.manifest);
   }
 
   // --- Private helpers ---
