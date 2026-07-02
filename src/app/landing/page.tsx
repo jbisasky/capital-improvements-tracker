@@ -184,7 +184,7 @@ export function LandingPage(): ReactElement {
 
   return (
     <div
-      className="min-h-screen bg-[#f4f6f7] md:bg-zinc-50/50"
+      className="force-light min-h-screen bg-[#f4f6f7] md:bg-zinc-50/50"
       data-testid="landing-shell"
     >
       {/* Mobile — native full-screen layout (no mock phone frame) */}

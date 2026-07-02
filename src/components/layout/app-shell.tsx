@@ -79,13 +79,13 @@ export function AppShell({ children }: AppShellProps): ReactElement {
         style={{ boxShadow: "4px 0 16px 0 rgba(0,0,0,0.06)" }}
       >
         {/* Brand header — full width, never truncated */}
-        <div className="flex h-14 shrink-0 items-center border-b border-zinc-100">
+        <div className="flex h-14 shrink-0 items-center border-b border-sidebar-border">
           {collapsed ? (
             <button
               type="button"
               aria-label="Expand sidebar"
               onClick={() => { setCollapsed(false); }}
-              className="flex w-full cursor-pointer items-center justify-center text-zinc-500 transition-colors hover:text-zinc-900"
+              className="flex w-full cursor-pointer items-center justify-center text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
             >
               <Menu className="size-6" />
             </button>
@@ -96,7 +96,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
                 className="flex min-w-0 flex-1 items-center gap-2 pl-4 transition-opacity hover:opacity-80"
               >
                 <HomeChartLogo decorative className="size-5 shrink-0 text-primary" />
-                <span className="truncate text-sm font-semibold tracking-tight text-zinc-900">
+                <span className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
                   Capital Improvements
                 </span>
               </Link>
@@ -104,7 +104,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
                 type="button"
                 aria-label="Collapse sidebar"
                 onClick={() => { setCollapsed(true); }}
-                className="shrink-0 cursor-pointer px-3 text-zinc-400 transition-colors hover:text-zinc-700"
+                className="shrink-0 cursor-pointer px-3 text-sidebar-foreground/40 transition-colors hover:text-sidebar-foreground"
               >
                 <PanelLeftClose className="size-5" />
               </button>
@@ -124,8 +124,8 @@ export function AppShell({ children }: AppShellProps): ReactElement {
                   "flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors",
                   collapsed ? "justify-center" : "gap-3 px-3",
                   isActive
-                    ? "bg-zinc-100 text-primary"
-                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-800",
+                    ? "bg-sidebar-accent text-primary"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
                 )
               }
             >
@@ -136,14 +136,14 @@ export function AppShell({ children }: AppShellProps): ReactElement {
         </nav>
 
         {/* Theme toggle + sign out / exit demo */}
-        <div className="shrink-0 border-t border-zinc-100 p-2">
+        <div className="shrink-0 border-t border-sidebar-border p-2">
           <button
             type="button"
             title={`Theme: ${THEME_LABEL[themePreference]} (click to cycle)`}
             aria-label={`Theme: ${THEME_LABEL[themePreference]}`}
             onClick={cycleTheme}
             className={cn(
-              "flex w-full cursor-pointer items-center rounded-md px-2 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-800",
+              "flex w-full cursor-pointer items-center rounded-md px-2 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
               collapsed ? "justify-center" : "gap-3 px-3",
             )}
           >
@@ -157,7 +157,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
               title={collapsed ? "Sign out" : undefined}
               onClick={auth.signOut}
               className={cn(
-                "flex w-full cursor-pointer items-center rounded-md px-2 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-800",
+                "flex w-full cursor-pointer items-center rounded-md px-2 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
                 collapsed ? "justify-center" : "gap-3 px-3",
               )}
             >
@@ -169,7 +169,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
               to="/"
               title={collapsed ? "Exit Demo" : undefined}
               className={cn(
-                "flex w-full items-center rounded-md px-2 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-800",
+                "flex w-full items-center rounded-md px-2 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
                 collapsed ? "justify-center" : "gap-3 px-3",
               )}
             >
@@ -187,7 +187,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
           <div
             role="status"
             aria-live="polite"
-            className="flex items-center justify-center gap-1.5 bg-zinc-50 py-1 text-xs text-zinc-400"
+            className="flex items-center justify-center gap-1.5 bg-muted py-1 text-xs text-muted-foreground"
           >
             <RefreshCw className="size-3 animate-spin" />
             Syncing with Drive…
@@ -196,14 +196,14 @@ export function AppShell({ children }: AppShellProps): ReactElement {
         {/* Mobile top bar — hidden at md+; shows session action top-right on all pages */}
         <header
           data-testid="mobile-top-bar"
-          className="flex items-center justify-between border-b border-zinc-100 bg-background px-4 py-2.5 md:hidden"
+          className="flex items-center justify-between border-b border-border bg-background px-4 py-2.5 md:hidden"
         >
           <Link
             to={`${prefix}/dashboard`}
             className="flex items-center gap-2 transition-opacity hover:opacity-80"
           >
             <HomeChartLogo decorative className="size-4 text-primary" />
-            <span className="text-sm font-semibold tracking-tight text-zinc-900">
+            <span className="text-sm font-semibold tracking-tight text-foreground">
               Capital Improvements
             </span>
           </Link>
@@ -213,7 +213,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
               title={`Theme: ${THEME_LABEL[themePreference]} (tap to cycle)`}
               aria-label={`Theme: ${THEME_LABEL[themePreference]}`}
               onClick={cycleTheme}
-              className="flex cursor-pointer items-center text-zinc-500 transition-colors hover:text-zinc-800"
+              className="flex cursor-pointer items-center text-muted-foreground transition-colors hover:text-foreground"
             >
               <ThemeIcon className="size-4" />
             </button>
@@ -221,7 +221,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
               <button
                 type="button"
                 onClick={auth.signOut}
-                className="flex cursor-pointer items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-800"
+                className="flex cursor-pointer items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 <LogOut className="size-4" />
                 Sign out
@@ -229,7 +229,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
             ) : (
               <Link
                 to="/"
-                className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-800"
+                className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 <LogOut className="size-4" />
                 Exit Demo
@@ -246,7 +246,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
       </div>
 
       {/* Mobile bottom tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-zinc-100 bg-background md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-border bg-background md:hidden">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
@@ -254,9 +254,9 @@ export function AppShell({ children }: AppShellProps): ReactElement {
             className={({ isActive }) =>
               cn(
                 "flex flex-col items-center gap-0.5 px-2 py-1 text-xs transition-colors",
-                isActive
-                  ? "text-primary"
-                  : "text-zinc-600 hover:text-zinc-800",
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground",
               )
             }
           >
