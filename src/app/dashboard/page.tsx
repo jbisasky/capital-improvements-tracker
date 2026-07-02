@@ -16,6 +16,8 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+const CARD_SURFACE = "rounded-xl border border-border bg-card shadow-sm";
+
 function StatusDot({ status }: { status: DocStatus }): ReactElement {
   return (
     <span
@@ -37,12 +39,12 @@ interface MetricCardProps {
 
 function MetricCard({ icon, label, value }: MetricCardProps): ReactElement {
   return (
-    <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm ring-1 ring-slate-900/5">
-      <div className="mb-2 flex items-center gap-1.5 text-slate-400">
+    <div className={cn(CARD_SURFACE, "p-5")}>
+      <div className="mb-2 flex items-center gap-1.5 text-muted-foreground">
         {icon}
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</span>
+        <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
       </div>
-      <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+      <p className="text-2xl font-bold tracking-tight text-card-foreground">{value}</p>
     </div>
   );
 }
@@ -58,7 +60,7 @@ function DashboardSkeleton(): ReactElement {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm ring-1 ring-slate-900/5"
+            className={cn(CARD_SURFACE, "p-5")}
           >
             <div className="mb-3 flex items-center gap-1.5">
               <Skeleton className="size-3.5 rounded-sm" />
@@ -70,7 +72,7 @@ function DashboardSkeleton(): ReactElement {
       </div>
 
       {/* Documentation health bar */}
-      <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1 ring-slate-900/5">
+      <div className={cn(CARD_SURFACE, "p-4")}>
         <div className="mb-3 flex items-center justify-between">
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-4 w-32" />
@@ -84,7 +86,7 @@ function DashboardSkeleton(): ReactElement {
           <Skeleton className="h-6 w-36" />
           <Skeleton className="h-4 w-16" />
         </div>
-        <div className="divide-y divide-slate-100 rounded-xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-900/5">
+        <div className={cn(CARD_SURFACE, "divide-y divide-border")}>
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
@@ -149,14 +151,14 @@ export function DashboardPage(): ReactElement {
 
       {/* Documentation health bar */}
       {projects.length > 0 && (
-        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1 ring-slate-900/5">
+        <div className={cn(CARD_SURFACE, "p-4")}>
           <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="font-medium text-slate-900">Documentation Health</span>
-            <span className="text-slate-500">
+            <span className="font-medium text-foreground">Documentation Health</span>
+            <span className="text-muted-foreground">
               {completeCount} of {projects.length} projects fully documented
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-green-500 transition-all"
               style={{
@@ -170,7 +172,7 @@ export function DashboardPage(): ReactElement {
       {/* Recent projects */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Recent Projects</h2>
+          <h2 className="text-lg font-semibold text-foreground">Recent Projects</h2>
           <Link
             to={`${prefix}/projects`}
             className="text-sm font-medium text-primary hover:underline"
@@ -179,30 +181,30 @@ export function DashboardPage(): ReactElement {
           </Link>
         </div>
         {recentProjects.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-slate-500">
+          <p className="rounded-xl border border-dashed border-border p-6 text-center text-muted-foreground">
             No projects yet. Add your first improvement to get started.
           </p>
         ) : (
-          <div className="divide-y divide-slate-100 rounded-xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-900/5">
+          <div className={cn(CARD_SURFACE, "divide-y divide-border")}>
             {recentProjects.map((project) => {
               const assessment = getDocAssessment(project);
               return (
                 <Link
                   key={project.id}
                   to={`${prefix}/projects/${project.id}`}
-                  className="flex items-center justify-between p-4 transition-colors hover:bg-slate-50/70"
+                  className="flex items-center justify-between p-4 transition-colors hover:bg-accent/50"
                 >
                   <div className="flex items-center gap-3">
                     <StatusDot status={assessment.status} />
                     <div>
-                      <p className="font-medium text-slate-900">{project.title}</p>
-                      <p className="text-sm text-slate-500">
+                      <p className="font-medium text-card-foreground">{project.title}</p>
+                      <p className="text-sm text-muted-foreground">
                         {project.completionDate} · {formatCurrency(project.totalCost)}
                       </p>
                     </div>
                   </div>
                   {assessment.missing.length > 0 && (
-                    <span className="flex items-center gap-1 text-xs text-slate-400">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <AlertCircle className="size-3" />
                       {assessment.missing.length} missing
                     </span>
