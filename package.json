@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "check": "npm run typecheck && npm run lint",
+    "audit": "npm audit --audit-level=high",
     "preview": "vite preview"
   },
   "dependencies": {
