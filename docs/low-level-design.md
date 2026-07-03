@@ -857,8 +857,7 @@ interface ByokStorage {
   autofill and shoulder-surfing.
 
 **Dependency audit in CI:**
-- The GitHub Actions CI workflow includes `npm audit --audit-level=high` as a non-blocking
-  warning step. Critical/high CVEs fail the build.
+- The GitHub Actions CI workflow includes `npm audit --audit-level=high` as a blocking check after `npm ci`. Critical/high CVEs fail the build.
 - Dependabot or Renovate is configured for automated dependency update PRs.
 
 **OAuth `aud` verification:**
