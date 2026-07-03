@@ -1,4 +1,4 @@
-import { type ReactElement, type ReactNode, useState } from "react";
+import { type ReactElement, type ReactNode, useState, useCallback } from "react";
 import { Link, NavLink } from "react-router";
 import {
   LayoutDashboard,
@@ -60,6 +60,10 @@ export function AppShell({ children }: AppShellProps): ReactElement {
   const { preference: themePreference, setPreference: setThemePreference } = useTheme();
   const isLiveMode = prefix === "";
   const [collapsed, setCollapsed] = useState(false);
+
+  const handleSignOut = useCallback(() => {
+    auth.signOut();
+  }, [auth]);
   // True only during background revalidation (cached data is showing, Drive
   // fetch is still in progress). Not true on first load (manifest is null).
   const isRevalidating = loading && manifest != null;
@@ -155,7 +159,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
             <button
               type="button"
               title={collapsed ? "Sign out" : undefined}
-              onClick={auth.signOut}
+              onClick={handleSignOut}
               className={cn(
                 "flex w-full cursor-pointer items-center rounded-md px-2 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
                 collapsed ? "justify-center" : "gap-3 px-3",
@@ -220,7 +224,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
             {isLiveMode ? (
               <button
                 type="button"
-                onClick={auth.signOut}
+                onClick={handleSignOut}
                 className="flex cursor-pointer items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 <LogOut className="size-4" />

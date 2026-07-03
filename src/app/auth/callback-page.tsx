@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/services/auth-context";
+import { failWithTimeout } from "@/services/auth";
 
 /**
  * Landing point for the Google OAuth2 PKCE redirect.
@@ -32,6 +33,14 @@ export function AuthCallbackPage(): ReactElement {
       void navigate("/", { replace: true });
     }
   }, [status, exchangeStarted, navigate]);
+
+  // Bail out after 15 s — handles a hung or very slow token exchange.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      failWithTimeout();
+    }, 15_000);
+    return () => { clearTimeout(id); };
+  }, []);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50">

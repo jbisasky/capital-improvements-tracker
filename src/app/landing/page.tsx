@@ -1,11 +1,12 @@
-import { type ReactElement } from "react";
-import { Link, Navigate } from "react-router";
+import { type ReactElement, useEffect, useRef } from "react";
+import { Link, Navigate, useSearchParams } from "react-router";
 import { trackDemoCTAClicked } from "@/services/analytics";
 import { useAuth } from "@/services/auth-context";
 import {
   HardDrive,
   ServerOff,
   Key,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GoogleIcon } from "@/components/ui/google-icon";
@@ -75,7 +76,9 @@ interface LandingActionsProps {
   isLoading: boolean;
   onSignIn: () => void;
   status: string;
+  error: string | null;
   layout: "mobile" | "desktop";
+  signedOut?: boolean;
 }
 
 function FeatureList({ id }: { id?: string }): ReactElement {
@@ -99,17 +102,37 @@ function FeatureList({ id }: { id?: string }): ReactElement {
   );
 }
 
+function SignedOutBanner(): ReactElement {
+  return (
+    <div
+      data-testid="signed-out-banner"
+      className="flex items-start gap-2.5 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800"
+    >
+      <CheckCircle className="mt-px size-4 shrink-0 text-teal-600" />
+      <span>
+        <strong className="font-semibold">Signed out successfully.</strong>{" "}
+        Your projects stay saved in your Google Drive.
+      </span>
+    </div>
+  );
+}
+
 function LandingActions({
   isLoading,
   onSignIn,
   status,
+  error,
   layout,
+  signedOut = false,
 }: LandingActionsProps): ReactElement {
+  const errorMessage =
+    error ?? (status === "needs_interaction" ? "Session expired. Please sign in again." : null);
   if (layout === "mobile") {
     return (
       <div className="flex flex-col sm:flex-row sm:items-start sm:gap-8">
-        {/* Left column: CTAs + session error */}
+        {/* Left column: CTAs + banners */}
         <div className="flex w-full flex-col gap-3 sm:w-[45%]">
+          {signedOut && <SignedOutBanner />}
           <Button
             onClick={onSignIn}
             disabled={isLoading}
@@ -125,9 +148,9 @@ function LandingActions({
           >
             See a demo
           </Button>
-          {status === "needs_interaction" && (
+          {errorMessage != null && (
             <p className="rounded-md border border-destructive/30 px-4 py-2 text-sm text-destructive">
-              Session expired. Please sign in again.
+              {errorMessage}
             </p>
           )}
         </div>
@@ -142,6 +165,7 @@ function LandingActions({
 
   return (
     <div className="space-y-6">
+      {signedOut && <SignedOutBanner />}
       <div className="flex flex-col gap-3 sm:flex-row sm:gap-4 md:gap-5">
         <Button
           size="lg"
@@ -162,9 +186,9 @@ function LandingActions({
         </Button>
       </div>
 
-      {status === "needs_interaction" && (
+      {errorMessage != null && (
         <p className="rounded-md border border-destructive/30 px-4 py-2 text-sm text-destructive">
-          Session expired. Please sign in again.
+          {errorMessage}
         </p>
       )}
 
@@ -174,7 +198,22 @@ function LandingActions({
 }
 
 export function LandingPage(): ReactElement {
-  const { isAuthenticated, signIn, status } = useAuth();
+  const { isAuthenticated, signIn, status, error } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Capture the flag once on mount using a ref so the banner stays visible
+  // even after setSearchParams strips the param from the URL on the next render.
+  const signedOutRef = useRef(searchParams.get("signed_out") === "1");
+  const signedOut = signedOutRef.current;
+
+  // Strip ?signed_out from the URL after mount so a page refresh won't re-show
+  // the banner, without triggering a re-render that would clear the ref.
+  useEffect(() => {
+    if (signedOut) {
+      setSearchParams({}, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -206,7 +245,9 @@ export function LandingPage(): ReactElement {
               isLoading={isLoading}
               onSignIn={signIn}
               status={status}
+              error={error}
               layout="mobile"
+              signedOut={signedOut}
             />
           </section>
           {/* Spacer so footer pins to frame bottom */}
@@ -253,7 +294,9 @@ export function LandingPage(): ReactElement {
                   isLoading={isLoading}
                   onSignIn={signIn}
                   status={status}
+                  error={error}
                   layout="desktop"
+                  signedOut={signedOut}
                 />
               </div>
             </div>

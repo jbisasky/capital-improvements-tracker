@@ -9,6 +9,7 @@ import {
   signOut,
   subscribe,
   unsubscribe,
+  failWithTimeout,
   _resetForTesting,
   type AuthState,
 } from "@/services/auth";
@@ -333,6 +334,44 @@ describe("initAuth session token restoration", () => {
 
     // Assert
     expect(getAuthState().status).toBe("unauthenticated");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// failWithTimeout
+// ---------------------------------------------------------------------------
+
+describe("failWithTimeout", () => {
+  beforeEach(() => {
+    _resetForTesting();
+    setUrl("");
+  });
+
+  it("sets status to unauthenticated with a timeout error message", () => {
+    // Act
+    failWithTimeout();
+
+    // Assert
+    const s = getAuthState();
+    expect(s.status).toBe("unauthenticated");
+    expect(s.accessToken).toBeNull();
+    expect(s.expiresAt).toBeNull();
+    expect(s.error).toMatch(/timed out/i);
+  });
+
+  it("notifies subscribers with the timeout state", () => {
+    // Arrange
+    const states: AuthState[] = [];
+    subscribe((s) => { states.push({ ...s }); });
+
+    // Act
+    failWithTimeout();
+    unsubscribe(states as unknown as (s: AuthState) => void);
+
+    // Assert
+    expect(states.length).toBeGreaterThan(0);
+    expect(states[states.length - 1]!.status).toBe("unauthenticated");
+    expect(states[states.length - 1]!.error).toMatch(/timed out/i);
   });
 });
 
