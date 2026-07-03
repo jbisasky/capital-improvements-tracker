@@ -52,6 +52,10 @@ function getMobileTopBar(): HTMLElement {
 // ---------- live mode ----------
 
 describe("AppShell live mode", () => {
+  beforeEach(() => {
+    mockSignOut.mockClear();
+  });
+
   it("renders the mobile top bar", () => {
     renderShell("/dashboard");
     expect(getMobileTopBar()).toBeInTheDocument();
@@ -95,6 +99,19 @@ describe("AppShell live mode", () => {
     fireEvent.click(
       within(getMobileTopBar()).getByRole("button", { name: /sign out/i }),
     );
+
+    // Assert
+    expect(mockSignOut).toHaveBeenCalledOnce();
+  });
+
+  it("desktop sidebar 'Sign out' calls auth.signOut", () => {
+    // Arrange
+    renderShell("/dashboard");
+    const sidebar = document.querySelector("aside");
+    if (sidebar == null) throw new Error("Expected sidebar");
+
+    // Act
+    fireEvent.click(within(sidebar as HTMLElement).getByRole("button", { name: /sign out/i }));
 
     // Assert
     expect(mockSignOut).toHaveBeenCalledOnce();

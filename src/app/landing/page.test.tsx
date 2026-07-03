@@ -30,9 +30,9 @@ vi.mock("@/services/analytics", () => ({
 
 // ---------- helpers ----------
 
-function renderLanding(): ReturnType<typeof render> {
+function renderLanding(path = "/"): ReturnType<typeof render> {
   return render(
-    <MemoryRouter initialEntries={["/"]}>
+    <MemoryRouter initialEntries={[path]}>
       <LandingPage />
     </MemoryRouter>,
   );
@@ -373,5 +373,34 @@ describe("LandingPage", () => {
     expect(container.querySelector(".bg-gradient-to-r")).toBeInTheDocument();
     // Hero text at z-20 above the gradient
     expect(container.querySelector(".z-20")).toBeInTheDocument();
+  });
+
+  // ---------- signed-out banner ----------
+
+  it("shows the signed-out banner when ?signed_out=1 is in the URL", () => {
+    // Arrange & Act
+    renderLanding("/?signed_out=1");
+
+    // Assert
+    const banner = screen.getAllByTestId("signed-out-banner")[0];
+    expect(banner).toBeInTheDocument();
+    expect(banner).toHaveTextContent(/signed out successfully/i);
+    expect(banner).toHaveTextContent(/your projects stay saved in your google drive/i);
+  });
+
+  it("does not show the signed-out banner on a normal landing visit", () => {
+    // Arrange & Act
+    renderLanding("/");
+
+    // Assert
+    expect(screen.queryByTestId("signed-out-banner")).not.toBeInTheDocument();
+  });
+
+  it("does not show the signed-out banner when signed_out param is not '1'", () => {
+    // Arrange & Act
+    renderLanding("/?signed_out=0");
+
+    // Assert
+    expect(screen.queryByTestId("signed-out-banner")).not.toBeInTheDocument();
   });
 });
