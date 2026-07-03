@@ -41,6 +41,9 @@ When you complete a task or a step, **you MUST update the "Completed Tasks" and 
 ### Remaining Tasks
 - [x] **Task 8:** Polish — PWA/offline & service worker.
 
+### Polish
+- [x] **PDF Export + Scope Selector:** Added `@react-pdf/renderer`-based PDF export (`src/app/export/pdf-document.tsx`) with cover/summary page, per-project detail cards, IRS justification, documentation status badges, and "not tax advice" disclaimer. Updated Export page to use radio-group format selector (PDF default, CSV, JSON) and scope selector (All projects / By tax year with year picker). 251/251 unit tests pass + 13/13 E2E tests pass. See `docs/test-reports/pdf-export.md`.
+
 ### Bug Fixes
 - [x] **Save Property fix:** Implemented `saveProperty` end-to-end (schema → StorageDriver interface → MockStorageDriver → DriveStorageDriver → StorageContext). Fixed Settings page to wire the handler, sync form state from late-loading manifest via `useEffect`, add optional `address2` field, add required-field validation with inline error, and show Saving…/Saved ✓/error button states. 194/194 tests pass.
 
