@@ -298,12 +298,11 @@ async function generateExtractionFromParts(
   }
 
   if (candidate.finishReason !== "STOP") {
-    return err(
-      appError(
-        "AI_EXTRACTION_FAILED",
-        `Extraction incomplete (reason: ${candidate.finishReason}). Enter details manually.`,
-      ),
-    );
+    const message =
+      candidate.finishReason === "SAFETY"
+        ? "This file couldn't be processed — it may contain content that violates usage policies. Enter details manually."
+        : `Extraction incomplete (reason: ${candidate.finishReason}). Enter details manually.`;
+    return err(appError("AI_EXTRACTION_FAILED", message));
   }
 
   const text = candidate.content.parts[0]?.text;
@@ -331,6 +330,16 @@ async function generateExtractionFromParts(
       appError(
         "AI_EXTRACTION_FAILED",
         "AI response did not match expected format. Enter details manually.",
+      ),
+    );
+  }
+
+  const r = validated.data;
+  if (r.confidence === 0 && r.totalCost === null && r.completionDate === null) {
+    return err(
+      appError(
+        "AI_EXTRACTION_FAILED",
+        "This file doesn't appear to be a receipt, invoice, or permit. Please upload a financial document.",
       ),
     );
   }

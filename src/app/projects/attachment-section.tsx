@@ -232,11 +232,16 @@ export function AttachmentSection({
         {dragOver ? (
           <p className="text-center text-sm text-primary">Drop here</p>
         ) : (
-          <p className="text-center text-sm text-muted-foreground">
-            {items.length === 0
-              ? "Upload a receipt or invoice"
-              : "Drag and drop or use the buttons below"}
-          </p>
+          <>
+            <p className="text-center text-sm text-muted-foreground">
+              {items.length === 0
+                ? "Upload a receipt or invoice"
+                : "Drag and drop or use the buttons below"}
+            </p>
+            <p className="mt-1 text-center text-xs text-muted-foreground/70">
+              Receipts, invoices, and permits only
+            </p>
+          </>
         )}
 
         <div className="mt-3 flex flex-wrap gap-2">

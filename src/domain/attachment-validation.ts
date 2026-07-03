@@ -15,6 +15,7 @@ export const ACCEPTED_ATTACHMENT_MIME_TYPES = [
   "image/webp",
   "image/heic",
   "image/heif",
+  "image/tiff",
 ] as const;
 
 export const ACCEPTED_ATTACHMENT_TYPES = ACCEPTED_ATTACHMENT_MIME_TYPES;
@@ -42,7 +43,7 @@ export function validateAttachmentFile(
     return err(
       appError(
         "VALIDATION_ERROR",
-        "Unsupported file type. Use JPEG, PNG, WebP, HEIC, or PDF.",
+        "Unsupported file type. Use JPEG, PNG, WebP, HEIC, TIFF, or PDF.",
       ),
     );
   }

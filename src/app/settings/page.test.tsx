@@ -266,3 +266,16 @@ describe("SettingsPage — Appearance", () => {
     expect(mockSetThemePreference).toHaveBeenCalledWith("dark");
   });
 });
+
+describe("SettingsPage — BYOK API key", () => {
+  it("links to Google AI Studio to get a Gemini API key", () => {
+    // Arrange & Act
+    render(<SettingsPage />);
+
+    // Assert
+    const link = screen.getByRole("link", { name: /get a gemini api key/i });
+    expect(link).toHaveAttribute("href", "https://aistudio.google.com/app/apikey");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+});

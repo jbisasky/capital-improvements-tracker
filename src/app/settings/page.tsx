@@ -432,7 +432,15 @@ export function SettingsPage(): ReactElement {
         <h2 className="text-lg font-medium">Gemini API Key (BYOK)</h2>
         <p className="text-sm text-muted-foreground">
           Enter your Google Gemini API key to enable AI-powered receipt extraction.
-          The key is stored locally and never sent to any server other than Google.
+          The key is stored locally and never sent to any server other than Google.{" "}
+          <a
+            href="https://aistudio.google.com/app/apikey"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            Get a Gemini API key
+          </a>
         </p>
 
         {hasKey ? (
