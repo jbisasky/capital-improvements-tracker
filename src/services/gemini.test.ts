@@ -175,6 +175,45 @@ describe("extractFromDocument", () => {
     expect(buildGenerateContentUrl("test-key")).toBe(fetchMock.mock.calls[0]?.[0]);
   });
 
+  it("rejects a non-financial document (confidence 0, no cost, no date) with a clear error", async () => {
+    // Arrange — Gemini responds with a valid schema but all-null financial fields, 0 confidence
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        candidates: [{
+          finishReason: "STOP",
+          content: {
+            parts: [{
+              text: JSON.stringify({
+                title: "Not a financial document",
+                completionDate: null,
+                totalCost: null,
+                suggestedTreatment: "unknown",
+                costBasisAdjustment: null,
+                deductibleAmount: null,
+                irsJustification: "The provided image does not contain any financial information.",
+                vendor: null,
+                confidence: 0,
+                receiptDetailLevel: "unclear",
+              }),
+            }],
+          },
+        }],
+        usageMetadata: { totalTokenCount: 20 },
+      }),
+    });
+
+    const file = new File(["(jpg data)"], "photo.jpg", { type: "image/jpeg" });
+
+    // Act
+    const result = await extractFromDocument(file);
+
+    // Assert
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain("doesn't appear to be a receipt");
+  });
+
   it("surfaces schema rejection without blaming the API key", async () => {
     // Arrange
     fetchMock.mockResolvedValue({

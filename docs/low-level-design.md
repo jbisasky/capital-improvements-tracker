@@ -1316,7 +1316,7 @@ The manifest is a single JSON file in Drive. Growth is linear with project count
 | --- | --- | --- |
 | Max file size (single upload) | 25 MB | Google Drive's simple upload limit; resumable handles this fine. Covers high-res phone photos and multi-page PDFs. |
 | Max attachments per project | 10 | Prevents accidental bulk-dump; covers receipt + photos + invoice for a single project. |
-| Accepted MIME types | `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `application/pdf` | Standard receipt formats. HEIC for iPhone photos. |
+| Accepted MIME types | `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`, `image/tiff`, `application/pdf` | Standard receipt formats. HEIC/HEIF for iPhone photos. TIFF for scanner output from permit offices and contractors. |
 | Total storage | User's Google Drive quota | No app-side limit beyond Drive's own quota; `DRIVE_QUOTA` error surfaces if full. |
 
 **Enforcement:**
@@ -1324,7 +1324,7 @@ The manifest is a single JSON file in Drive. Growth is linear with project count
   "File too large (max 25 MB). Try compressing or splitting the document."
 - Attachment count enforced in the form — "Add attachment" button disabled at 10 with tooltip.
 - MIME type validated on drop/select; unsupported types rejected with: "Unsupported file type.
-  Use JPEG, PNG, WebP, HEIC, or PDF."
+  Use JPEG, PNG, WebP, HEIC, TIFF, or PDF."
 
 ### 17.3 Image compression before upload
 
@@ -1344,7 +1344,27 @@ overkill — the AI extraction and human review need legibility, not pixel-perfe
 - **PDFs are NOT compressed** — passed through as-is (re-compressing PDFs is lossy and complex).
 - **Progress shows post-compression size** so the user sees realistic upload estimates.
 
-### 17.4 Browser support
+### 17.4 PDF export
+
+The Export page generates a multi-page PDF entirely client-side using `@react-pdf/renderer`. No server is involved; the library renders a React component tree to a `Blob` in the browser via `pdf(<Document>).toBlob()`, which is then downloaded with a programmatic `<a>` click.
+
+**Document structure (`src/app/export/pdf-document.tsx`):**
+
+| Page | Contents |
+| --- | --- |
+| Cover / Summary | Property address, export date, scope label, three summary cards (cost basis added / total deductible / total spend), full projects overview table with documentation-status column, attachments note, not-tax-advice disclaimer |
+| Capital Improvements detail | Per-project card: all key fields, IRS justification, vendor, permit, payment method, attachment filenames, missing-field warnings. Only shown if ≥1 capital improvement project exists in scope. |
+| Other Projects detail | Same card layout for `repair`, `deductible`, and `credit` projects. Only shown if ≥1 such project exists in scope. |
+
+**Scope filtering:**
+- *All projects* — every project in the manifest
+- *By tax year* — filtered by `completionDate` year; year picker populated from `getAvailableYears(projects)` (unique years descending)
+
+**Format choice:** PDF is the default export format, surfaced first in the radio group. CSV and JSON remain available for spreadsheet use and full data backup respectively.
+
+**Analytics:** `trackExport("pdf")` fires on successful PDF download (ANLYT-11).
+
+### 17.5 Browser support
 
 | Browser | Minimum version | Notes |
 | --- | --- | --- |
@@ -1364,7 +1384,7 @@ longevity/minimal-deps principle.
 required API is missing, a static fallback page renders: "This app requires a modern browser.
 Please update Chrome, Firefox, or Safari to the latest version."
 
-### 17.5 localStorage quota handling
+### 17.6 localStorage quota handling
 
 `localStorage` has a browser-enforced limit (typically 5–10 MB per origin). The app uses it
 for: BYOK key (~50 bytes), theme preference (~10 bytes), daily AI usage counters (~100 bytes),

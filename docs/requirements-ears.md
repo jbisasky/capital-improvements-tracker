@@ -138,7 +138,7 @@
 
 | ID | Type | Requirement |
 | --- | --- | --- |
-| ATT-01 | Ubiquitous | The app shall accept image files and PDFs as attachment uploads. |
+| ATT-01 | Ubiquitous | The app shall accept the following file types as attachment uploads: JPEG, PNG, WebP, HEIC/HEIF, TIFF, and PDF. |
 | ATT-02 | Ubiquitous | The app shall use the Drive resumable upload protocol for attachments to handle flaky mobile networks. |
 | ATT-03 | Event-driven | When an upload is interrupted, the app shall query the session URI to determine the last received byte and resume from that point. |
 | ATT-04 | Event-driven | When the user cancels an upload, the app shall send `DELETE <session_uri>` to abort the upload session. |
@@ -223,10 +223,11 @@
 
 | ID | Type | Requirement |
 | --- | --- | --- |
-| EXP-01 | Event-driven | When the user selects a format (manifest.json, CSV, or PDF summary) and scope (all, year, or selected) and clicks "Download," the app shall generate and download the corresponding file. |
+| EXP-01 | Event-driven | When the user selects a format (manifest.json, CSV, or PDF summary) and scope (all or by tax year) and clicks "Download," the app shall generate and download the corresponding file. |
 | EXP-02 | Ubiquitous | The export page shall display a note: "Attachments live in your Drive folder 'Capital Improvements (App Data)' and are not bundled here." |
 | EXP-03 | Ubiquitous | The manifest.json export shall contain the full `Manifest` object as valid JSON. |
 | EXP-04 | Ubiquitous | The CSV export shall include one row per project with all key fields (title, date, cost, treatment, cost-basis adjustment, deductible, justification). |
+| EXP-05 | Ubiquitous | The PDF summary export shall be generated client-side (no server) using `@react-pdf/renderer` and shall contain: (1) a cover page with property address, export date, scope label, summary cards (cost basis added / total deductible / total spend), a projects overview table with documentation status column, and a not-tax-advice disclaimer; (2) a Capital Improvements detail section with per-project cards showing all fields, IRS justification, vendor, permit, payment method, attachment filenames, and missing-field warnings; (3) an Other Projects section for repairs, deductibles, and credits. PDF is the default export format. |
 
 ---
 
@@ -497,8 +498,8 @@
 | SCALE-04 | Ubiquitous | Attachment uploads shall be limited to 25 MB per file (validated client-side before upload begins). |
 | SCALE-05 | If-then | If the user selects a file exceeding 25 MB, then the app shall display an inline error: "File too large (max 25 MB). Try compressing or splitting the document." |
 | SCALE-06 | Ubiquitous | Each project shall allow a maximum of 10 attachments. The "Add attachment" button shall be disabled at the limit with a tooltip. |
-| SCALE-07 | Ubiquitous | The file picker and drop zone shall accept only: `image/jpeg`, `image/png`, `image/webp`, `image/heic`, and `application/pdf`. |
-| SCALE-08 | If-then | If the user selects an unsupported file type, then the app shall reject it with: "Unsupported file type. Use JPEG, PNG, WebP, HEIC, or PDF." |
+| SCALE-07 | Ubiquitous | The file picker and drop zone shall accept only: `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`, `image/tiff`, and `application/pdf`. |
+| SCALE-08 | If-then | If the user selects an unsupported file type, then the app shall reject it with: "Unsupported file type. Use JPEG, PNG, WebP, HEIC, TIFF, or PDF." |
 | SCALE-09 | Event-driven | When the user uploads an image exceeding 2048 px on its longest side, the app shall resize it proportionally to 2048 px and re-encode as JPEG (quality 0.85) or WebP (quality 0.80) using `OffscreenCanvas` (with a `document.createElement('canvas')` fallback for Safari < 16.4) before uploading — unless "Keep original quality" is checked. |
 | SCALE-10 | Ubiquitous | PDFs shall not be compressed or re-encoded before upload. |
 | SCALE-11 | Ubiquitous | The upload progress indicator shall reflect the post-compression file size (not the original). |

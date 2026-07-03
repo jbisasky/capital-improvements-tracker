@@ -103,6 +103,9 @@ export function NewProjectAttachments({
         <p className="mt-2 text-xs text-muted-foreground">
           Drag and drop supported · {files.length}/{MAX_ATTACHMENTS_PER_PROJECT} selected
         </p>
+        <p className="mt-1 text-xs text-muted-foreground/70">
+          Receipts, invoices, and permits only
+        </p>
       </div>
 
       {files.length > 0 && (
