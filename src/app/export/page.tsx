@@ -79,7 +79,9 @@ export function ExportPage(): ReactElement {
             manifest={manifest}
             projects={scopedProjects}
             scope={scope}
-            year={scope === "year" ? selectedYear : undefined}
+            {...(scope === "year" && selectedYear !== ""
+              ? { year: selectedYear }
+              : {})}
           />,
         ).toBlob();
         filename = `capital-improvements${yearSuffix}-${dateSuffix}.pdf`;
@@ -197,8 +199,9 @@ export function ExportPage(): ReactElement {
                 checked={scope === "year"}
                 onChange={() => {
                   setScope("year");
-                  if (!selectedYear && availableYears.length > 0) {
-                    setSelectedYear(availableYears[0]);
+                  const firstYear = availableYears[0];
+                  if (!selectedYear && firstYear !== undefined) {
+                    setSelectedYear(firstYear);
                   }
                 }}
               />
