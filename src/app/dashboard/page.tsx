@@ -35,17 +35,18 @@ interface MetricCardProps {
   icon: ReactElement;
   label: string;
   value: string;
+  href: string;
 }
 
-function MetricCard({ icon, label, value }: MetricCardProps): ReactElement {
+function MetricCard({ icon, label, value, href }: MetricCardProps): ReactElement {
   return (
-    <div className={cn(CARD_SURFACE, "p-5")}>
+    <Link to={href} className={cn(CARD_SURFACE, "p-5 transition-colors hover:bg-accent/50")}>
       <div className="mb-2 flex items-center gap-1.5 text-muted-foreground">
         {icon}
         <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
       </div>
       <p className="text-2xl font-bold tracking-tight text-card-foreground">{value}</p>
-    </div>
+    </Link>
   );
 }
 
@@ -131,27 +132,31 @@ export function DashboardPage(): ReactElement {
           icon={<TrendingUp className="size-3.5" />}
           label="Cost Basis Added"
           value={formatCurrency(manifest.summary.totalCostBasisAdded)}
+          href={`${prefix}/projects`}
         />
         <MetricCard
           icon={<Banknote className="size-3.5" />}
           label="Total Spent"
           value={formatCurrency(totalCost)}
+          href={`${prefix}/projects`}
         />
         <MetricCard
           icon={<FolderOpen className="size-3.5" />}
           label="Projects"
           value={String(projects.length)}
+          href={`${prefix}/projects`}
         />
         <MetricCard
           icon={<CheckCircle2 className="size-3.5" />}
           label="Docs Complete"
           value={`${String(completeCount)} / ${String(projects.length)}`}
+          href={`${prefix}/projects`}
         />
       </div>
 
       {/* Documentation health bar */}
       {projects.length > 0 && (
-        <div className={cn(CARD_SURFACE, "p-4")}>
+        <Link to={`${prefix}/projects`} className={cn(CARD_SURFACE, "block p-4 transition-colors hover:bg-accent/50")}>
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="font-medium text-foreground">Documentation Health</span>
             <span className="text-muted-foreground">
@@ -166,7 +171,7 @@ export function DashboardPage(): ReactElement {
               }}
             />
           </div>
-        </div>
+        </Link>
       )}
 
       {/* Recent projects */}
