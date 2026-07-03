@@ -17,6 +17,8 @@ interface NewProjectAttachmentsProps {
   keyConfigured?: boolean;
   settingsHref?: string;
   onExtract?: () => void;
+  excludedIndices?: Set<number>;
+  onToggleExclude?: (index: number) => void;
 }
 
 export function NewProjectAttachments({
@@ -29,6 +31,8 @@ export function NewProjectAttachments({
   keyConfigured = false,
   settingsHref,
   onExtract,
+  excludedIndices,
+  onToggleExclude,
 }: NewProjectAttachmentsProps): ReactElement {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -109,44 +113,65 @@ export function NewProjectAttachments({
       </div>
 
       {files.length > 0 && (
-        <ul className="space-y-2">
-          {files.map((file, index) => (
-            <li
-              key={`${file.name}-${String(file.size)}-${String(file.lastModified)}`}
-              className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm"
-            >
-              <span className="min-w-0 flex-1 truncate font-medium">{file.name}</span>
-              {showExtract && files.length > 1 && (
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {String(index + 1)}/{String(files.length)}
-                </span>
-              )}
-              <span className="shrink-0 text-muted-foreground">
-                ({String(Math.round(file.size / 1024))} KB)
-              </span>
-              <button
-                type="button"
-                onClick={() => { handleRemove(index); }}
-                className="cursor-pointer rounded p-1 hover:bg-accent"
-                title="Remove"
-              >
-                <X className="size-4" />
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          {showExtract && (
+            <p className="text-xs text-muted-foreground">
+              Check files to include in AI extraction. Uncheck any file you prefer not to send to Google (e.g. bank statements with account numbers).
+            </p>
+          )}
+          <ul className="space-y-2">
+            {files.map((file, index) => {
+              const included = !(excludedIndices?.has(index) ?? false);
+              return (
+                <li
+                  key={`${file.name}-${String(file.size)}-${String(file.lastModified)}`}
+                  className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm"
+                >
+                  {showExtract && (
+                    <input
+                      type="checkbox"
+                      checked={included}
+                      onChange={() => { onToggleExclude?.(index); }}
+                      title={included ? "Exclude from AI extraction" : "Include in AI extraction"}
+                      className="shrink-0 cursor-pointer"
+                    />
+                  )}
+                  <span className={`min-w-0 flex-1 truncate font-medium ${!included && showExtract ? "text-muted-foreground line-through" : ""}`}>
+                    {file.name}
+                  </span>
+                  <span className="shrink-0 text-muted-foreground">
+                    ({String(Math.round(file.size / 1024))} KB)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { handleRemove(index); }}
+                    className="cursor-pointer rounded p-1 hover:bg-accent"
+                    title="Remove"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
 
       {showExtract && files.length > 0 && keyConfigured && onExtract != null && (
-        <button
-          type="button"
-          onClick={onExtract}
-          disabled={extracting}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Sparkles className="size-4" />
-          {extractLabel ?? (extracting ? "Extracting…" : "Extract details with AI")}
-        </button>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={onExtract}
+            disabled={extracting}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Sparkles className="size-4" />
+            {extractLabel ?? (extracting ? "Extracting…" : "Extract details with AI")}
+          </button>
+          <p className="text-xs text-muted-foreground/70">
+            Checked files are sent to Google&apos;s Gemini API for processing. Avoid including documents with bank account numbers or SSNs.
+          </p>
+        </div>
       )}
 
       {showExtract && files.length > 0 && !keyConfigured && settingsHref != null && (

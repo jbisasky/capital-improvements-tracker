@@ -88,6 +88,7 @@ export function ProjectNewPage(): ReactElement {
   const [step, setStep] = useState<PageStep>("upload");
   const [projectId] = useState(() => crypto.randomUUID());
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [excludedIndices, setExcludedIndices] = useState<Set<number>>(new Set());
   const [reviewExtraction, setReviewExtraction] = useState<ExtractionResult | null>(null);
   const [reviewSourceLabel, setReviewSourceLabel] = useState("");
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
@@ -97,8 +98,31 @@ export function ProjectNewPage(): ReactElement {
 
   const keyConfigured = hasGeminiKey();
 
+  function handleFilesChange(files: File[]): void {
+    setPendingFiles(files);
+    setExcludedIndices(new Set());
+  }
+
+  function handleToggleExclude(index: number): void {
+    setExcludedIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }
+
   function handleExtract(): void {
     if (pendingFiles.length === 0) return;
+
+    const filesToExtract = pendingFiles.filter((_, i) => !excludedIndices.has(i));
+    if (filesToExtract.length === 0) {
+      setAttachmentError("Select at least one file to include in AI extraction.");
+      return;
+    }
 
     setReviewExtraction(null);
     setReviewSourceLabel("");
@@ -106,7 +130,7 @@ export function ProjectNewPage(): ReactElement {
     setStep("extracting");
     trackAIExtractionStarted();
 
-    void extractProjectFromDocuments(pendingFiles).then((result) => {
+    void extractProjectFromDocuments(filesToExtract).then((result) => {
       if (!result.ok) {
         setAttachmentError(result.error.message);
         setStep("upload");
@@ -114,9 +138,17 @@ export function ProjectNewPage(): ReactElement {
       }
 
       setReviewExtraction(result.value.result);
-      setReviewSourceLabel(buildSourceLabel(pendingFiles));
+      setReviewSourceLabel(buildSourceLabel(filesToExtract));
       setStep("review");
     });
+  }
+
+  function handleBackToUpload(): void {
+    setPrefilled(null);
+    setReviewExtraction(null);
+    setReviewSourceLabel("");
+    setAttachmentError(null);
+    setStep("upload");
   }
 
   function handleAcceptExtraction(edited: ExtractionResult): void {
@@ -189,13 +221,22 @@ export function ProjectNewPage(): ReactElement {
         )}
         <NewProjectAttachments
           files={pendingFiles}
-          onFilesChange={setPendingFiles}
+          onFilesChange={handleFilesChange}
           onValidationError={(message) => {
             setAttachmentError(message.length > 0 ? message : null);
           }}
         />
         {attachmentError != null && (
           <p className="text-sm text-red-600">{attachmentError}</p>
+        )}
+        {keyConfigured && (
+          <button
+            type="button"
+            onClick={handleBackToUpload}
+            className="cursor-pointer text-sm text-primary hover:underline"
+          >
+            ← Back to AI extraction
+          </button>
         )}
         <ProjectForm
           {...(prefilled != null ? { initial: prefilled } : {})}
@@ -209,14 +250,17 @@ export function ProjectNewPage(): ReactElement {
     );
   }
 
+  const includedCount = pendingFiles.length - excludedIndices.size;
   const extractingLabel =
-    step === "extracting" && pendingFiles.length > 1
-      ? `Analyzing ${String(pendingFiles.length)} files…`
+    step === "extracting" && includedCount > 1
+      ? `Analyzing ${String(includedCount)} files…`
       : step === "extracting"
         ? "Extracting…"
-        : pendingFiles.length > 1
-          ? `Extract details with AI (${String(pendingFiles.length)} files)`
-          : "Extract details with AI";
+        : includedCount > 1
+          ? `Extract details with AI (${String(includedCount)} of ${String(pendingFiles.length)} files)`
+          : pendingFiles.length > 1
+            ? `Extract details with AI (${String(includedCount)} of ${String(pendingFiles.length)} files)`
+            : "Extract details with AI";
 
   return (
     <div className="space-y-6">
@@ -227,7 +271,7 @@ export function ProjectNewPage(): ReactElement {
 
       <NewProjectAttachments
         files={pendingFiles}
-        onFilesChange={setPendingFiles}
+        onFilesChange={handleFilesChange}
         onValidationError={(message) => {
           setAttachmentError(message.length > 0 ? message : null);
         }}
@@ -237,6 +281,8 @@ export function ProjectNewPage(): ReactElement {
         keyConfigured={keyConfigured}
         settingsHref={`${prefix}/settings`}
         onExtract={handleExtract}
+        excludedIndices={excludedIndices}
+        onToggleExclude={handleToggleExclude}
       />
 
       {attachmentError != null && (
