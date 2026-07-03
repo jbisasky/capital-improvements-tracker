@@ -398,6 +398,20 @@ export function ensureFreshToken(): Promise<string | null> {
   return Promise.resolve(null);
 }
 
+/**
+ * Abort the current sign-in attempt with a timeout error. Called by the
+ * callback page when the token exchange takes too long.
+ */
+export function failWithTimeout(): void {
+  state = {
+    status: "unauthenticated",
+    accessToken: null,
+    expiresAt: null,
+    error: "Sign-in timed out. Google took too long to respond. Please check your connection and try again.",
+  };
+  notify();
+}
+
 export function subscribe(listener: AuthListener): void {
   listeners.add(listener);
 }

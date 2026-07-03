@@ -8,16 +8,19 @@ import { LandingPage } from "./page";
 const mockSignIn = vi.fn();
 let mockStatus = "idle";
 let mockIsAuthenticated = false;
+let mockError: string | null = null;
 
 vi.mock("@/services/auth-context", () => ({
   useAuth: (): {
     isAuthenticated: boolean;
     signIn: Mock;
     status: string;
+    error: string | null;
   } => ({
     isAuthenticated: mockIsAuthenticated,
     signIn: mockSignIn,
     status: mockStatus,
+    error: mockError,
   }),
 }));
 
@@ -53,6 +56,7 @@ describe("LandingPage", () => {
   beforeEach(() => {
     mockStatus = "idle";
     mockIsAuthenticated = false;
+    mockError = null;
     mockSignIn.mockClear();
   });
 
@@ -123,15 +127,41 @@ describe("LandingPage", () => {
     expect(btn).toBeDisabled();
   });
 
-  it("shows session-expired message when needs_interaction", () => {
+  it("shows session-expired message when needs_interaction and no error string", () => {
     // Arrange
     mockStatus = "needs_interaction";
+    mockError = null;
 
     // Act
     renderLanding();
 
     // Assert
     expect(within(getMobileCard()).getByText(/session expired/i)).toBeInTheDocument();
+  });
+
+  it("shows auth.error string over the needs_interaction fallback", () => {
+    // Arrange — auth.error set (e.g. from failWithTimeout)
+    mockStatus = "unauthenticated";
+    mockError = "Sign-in timed out. Google took too long to respond. Please check your connection and try again.";
+
+    // Act
+    renderLanding();
+
+    // Assert
+    expect(within(getMobileCard()).getByText(/sign-in timed out/i)).toBeInTheDocument();
+  });
+
+  it("shows no error banner when status is idle and error is null", () => {
+    // Arrange
+    mockStatus = "idle";
+    mockError = null;
+
+    // Act
+    renderLanding();
+
+    // Assert
+    expect(within(getMobileCard()).queryByText(/session expired/i)).not.toBeInTheDocument();
+    expect(within(getMobileCard()).queryByText(/timed out/i)).not.toBeInTheDocument();
   });
 
   it("redirects to /dashboard when isAuthenticated is true", () => {

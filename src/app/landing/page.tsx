@@ -75,6 +75,7 @@ interface LandingActionsProps {
   isLoading: boolean;
   onSignIn: () => void;
   status: string;
+  error: string | null;
   layout: "mobile" | "desktop";
 }
 
@@ -103,8 +104,11 @@ function LandingActions({
   isLoading,
   onSignIn,
   status,
+  error,
   layout,
 }: LandingActionsProps): ReactElement {
+  const errorMessage =
+    error ?? (status === "needs_interaction" ? "Session expired. Please sign in again." : null);
   if (layout === "mobile") {
     return (
       <div className="flex flex-col sm:flex-row sm:items-start sm:gap-8">
@@ -125,9 +129,9 @@ function LandingActions({
           >
             See a demo
           </Button>
-          {status === "needs_interaction" && (
+          {errorMessage != null && (
             <p className="rounded-md border border-destructive/30 px-4 py-2 text-sm text-destructive">
-              Session expired. Please sign in again.
+              {errorMessage}
             </p>
           )}
         </div>
@@ -162,9 +166,9 @@ function LandingActions({
         </Button>
       </div>
 
-      {status === "needs_interaction" && (
+      {errorMessage != null && (
         <p className="rounded-md border border-destructive/30 px-4 py-2 text-sm text-destructive">
-          Session expired. Please sign in again.
+          {errorMessage}
         </p>
       )}
 
@@ -174,7 +178,7 @@ function LandingActions({
 }
 
 export function LandingPage(): ReactElement {
-  const { isAuthenticated, signIn, status } = useAuth();
+  const { isAuthenticated, signIn, status, error } = useAuth();
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -206,6 +210,7 @@ export function LandingPage(): ReactElement {
               isLoading={isLoading}
               onSignIn={signIn}
               status={status}
+              error={error}
               layout="mobile"
             />
           </section>
@@ -253,6 +258,7 @@ export function LandingPage(): ReactElement {
                   isLoading={isLoading}
                   onSignIn={signIn}
                   status={status}
+                  error={error}
                   layout="desktop"
                 />
               </div>
