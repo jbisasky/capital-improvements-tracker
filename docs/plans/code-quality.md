@@ -89,6 +89,16 @@ src/app/
 
 ---
 
+## Future Notes
+
+These are not actionable yet — just things to keep in mind as the codebase grows.
+
+### `usePrevious` → `src/hooks/use-previous.ts`
+
+`usePrevious<T>()` is currently a private helper at the bottom of `src/services/auth-context.tsx`. It's generic and reusable, but only has one usage today so it stays put. If a second provider or component ever needs "previous value" tracking, extract it to `src/hooks/use-previous.ts` rather than duplicating it.
+
+---
+
 ## Completed Items
 
 *(None yet)*
