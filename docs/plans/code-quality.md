@@ -89,9 +89,149 @@ src/app/
 
 ---
 
-## Future Notes
+### 2. Add unit tests for `src/services/auth-context.tsx`
+
+**Finding:** `auth.ts` has 405 lines of unit tests (`auth.test.ts`) covering the PKCE state machine, but the React context layer (`auth-context.tsx`) has no test file at all.
+
+**Why it matters:** The analytics transition detection (`usePrevious` + `authenticating → authenticated`) is logic that exists only in the context layer — it's not covered by `auth.test.ts`. A page refresh falsely firing a `trackSignIn()` event would be invisible without a test.
+
+**Recommended test cases (priority order):**
+
+| # | Test | Why |
+|---|------|-----|
+| 1 | Analytics fires on `authenticating → authenticated` transition | Core behavior, unique to context layer |
+| 2 | Analytics does NOT fire on page refresh (status starts at `authenticated`) | Guards against the usePrevious regression case |
+| 3 | `useAuth()` outside `AuthProvider` throws with clear message | Guards against bad DX for future consumers |
+| 4 | Auth state (`status`, `isAuthenticated`, `error`) is exposed correctly | Basic contract test |
+| 5 | `unsubscribe()` is called on unmount | Guards against memory leak |
+| 6 | `handleRedirectCallback()` is called on mount | Guards against OAuth callback being skipped |
+
+**Setup notes:**
+- Use `@testing-library/react` (`renderHook` + `act`)
+- Mock `@/services/auth` module (vi.mock) to control state transitions
+- Mock `@/services/analytics` to assert `trackSignIn()` call count
+
+**Example skeleton:**
+```typescript
+// auth-context.test.tsx
+import { renderHook, act } from "@testing-library/react";
+import { AuthProvider, useAuth } from "./auth-context";
+import * as auth from "@/services/auth";
+import * as analytics from "@/services/analytics";
+
+vi.mock("@/services/auth");
+vi.mock("@/services/analytics");
+
+describe("useAuth", () => {
+  it("throws when used outside AuthProvider", () => {
+    expect(() => renderHook(() => useAuth())).toThrow(
+      "useAuth must be used within an AuthProvider"
+    );
+  });
+});
+
+describe("AuthProvider analytics", () => {
+  it("fires trackSignIn on authenticating → authenticated transition", async () => {
+    // Arrange: mock subscribe to capture the listener
+    // Act: trigger state change from authenticating → authenticated
+    // Assert: trackSignIn called once
+  });
+
+  it("does NOT fire trackSignIn on page refresh", async () => {
+    // Arrange: mock getAuthState to return "authenticated" immediately
+    // Act: mount AuthProvider
+    // Assert: trackSignIn NOT called
+  });
+});
+```
+
+**Effort:** Medium (requires setting up React context mocking pattern)
+**Risk:** Low (tests only, no production code changes)
+**Status:** ⏳ Pending
+
+---
+
+### 3. Rename `ensureFreshToken` → `getAccessTokenAsync` in `src/services/auth.ts`
+
+**Finding:** `ensureFreshToken` implies the function will attempt to refresh an expired token, which it doesn't. It's a thin `Promise.resolve()` wrapper around `getAccessToken()` — it returns the current valid token or `null`, with no refresh attempt.
+
+**Why it matters:** The name misleads callers in `http.ts` and `http-raw.ts` into thinking a refresh is being attempted on their behalf. The comment even documents the limitation:
+
+```typescript
+// With PKCE redirect flow we can't silently obtain a token in the background.
+// Callers should check auth status and redirect to sign-in if needed.
+```
+
+**Rename to:** `getAccessTokenAsync`
+
+Signals "same as `getAccessToken` but returns a Promise — no refresh magic."
+
+**Files to update:**
+
+| File | Change |
+|------|--------|
+| `src/services/auth.ts` | Rename function declaration |
+| `src/services/http.ts` | Update import + call site (line 8, 101) |
+| `src/services/http-raw.ts` | Update import + call site (line 8, 73) |
+| `src/services/auth.test.ts` | Update any test references |
+
+**Effort:** Low (mechanical rename across 3–4 files)
+**Risk:** Low (rename only, no behavior change)
+**Status:** ⏳ Pending
+
+---
+
+### 4. Fix misleading JSDoc on `handleRedirectCallback` in `src/services/auth.ts`
+
+**Finding:** The JSDoc says the function "navigates to /dashboard (or the path stored before redirect)" but the function itself does not navigate anywhere — it only exchanges the code for a token and updates auth state. Navigation is the caller's responsibility (`AuthCallbackPage`).
+
+**Current JSDoc (line 264–270):**
+```typescript
+/**
+ * Call once on app mount (inside AuthProvider). If the current URL looks like
+ * an OAuth callback (?code=...) it exchanges the code for a token, then
+ * navigates to /dashboard (or the path stored before redirect).
+ *
+ * Returns true if a callback was handled, false otherwise.
+ */
+```
+
+**Suggested fix:**
+```typescript
+/**
+ * Call once on app mount (inside AuthProvider). If the current URL looks like
+ * an OAuth callback (?code=...) it exchanges the code for a token and updates
+ * auth state. Navigation after a successful exchange is the caller's
+ * responsibility.
+ *
+ * Returns true if a callback was handled, false otherwise.
+ */
+```
+
+**Effort:** Trivial (comment edit only)
+**Risk:** None
+**Status:** ⏳ Pending
 
 These are not actionable yet — just things to keep in mind as the codebase grows.
+
+### `src/services/` subdirectory grouping
+
+Currently 41 files in a flat `src/services/` folder. Manageable now, but when it hits ~50–60 files consider grouping by domain:
+
+```
+src/services/
+├── auth/         auth.ts, auth-context.tsx, gis-types.ts
+├── storage/      storage-driver.ts, drive-storage-driver.ts, mock-storage-driver.ts, drive-attachment.ts, storage-context.tsx
+├── ai/           gemini.ts, gemini-key.ts, gemini-extraction-batch.ts, ai-budget.ts
+├── offline/      offline-context.tsx, offline-error.ts, offline-manifest-cache.ts, pwa-cache.ts, register-service-worker.ts
+├── theme/        theme.ts, theme-context.tsx
+├── observability/ analytics.ts, telemetry.ts, diagnostics.ts
+└── http/         http.ts, http-raw.ts
+```
+
+Main cost is updating all import paths — worth doing in one focused PR when the time comes.
+
+---
 
 ### `usePrevious` → `src/hooks/use-previous.ts`
 
