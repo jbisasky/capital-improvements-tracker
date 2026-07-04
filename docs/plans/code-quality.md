@@ -239,6 +239,55 @@ Main cost is updating all import paths — worth doing in one focused PR when th
 
 ---
 
+## Actionable Items (from auth.ts vibe-coding cleanup)
+
+### 5. Delete `src/services/gis-types.ts` (dead file)
+
+**Finding:** `gis-types.ts` is a tombstone from when auth used the Google Identity Services (GIS) library. It now exports nothing (`export {}`) and nothing imports it. The comment inside even says "auth.ts uses fetch for revocation directly."
+
+```typescript
+// No longer exported — auth.ts uses fetch for revocation directly.
+// File retained to avoid breaking any future GIS usage.
+export {};
+```
+
+**Action:** Delete the file.
+
+**Verification:** `rg gis-types src/` returns zero results — confirmed nothing imports it.
+
+**Effort:** Trivial
+**Risk:** Zero
+**Status:** ⏳ Pending
+
+---
+
+### 6. Remove `"refreshing"` dead status from `src/services/auth.ts`
+
+**Finding:** `"refreshing"` appears in the `AuthStatus` union and is set for one tick in `silentRefresh()` before being immediately overwritten with `"needs_interaction"`. No consumer outside `auth.ts` ever checks for `"refreshing"` — confirmed by codebase search.
+
+**The dead code path:**
+```typescript
+// silentRefresh() — lines 350-363
+state = { ...state, status: "refreshing" };  // Set
+notify();
+clearTokenFromSession();
+state = { status: "needs_interaction", ... }; // Immediately overwritten
+notify();
+```
+
+This is a leftover from when silent refresh was planned to do real async work. Now it flashes so briefly no consumer can react to it.
+
+**Actions:**
+1. Remove `| "refreshing"` from `AuthStatus` union (line 41)
+2. Remove the `state = { status: "refreshing" }` + `notify()` lines from `silentRefresh()`
+3. Check `auth.test.ts` for any assertions on `"refreshing"` status and remove them
+
+**Effort:** Low
+**Risk:** Low (no consumer checks for this status)
+**Status:** ⏳ Pending
+
+---
+
 ## Completed Items
 
 *(None yet)*
