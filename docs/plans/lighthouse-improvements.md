@@ -73,6 +73,47 @@ const ExportPage = lazy(() => import("./export/page"));
 
 ---
 
+### 5. Pre-render landing page (Optional, fun experiment)
+
+**Finding:** The landing page (`/`) is static content with no user-specific data. It could be pre-rendered at build time to avoid waiting for JavaScript to download, parse, and render.
+
+**Why this matters:**
+- SEO: Real HTML is always better for crawlers (though Google crawls JS now)
+- First impression: Users see the landing page first; faster load = better UX
+- Low maintenance: Only one page, not the entire app (authenticated pages remain client-side)
+
+**Estimated gain:** ~500ms–1s faster FCP/LCP on slow networks, depending on current bundle size.
+
+**Fix approach:**
+
+1. Add `@vitejs/plugin-virtual-html` or use a simple build script to pre-render the landing page at build time using `renderToString`.
+2. Update `vite.config.ts` to inject the pre-rendered HTML.
+3. Ensure `LandingPage` doesn't rely on `useEffect` or dynamic hooks that break server-side rendering.
+
+**Example setup:**
+
+```typescript
+// build-landing.js (run before Vite build)
+import { renderToString } from "react-dom/server";
+import { LandingPage } from "./src/app/landing/page.tsx";
+import fs from "fs";
+import path from "path";
+
+const html = renderToString(<LandingPage />);
+// Inject into dist/ or use a Vite plugin to modify index.html
+
+fs.writeFileSync(path.join("dist", "landing-pre.html"), html);
+```
+
+**Caveats:**
+- If `LandingPage` uses hooks that don't work in Node.js (e.g., `useEffect`, browser APIs), you'll need to conditionally skip them or refactor.
+- Adds a build step; every landing page change requires a rebuild.
+- Gains are marginal if the app is already fast (Cloudflare + Vite is already pretty snappy).
+
+**Recommendation:** Fun to implement for learning, but not a priority. Only do this if Lighthouse shows landing page LCP > 2s or if SEO is critical.
+
+---
+
 ## Accessibility
 
 ### 5. Footer contrast ratio (WCAG 2 AA violation)
@@ -172,16 +213,62 @@ See finding #7 above.
 
 ---
 
+## Execution Plan (Step-by-Step with Validation)
+
+**Workflow:** Complete each step below in order. After each step:
+1. Make code changes
+2. Run unit tests (`npm run test`)
+3. Run E2E tests (`npm run e2e`)
+4. Run Lighthouse audit (`npm run build && npm run preview`)
+5. Commit changes with clear message
+6. Move to next step
+
+---
+
 ## Priority Order
 
-| # | Finding | Category | Effort | Impact |
-|---|---------|----------|--------|--------|
-| 1 | Dynamic-import OTel | Performance | Medium | High — ~100 kB bundle reduction, ~2 s LCP |
-| 2 | CSP hash for inline script | Best Practices | Low | Eliminates console errors + Issues panel warnings |
-| 6 | Add `<main>` landmark | Accessibility | Low | Fixes axe violation, improves screen reader UX |
-| 5 | Footer contrast ratio | Accessibility | Low | Fixes WCAG 2 AA violation |
-| 3 | Disable unused OTel instrumentations | Performance | Low | 10–30 kB secondary reduction |
-| 4 | Verify PDF code-split | Performance | Low | Confirm / no-op |
-| 2 | Bundle visualizer | Performance | Low | Prerequisite for further analysis |
-| 9 | Source maps | Best Practices | Low | DX only, no user impact |
-| 10 | Structured data | SEO | Low | Optional rich results |
+| Step | # | Finding | Category | Effort | Impact | Status |
+|------|---|---------|----------|--------|--------|--------|
+| 1 | 1 | Dynamic-import OTel | Performance | Medium | High — ~100 kB bundle reduction, ~2 s LCP | ⏳ Pending |
+| 2 | 2 | CSP hash for inline script | Best Practices | Low | Eliminates console errors + Issues panel warnings | ⏳ Pending |
+| 3 | 6 | Add `<main>` landmark | Accessibility | Low | Fixes axe violation, improves screen reader UX | ⏳ Pending |
+| 4 | 5 | Footer contrast ratio | Accessibility | Low | Fixes WCAG 2 AA violation | ⏳ Pending |
+| 5 | 3 | Disable unused OTel instrumentations | Performance | Low | 10–30 kB secondary reduction | ⏳ Pending |
+| 6 | 4 | Verify PDF code-split | Performance | Low | Confirm / no-op | ⏳ Pending |
+| 7 | 5a | Pre-render landing page | Performance | Low | ~500ms–1s FCP improvement (optional, fun experiment) | ⏳ Pending |
+| 8 | 2 | Bundle visualizer | Performance | Low | Prerequisite for further analysis | ⏳ Pending |
+| 9 | 9 | Source maps | Best Practices | Low | DX only, no user impact | ⏳ Pending |
+| 10 | 10 | Structured data | SEO | Low | Optional rich results | ⏳ Pending |
+
+---
+
+## Validation Checklist Template
+
+After completing each step, use this checklist before committing:
+
+```
+## Step [N]: [Finding Name]
+
+### Tests
+- [ ] Unit tests pass (`npm run test`)
+- [ ] E2E tests pass (`npm run e2e`)
+
+### Lighthouse Audit
+- [ ] Performance score: ___ (previous: ___)
+- [ ] Accessibility score: ___ (previous: ___)
+- [ ] Best Practices score: ___ (previous: ___)
+- [ ] SEO score: ___ (previous: ___)
+- [ ] LCP: ___ ms (previous: ___ ms)
+- [ ] CLS: ___ (previous: ___)
+
+### No Regressions
+- [ ] Bundle size impact: ___ kB (expected: ___)
+- [ ] No console errors
+- [ ] No new axe violations
+
+### Commit
+- Commit message: `[lighthouse] Step N: [Finding Name]`
+- Push branch
+```
+
+---
