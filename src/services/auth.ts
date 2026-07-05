@@ -38,7 +38,6 @@ export type AuthStatus =
   | "unauthenticated"
   | "authenticating"
   | "authenticated"
-  | "refreshing"
   | "needs_interaction";
 
 export interface AuthState {
@@ -347,9 +346,6 @@ export async function handleRedirectCallback(): Promise<boolean> {
 /** Attempt a silent token refresh using prompt=none (best-effort). */
 async function silentRefresh(): Promise<void> {
   if (clientId === "") return;
-
-  state = { ...state, status: "refreshing" };
-  notify();
 
   // PKCE silent refresh: redirect with prompt=none is not reliable in SPAs
   // because we can't intercept a redirect in a background context.
