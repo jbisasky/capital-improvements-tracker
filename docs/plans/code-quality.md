@@ -85,7 +85,7 @@ src/app/
 
 **Effort:** Low (rename + update imports, IDE refactoring handles most of it)
 **Risk:** Low (no runtime behavior changes, just imports)
-**Status:** ⏳ Pending
+**Status:** ✅ Done
 
 ---
 
@@ -290,4 +290,4 @@ This is a leftover from when silent refresh was planned to do real async work. N
 
 ## Completed Items
 
-*(None yet)*
+- [x] **Item 1:** Renamed `landing/page.tsx`, `dashboard/page.tsx`, `settings/page.tsx`, `export/page.tsx`, `about/page.tsx` to semantic `*-page.tsx` names. Updated `router.tsx`, `demo/dashboard-page.tsx`, and 3 test files. 258/258 tests pass.
