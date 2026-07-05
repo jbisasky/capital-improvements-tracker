@@ -284,7 +284,7 @@ This is a leftover from when silent refresh was planned to do real async work. N
 
 **Effort:** Low
 **Risk:** Low (no consumer checks for this status)
-**Status:** ⏳ Pending
+**Status:** ✅ Done
 
 ---
 
@@ -295,3 +295,4 @@ This is a leftover from when silent refresh was planned to do real async work. N
 - [x] **Item 3:** Renamed `ensureFreshToken` → `getAccessTokenAsync` in `auth.ts`, `http.ts`, `http-raw.ts`. 267/267 tests pass.
 - [x] **Item 4:** Fixed misleading JSDoc on `handleRedirectCallback` — removed navigation claim, clarified caller responsibility.
 - [x] **Item 5:** Deleted dead `gis-types.ts` (exported nothing, had zero importers). 267/267 tests pass.
+- [x] **Item 6:** Removed `| "refreshing"` from `AuthStatus` union and the dead `state = { status: "refreshing" }` + `notify()` lines from `silentRefresh()`. 267/267 tests pass.
