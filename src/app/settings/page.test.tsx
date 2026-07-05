@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { SettingsPage } from "./page";
+import { SettingsPage } from "./settings-page";
 import { type Manifest } from "@/domain/schemas";
 import { ok, err } from "@/domain/result";
 import { appError } from "@/domain/errors";

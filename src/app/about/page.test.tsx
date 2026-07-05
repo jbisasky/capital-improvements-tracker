@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { AboutPage } from "./page";
+import { AboutPage } from "./about-page";
 
 vi.mock("../../../package.json", () => ({
   version: "1.2.3",
