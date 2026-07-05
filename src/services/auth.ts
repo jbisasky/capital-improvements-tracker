@@ -390,7 +390,7 @@ export function getAccessToken(): string | null {
   return state.accessToken;
 }
 
-export function ensureFreshToken(): Promise<string | null> {
+export function getAccessTokenAsync(): Promise<string | null> {
   const token = getAccessToken();
   if (token != null) return Promise.resolve(token);
   // With PKCE redirect flow we can't silently obtain a token in the background.

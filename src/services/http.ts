@@ -5,7 +5,7 @@
 
 import { type Result, ok, err } from "@/domain/result";
 import { appError, type ErrorCode } from "@/domain/errors";
-import { getAccessToken, ensureFreshToken } from "@/services/auth";
+import { getAccessToken, getAccessTokenAsync } from "@/services/auth";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_ATTEMPTS = 5;
@@ -98,7 +98,7 @@ export async function httpFetch<T>(
       // 401 — attempt one silent refresh + replay
       if (response.status === 401 && !did401Retry && !skipAuth) {
         did401Retry = true;
-        const freshToken = await ensureFreshToken();
+        const freshToken = await getAccessTokenAsync();
         if (freshToken != null) {
           continue;
         }

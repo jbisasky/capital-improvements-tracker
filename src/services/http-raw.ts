@@ -5,7 +5,7 @@
 
 import { type Result, ok, err } from "@/domain/result";
 import { appError } from "@/domain/errors";
-import { getAccessToken, ensureFreshToken } from "@/services/auth";
+import { getAccessToken, getAccessTokenAsync } from "@/services/auth";
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -70,7 +70,7 @@ export async function httpRawFetch(
 
       if (response.status === 401 && !did401Retry && !skipAuth) {
         did401Retry = true;
-        const freshToken = await ensureFreshToken();
+        const freshToken = await getAccessTokenAsync();
         if (freshToken != null) {
           continue;
         }
