@@ -263,8 +263,9 @@ export function signIn(): void {
 
 /**
  * Call once on app mount (inside AuthProvider). If the current URL looks like
- * an OAuth callback (?code=...) it exchanges the code for a token, then
- * navigates to /dashboard (or the path stored before redirect).
+ * an OAuth callback (?code=...) it exchanges the code for a token and updates
+ * auth state. Navigation after a successful exchange is the caller's
+ * responsibility.
  *
  * Returns true if a callback was handled, false otherwise.
  */
