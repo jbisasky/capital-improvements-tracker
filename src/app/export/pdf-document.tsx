@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   Document,
   Page,
@@ -638,7 +639,7 @@ export function CapitalImprovementsPdf({
           <Text
             style={styles.footerText}
             render={({ pageNumber, totalPages }) =>
-              `Page ${pageNumber} of ${totalPages}`
+              `Page ${String(pageNumber)} of ${String(totalPages)}`
             }
           />
         </View>
@@ -669,7 +670,7 @@ export function CapitalImprovementsPdf({
             <Text
               style={styles.footerText}
               render={({ pageNumber, totalPages }) =>
-                `Page ${pageNumber} of ${totalPages}`
+                `Page ${String(pageNumber)} of ${String(totalPages)}`
               }
             />
           </View>
@@ -701,7 +702,7 @@ export function CapitalImprovementsPdf({
             <Text
               style={styles.footerText}
               render={({ pageNumber, totalPages }) =>
-                `Page ${pageNumber} of ${totalPages}`
+                `Page ${String(pageNumber)} of ${String(totalPages)}`
               }
             />
           </View>

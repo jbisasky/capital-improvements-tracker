@@ -130,7 +130,7 @@ describe("MockStorageDriver.saveProperty", () => {
   it("does not mutate existing projects when saving property", async () => {
     // Arrange
     const projectId = "123e4567-e89b-12d3-a456-426614174001";
-    const project: import("@/domain/schemas").Project = {
+    const project: Project = {
       id: projectId,
       title: "Roof",
       completionDate: "2025-01-01",

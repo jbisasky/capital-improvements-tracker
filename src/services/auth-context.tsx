@@ -3,6 +3,7 @@ import {
   useContext,
   useState,
   useEffect,
+  useRef,
   useCallback,
   useMemo,
   type ReactElement,
@@ -55,7 +56,9 @@ export function AuthProvider({ children }: AuthProviderProps): ReactElement {
 
     // Handle OAuth redirect callback (PKCE code exchange) after subscribing
     // so the authenticating → authenticated transition is captured.
-    void handleRedirectCallback();
+    // handleRedirectCallback has an internal try/catch; this .catch() is purely
+    // defensive against unexpected programming errors that escape it.
+    void handleRedirectCallback().catch(() => undefined);
     return () => {
       unsubscribe(listener);
     };
@@ -105,13 +108,15 @@ export function useAuth(): AuthContextValue {
 }
 
 function usePrevious<T>(value: T): T | undefined {
-  const [prev, setPrev] = useState<T | undefined>(undefined);
-  const [current, setCurrent] = useState<T>(value);
+  const prevRef = useRef<T | undefined>(undefined);
+  const currentRef = useRef<T>(value);
+  // eslint-disable-next-line react-hooks/refs
+  const prev = prevRef.current;
 
-  if (value !== current) {
-    setPrev(current);
-    setCurrent(value);
-  }
+  useEffect(() => {
+    prevRef.current = currentRef.current;
+    currentRef.current = value;
+  });
 
   return prev;
 }

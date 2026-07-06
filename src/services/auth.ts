@@ -38,7 +38,6 @@ export type AuthStatus =
   | "unauthenticated"
   | "authenticating"
   | "authenticated"
-  | "refreshing"
   | "needs_interaction";
 
 export interface AuthState {
@@ -115,7 +114,7 @@ function scheduleRefresh(): void {
   if (state.expiresAt == null) return;
   const delay = Math.max(0, state.expiresAt - Date.now() - REFRESH_MARGIN_MS);
   refreshTimer = setTimeout(() => {
-    void silentRefresh();
+    silentRefresh();
   }, delay);
 }
 
@@ -263,8 +262,9 @@ export function signIn(): void {
 
 /**
  * Call once on app mount (inside AuthProvider). If the current URL looks like
- * an OAuth callback (?code=...) it exchanges the code for a token, then
- * navigates to /dashboard (or the path stored before redirect).
+ * an OAuth callback (?code=...) it exchanges the code for a token and updates
+ * auth state. Navigation after a successful exchange is the caller's
+ * responsibility.
  *
  * Returns true if a callback was handled, false otherwise.
  */
@@ -344,11 +344,8 @@ export async function handleRedirectCallback(): Promise<boolean> {
 }
 
 /** Attempt a silent token refresh using prompt=none (best-effort). */
-async function silentRefresh(): Promise<void> {
+function silentRefresh(): void {
   if (clientId === "") return;
-
-  state = { ...state, status: "refreshing" };
-  notify();
 
   // PKCE silent refresh: redirect with prompt=none is not reliable in SPAs
   // because we can't intercept a redirect in a background context.
@@ -388,14 +385,6 @@ export function getAccessToken(): string | null {
   if (state.status !== "authenticated" || state.accessToken == null) return null;
   if (state.expiresAt != null && Date.now() >= state.expiresAt) return null;
   return state.accessToken;
-}
-
-export function ensureFreshToken(): Promise<string | null> {
-  const token = getAccessToken();
-  if (token != null) return Promise.resolve(token);
-  // With PKCE redirect flow we can't silently obtain a token in the background.
-  // Callers should check auth status and redirect to sign-in if needed.
-  return Promise.resolve(null);
 }
 
 /**

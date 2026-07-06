@@ -85,7 +85,7 @@ src/app/
 
 **Effort:** Low (rename + update imports, IDE refactoring handles most of it)
 **Risk:** Low (no runtime behavior changes, just imports)
-**Status:** ⏳ Pending
+**Status:** ✅ Done
 
 ---
 
@@ -147,7 +147,7 @@ describe("AuthProvider analytics", () => {
 
 **Effort:** Medium (requires setting up React context mocking pattern)
 **Risk:** Low (tests only, no production code changes)
-**Status:** ⏳ Pending
+**Status:** ✅ Done
 
 ---
 
@@ -177,7 +177,7 @@ Signals "same as `getAccessToken` but returns a Promise — no refresh magic."
 
 **Effort:** Low (mechanical rename across 3–4 files)
 **Risk:** Low (rename only, no behavior change)
-**Status:** ⏳ Pending
+**Status:** ✅ Done
 
 ---
 
@@ -210,7 +210,7 @@ Signals "same as `getAccessToken` but returns a Promise — no refresh magic."
 
 **Effort:** Trivial (comment edit only)
 **Risk:** None
-**Status:** ⏳ Pending
+**Status:** ✅ Done
 
 These are not actionable yet — just things to keep in mind as the codebase grows.
 
@@ -257,7 +257,7 @@ export {};
 
 **Effort:** Trivial
 **Risk:** Zero
-**Status:** ⏳ Pending
+**Status:** ✅ Done
 
 ---
 
@@ -284,10 +284,15 @@ This is a leftover from when silent refresh was planned to do real async work. N
 
 **Effort:** Low
 **Risk:** Low (no consumer checks for this status)
-**Status:** ⏳ Pending
+**Status:** ✅ Done
 
 ---
 
 ## Completed Items
 
-*(None yet)*
+- [x] **Item 1:** Renamed `landing/page.tsx`, `dashboard/page.tsx`, `settings/page.tsx`, `export/page.tsx`, `about/page.tsx` to semantic `*-page.tsx` names. Updated `router.tsx`, `demo/dashboard-page.tsx`, and 3 test files. 258/258 tests pass.
+- [x] **Item 2:** Added `auth-context.test.tsx` with 9 tests covering analytics transition detection, page-refresh non-fire, lifecycle (subscribe/unsubscribe/handleRedirectCallback), context contract, and useAuth-outside-provider guard. 267/267 tests pass.
+- [x] **Item 3:** Renamed `ensureFreshToken` → `getAccessTokenAsync` in `auth.ts`, `http.ts`, `http-raw.ts`. 267/267 tests pass.
+- [x] **Item 4:** Fixed misleading JSDoc on `handleRedirectCallback` — removed navigation claim, clarified caller responsibility.
+- [x] **Item 5:** Deleted dead `gis-types.ts` (exported nothing, had zero importers). 267/267 tests pass.
+- [x] **Item 6:** Removed `| "refreshing"` from `AuthStatus` union and the dead `state = { status: "refreshing" }` + `notify()` lines from `silentRefresh()`. 267/267 tests pass.

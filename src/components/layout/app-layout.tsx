@@ -1,4 +1,4 @@
-import { type ReactElement, useMemo, useRef } from "react";
+import { type ReactElement, useMemo, useState } from "react";
 import { Outlet, Navigate } from "react-router";
 import { AppShell } from "@/components/layout/app-shell";
 import { StorageProvider } from "@/services/storage-context";
@@ -7,7 +7,7 @@ import { useAuth } from "@/services/auth-context";
 
 export function AppLayout(): ReactElement {
   const { isAuthenticated, status } = useAuth();
-  const wasAuthenticatedRef = useRef(isAuthenticated);
+  const [wasAuthenticated, setWasAuthenticated] = useState(isAuthenticated);
 
   const driver = useMemo(() => new DriveStorageDriver(), []);
 
@@ -23,11 +23,13 @@ export function AppLayout(): ReactElement {
     // If the user was previously authenticated in this layout (i.e. they
     // signed out), redirect with ?signed_out=1 so the landing page can show
     // a confirmation banner. Otherwise just redirect cleanly.
-    const signedOutParam = wasAuthenticatedRef.current ? "?signed_out=1" : "";
+    const signedOutParam = wasAuthenticated ? "?signed_out=1" : "";
     return <Navigate to={`/${signedOutParam}`} replace />;
   }
 
-  wasAuthenticatedRef.current = true;
+  if (!wasAuthenticated) {
+    setWasAuthenticated(true);
+  }
 
   return (
     <StorageProvider driver={driver}>

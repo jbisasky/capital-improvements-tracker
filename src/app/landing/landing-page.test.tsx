@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { LandingPage } from "./page";
+import { LandingPage } from "./landing-page";
 
 // ---------- mocks ----------
 

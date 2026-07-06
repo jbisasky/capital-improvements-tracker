@@ -21,7 +21,7 @@ import {
 function setUrl(search: string): void {
   Object.defineProperty(window, "location", {
     configurable: true,
-    value: { ...window.location, search, origin: "https://example.com" },
+    value: { href: window.location.href, pathname: window.location.pathname, search, origin: "https://example.com" },
   });
 }
 
@@ -185,7 +185,7 @@ describe("handleRedirectCallback", () => {
     setUrl(`?code=auth-code-123&state=${oauthState}`);
 
     const mockFetch = vi.fn().mockResolvedValue({
-      json: async () => ({
+      json: () => Promise.resolve({
         access_token: "tok_abc",
         expires_in: 3600,
         scope: [
@@ -229,7 +229,7 @@ describe("handleRedirectCallback", () => {
     setUrl(`?code=code&state=${oauthState}`);
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      json: async () => ({
+      json: () => Promise.resolve({
         access_token: "tok",
         expires_in: 3600,
         // Only one scope — missing drive.file
@@ -253,7 +253,7 @@ describe("handleRedirectCallback", () => {
     setUrl("?code=c&state=s");
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      json: async () => ({ access_token: "t", expires_in: 3600, scope: "https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file", token_type: "Bearer" }),
+      json: () => Promise.resolve({ access_token: "t", expires_in: 3600, scope: "https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file", token_type: "Bearer" }),
     }));
 
     // Act
@@ -271,7 +271,7 @@ describe("handleRedirectCallback", () => {
     sessionStorage.setItem("pkce_verifier", "verifier");
     setUrl(`?code=c&state=${oauthState}`);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      json: async () => ({
+      json: () => Promise.resolve({
         access_token: "tok_persist",
         expires_in: 3600,
         scope: "https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file",
@@ -370,8 +370,10 @@ describe("failWithTimeout", () => {
 
     // Assert
     expect(states.length).toBeGreaterThan(0);
-    expect(states[states.length - 1]!.status).toBe("unauthenticated");
-    expect(states[states.length - 1]!.error).toMatch(/timed out/i);
+    const lastState = states[states.length - 1];
+    if (lastState == null) throw new Error("Expected at least one state");
+    expect(lastState.status).toBe("unauthenticated");
+    expect(lastState.error).toMatch(/timed out/i);
   });
 });
 
