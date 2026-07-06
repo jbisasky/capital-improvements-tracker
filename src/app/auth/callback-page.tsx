@@ -9,9 +9,14 @@ import { failWithTimeout } from "@/services/auth";
  * to leave "authenticating" before deciding where to navigate — this
  * prevents an immediate redirect caused by the initial "unauthenticated"
  * state before the token exchange resolves.
+ *
+ * Two paths:
+ *  1. ?code=... → goes through "authenticating" before success/failure.
+ *  2. ?error=... → handleRedirectCallback sets an error without "authenticating";
+ *     we navigate to "/" once the error appears in auth state.
  */
 export function AuthCallbackPage(): ReactElement {
-  const { status } = useAuth();
+  const { status, error } = useAuth();
   const navigate = useNavigate();
 
   // Track whether we've seen at least one "authenticating" status, meaning
@@ -25,11 +30,16 @@ export function AuthCallbackPage(): ReactElement {
     } else if (status === "authenticated") {
       void navigate("/dashboard", { replace: true });
     } else if (exchangeStartedRef.current) {
-      // Exchange finished but failed — go back to landing so the error
+      // Code exchange finished but failed — go back to landing so the error
       // message on the landing page is shown.
       void navigate("/", { replace: true });
+    } else if (error !== null) {
+      // handleRedirectCallback set an error without going through "authenticating"
+      // (e.g. Google returned ?error= instead of ?code=, or CSRF mismatch).
+      // Wait for the error to be reflected in state before navigating away.
+      void navigate("/", { replace: true });
     }
-  }, [status, navigate]);
+  }, [status, error, navigate]);
 
   // Bail out after 15 s — handles a hung or very slow token exchange.
   useEffect(() => {
