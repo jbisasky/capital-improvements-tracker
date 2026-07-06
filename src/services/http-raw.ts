@@ -5,7 +5,7 @@
 
 import { type Result, ok, err } from "@/domain/result";
 import { appError } from "@/domain/errors";
-import { getAccessToken, getAccessTokenAsync } from "@/services/auth";
+import { getAccessToken } from "@/services/auth";
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -41,8 +41,6 @@ export async function httpRawFetch(
     skipAuth = false,
   } = options;
 
-  let did401Retry = false;
-
   for (let attempt = 0; attempt < 2; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => {
@@ -67,15 +65,6 @@ export async function httpRawFetch(
       });
 
       clearTimeout(timer);
-
-      if (response.status === 401 && !did401Retry && !skipAuth) {
-        did401Retry = true;
-        const freshToken = await getAccessTokenAsync();
-        if (freshToken != null) {
-          continue;
-        }
-        return err(appError("AUTH_REQUIRED", "Authentication required"));
-      }
 
       const buffer = await response.arrayBuffer();
       const text = new TextDecoder().decode(buffer);

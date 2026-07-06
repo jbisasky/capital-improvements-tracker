@@ -118,7 +118,7 @@ export function ExportPage(): ReactElement {
   }
 
   const availableYears = getAvailableYears(manifest.projects);
-  const effectiveYear = selectedYear || availableYears[0] || "";
+  const effectiveYear = selectedYear !== "" ? selectedYear : (availableYears[0] ?? "");
   const scopedCount = filterProjectsByScope(
     manifest.projects,
     scope,

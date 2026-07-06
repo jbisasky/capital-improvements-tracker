@@ -131,6 +131,7 @@ export function SettingsPage(): ReactElement {
   const [saveError, setSaveError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (property == null) return;
     setAddress(property.address);
@@ -141,6 +142,7 @@ export function SettingsPage(): ReactElement {
     setPropertyType(property.propertyType);
     setSqftTotal(property.sqftTotal != null ? String(property.sqftTotal) : "");
   }, [property]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
@@ -158,9 +160,8 @@ export function SettingsPage(): ReactElement {
 
   function clearFieldError(key: "address" | "city" | "state" | "zip"): void {
     setFieldErrors((fe) => {
-      const copy = { ...fe };
-      delete copy[key];
-      return copy;
+      const { [key]: _removed, ...rest } = fe;
+      return rest;
     });
   }
 

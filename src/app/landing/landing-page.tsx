@@ -1,4 +1,4 @@
-import { type ReactElement, useEffect, useRef } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
 import { trackDemoCTAClicked } from "@/services/analytics";
 import { useAuth } from "@/services/auth-context";
@@ -201,13 +201,12 @@ export function LandingPage(): ReactElement {
   const { isAuthenticated, signIn, status, error } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Capture the flag once on mount using a ref so the banner stays visible
+  // Capture the flag once on mount so the banner stays visible
   // even after setSearchParams strips the param from the URL on the next render.
-  const signedOutRef = useRef(searchParams.get("signed_out") === "1");
-  const signedOut = signedOutRef.current;
+  const [signedOut] = useState(() => searchParams.get("signed_out") === "1");
 
   // Strip ?signed_out from the URL after mount so a page refresh won't re-show
-  // the banner, without triggering a re-render that would clear the ref.
+  // the banner.
   useEffect(() => {
     if (signedOut) {
       setSearchParams({}, { replace: true });

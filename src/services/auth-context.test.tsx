@@ -41,12 +41,14 @@ const authenticatingState: auth.AuthState = {
   error: null,
 };
 
-const authenticatedState: auth.AuthState = {
-  status: "authenticated",
-  accessToken: "tok_abc",
-  expiresAt: Date.now() + 3_600_000,
-  error: null,
-};
+function makeAuthenticatedState(): auth.AuthState {
+  return {
+    status: "authenticated",
+    accessToken: "tok_abc",
+    expiresAt: Date.now() + 3_600_000,
+    error: null,
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -89,7 +91,7 @@ describe("AuthProvider — context value", () => {
 
   it("exposes isAuthenticated=true when state is authenticated", () => {
     // Arrange
-    (auth.getAuthState as Mock).mockReturnValue(authenticatedState);
+    (auth.getAuthState as Mock).mockReturnValue(makeAuthenticatedState());
 
     // Act
     const { result } = renderHook(() => useAuth(), { wrapper });
@@ -122,8 +124,11 @@ describe("AuthProvider — lifecycle", () => {
 
     // Assert
     expect(auth.unsubscribe).toHaveBeenCalledOnce();
-    const subscribeArg = (auth.subscribe as Mock).mock.calls[0]![0] as auth.AuthListener;
-    const unsubscribeArg = (auth.unsubscribe as Mock).mock.calls[0]![0] as auth.AuthListener;
+    const subscribeCall = (auth.subscribe as Mock).mock.calls[0];
+    const unsubscribeCall = (auth.unsubscribe as Mock).mock.calls[0];
+    if (subscribeCall == null || unsubscribeCall == null) throw new Error("Expected mock calls");
+    const subscribeArg = subscribeCall[0] as auth.AuthListener;
+    const unsubscribeArg = unsubscribeCall[0] as auth.AuthListener;
     expect(subscribeArg).toBe(unsubscribeArg);
   });
 
@@ -134,6 +139,27 @@ describe("AuthProvider — lifecycle", () => {
     // Assert
     expect(auth.handleRedirectCallback).toHaveBeenCalledOnce();
   });
+
+  it("handles a rejected handleRedirectCallback without unhandled rejection", async () => {
+    // Arrange
+    (auth.handleRedirectCallback as Mock).mockRejectedValue(new Error("unexpected"));
+
+    // Act + Assert: mount must not throw and must not leave an unhandled rejection
+    let caughtError: unknown = null;
+    const originalOnUnhandledRejection = window.onunhandledrejection;
+    window.onunhandledrejection = (e) => { caughtError = e.reason; };
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    window.onunhandledrejection = originalOnUnhandledRejection;
+
+    expect(caughtError).toBeNull();
+    expect(result.current.status).toBe("unauthenticated");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -141,7 +167,7 @@ describe("AuthProvider — lifecycle", () => {
 // ---------------------------------------------------------------------------
 
 describe("AuthProvider — analytics", () => {
-  it("fires trackSignIn on authenticating → authenticated transition", async () => {
+  it("fires trackSignIn on authenticating → authenticated transition", () => {
     // Arrange: capture the subscribe listener so we can drive state
     let capturedListener: auth.AuthListener | null = null;
     (auth.subscribe as Mock).mockImplementation((l: auth.AuthListener) => {
@@ -153,9 +179,8 @@ describe("AuthProvider — analytics", () => {
     expect(result.current.status).toBe("authenticating");
 
     // Act: drive the transition to authenticated
-    await act(async () => {
-      capturedListener!(authenticatedState);
-    });
+    const listener1 = capturedListener as unknown as auth.AuthListener;
+    act(() => { listener1(makeAuthenticatedState()); });
 
     // Assert
     expect(analytics.trackSignIn).toHaveBeenCalledOnce();
@@ -163,7 +188,7 @@ describe("AuthProvider — analytics", () => {
 
   it("does NOT fire trackSignIn on page refresh (status starts at authenticated)", async () => {
     // Arrange: simulate a page refresh — getAuthState already returns authenticated
-    (auth.getAuthState as Mock).mockReturnValue(authenticatedState);
+    (auth.getAuthState as Mock).mockReturnValue(makeAuthenticatedState());
 
     // Act
     renderHook(() => useAuth(), { wrapper });
@@ -177,7 +202,7 @@ describe("AuthProvider — analytics", () => {
     expect(analytics.trackSignIn).not.toHaveBeenCalled();
   });
 
-  it("does NOT fire trackSignIn on unrelated status transitions", async () => {
+  it("does NOT fire trackSignIn on unrelated status transitions", () => {
     // Arrange
     let capturedListener: auth.AuthListener | null = null;
     (auth.subscribe as Mock).mockImplementation((l: auth.AuthListener) => {
@@ -188,9 +213,8 @@ describe("AuthProvider — analytics", () => {
     renderHook(() => useAuth(), { wrapper });
 
     // Act: transition unauthenticated → authenticating (not the trigger transition)
-    await act(async () => {
-      capturedListener!(authenticatingState);
-    });
+    const listener2 = capturedListener as unknown as auth.AuthListener;
+    act(() => { listener2(authenticatingState); });
 
     // Assert
     expect(analytics.trackSignIn).not.toHaveBeenCalled();

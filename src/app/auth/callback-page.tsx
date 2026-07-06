@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useRef, type ReactElement } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/services/auth-context";
 import { failWithTimeout } from "@/services/auth";
@@ -15,24 +15,21 @@ export function AuthCallbackPage(): ReactElement {
   const navigate = useNavigate();
 
   // Track whether we've seen at least one "authenticating" status, meaning
-  // handleRedirectCallback has started its async work.
-  const [exchangeStarted, setExchangeStarted] = useState(false);
+  // handleRedirectCallback has started its async work. A ref avoids the
+  // setState-in-effect pattern while still persisting the flag across renders.
+  const exchangeStartedRef = useRef(false);
 
   useEffect(() => {
     if (status === "authenticating") {
-      setExchangeStarted(true);
-    }
-  }, [status, exchangeStarted]);
-
-  useEffect(() => {
-    if (status === "authenticated") {
+      exchangeStartedRef.current = true;
+    } else if (status === "authenticated") {
       void navigate("/dashboard", { replace: true });
-    } else if (exchangeStarted && (status === "unauthenticated" || status === "needs_interaction")) {
+    } else if (exchangeStartedRef.current) {
       // Exchange finished but failed — go back to landing so the error
       // message on the landing page is shown.
       void navigate("/", { replace: true });
     }
-  }, [status, exchangeStarted, navigate]);
+  }, [status, navigate]);
 
   // Bail out after 15 s — handles a hung or very slow token exchange.
   useEffect(() => {

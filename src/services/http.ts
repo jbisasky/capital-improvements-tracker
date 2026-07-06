@@ -1,11 +1,11 @@
 /**
- * Typed fetch wrapper — auth header injection, retry with backoff, 401 handling.
+ * Typed fetch wrapper — auth header injection, retry with backoff.
  * See LLD §1.4 and §1.5.
  */
 
 import { type Result, ok, err } from "@/domain/result";
 import { appError, type ErrorCode } from "@/domain/errors";
-import { getAccessToken, getAccessTokenAsync } from "@/services/auth";
+import { getAccessToken } from "@/services/auth";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_ATTEMPTS = 5;
@@ -57,8 +57,6 @@ export async function httpFetch<T>(
 ): Promise<Result<T>> {
   const { method = "GET", headers = {}, body, timeout = DEFAULT_TIMEOUT_MS, skipAuth = false } = options;
 
-  let did401Retry = false;
-
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => {
@@ -93,16 +91,6 @@ export async function httpFetch<T>(
         // For non-JSON responses (e.g. raw file content), return text as unknown
         const text = await response.text();
         return ok(text as unknown as T);
-      }
-
-      // 401 — attempt one silent refresh + replay
-      if (response.status === 401 && !did401Retry && !skipAuth) {
-        did401Retry = true;
-        const freshToken = await getAccessTokenAsync();
-        if (freshToken != null) {
-          continue;
-        }
-        return err(appError("AUTH_REQUIRED", "Authentication required"));
       }
 
       // Non-retryable status

@@ -107,11 +107,11 @@ describe("AppShell live mode", () => {
   it("desktop sidebar 'Sign out' calls auth.signOut", () => {
     // Arrange
     renderShell("/dashboard");
-    const sidebar = document.querySelector("aside");
+    const sidebar = document.querySelector<HTMLElement>("aside");
     if (sidebar == null) throw new Error("Expected sidebar");
 
     // Act
-    fireEvent.click(within(sidebar as HTMLElement).getByRole("button", { name: /sign out/i }));
+    fireEvent.click(within(sidebar).getByRole("button", { name: /sign out/i }));
 
     // Assert
     expect(mockSignOut).toHaveBeenCalledOnce();
@@ -161,9 +161,9 @@ describe("AppShell brand logo link", () => {
     renderShell("/dashboard");
 
     // Assert — sidebar is the aside element
-    const sidebar = document.querySelector("aside");
+    const sidebar = document.querySelector<HTMLElement>("aside");
     if (sidebar == null) throw new Error("Expected sidebar");
-    const link = within(sidebar as HTMLElement).getByRole("link", { name: /capital improvements/i });
+    const link = within(sidebar).getByRole("link", { name: /capital improvements/i });
     expect(link).toHaveAttribute("href", "/dashboard");
   });
 
@@ -172,9 +172,9 @@ describe("AppShell brand logo link", () => {
     renderShell("/demo/dashboard");
 
     // Assert
-    const sidebar = document.querySelector("aside");
+    const sidebar = document.querySelector<HTMLElement>("aside");
     if (sidebar == null) throw new Error("Expected sidebar");
-    const link = within(sidebar as HTMLElement).getByRole("link", { name: /capital improvements/i });
+    const link = within(sidebar).getByRole("link", { name: /capital improvements/i });
     expect(link).toHaveAttribute("href", "/demo/dashboard");
   });
 
@@ -304,11 +304,11 @@ describe("AppShell theme toggle", () => {
     // Arrange
     mockThemePreference = "light";
     renderShell("/dashboard");
-    const sidebar = document.querySelector("aside");
+    const sidebar = document.querySelector<HTMLElement>("aside");
     if (sidebar == null) throw new Error("Expected sidebar");
 
     // Act
-    fireEvent.click(within(sidebar as HTMLElement).getByRole("button", { name: /theme: light/i }));
+    fireEvent.click(within(sidebar).getByRole("button", { name: /theme: light/i }));
 
     // Assert
     expect(mockSetThemePreference).toHaveBeenCalledWith("dark");

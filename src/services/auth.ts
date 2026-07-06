@@ -114,7 +114,7 @@ function scheduleRefresh(): void {
   if (state.expiresAt == null) return;
   const delay = Math.max(0, state.expiresAt - Date.now() - REFRESH_MARGIN_MS);
   refreshTimer = setTimeout(() => {
-    void silentRefresh();
+    silentRefresh();
   }, delay);
 }
 
@@ -344,7 +344,7 @@ export async function handleRedirectCallback(): Promise<boolean> {
 }
 
 /** Attempt a silent token refresh using prompt=none (best-effort). */
-async function silentRefresh(): Promise<void> {
+function silentRefresh(): void {
   if (clientId === "") return;
 
   // PKCE silent refresh: redirect with prompt=none is not reliable in SPAs
@@ -385,14 +385,6 @@ export function getAccessToken(): string | null {
   if (state.status !== "authenticated" || state.accessToken == null) return null;
   if (state.expiresAt != null && Date.now() >= state.expiresAt) return null;
   return state.accessToken;
-}
-
-export function getAccessTokenAsync(): Promise<string | null> {
-  const token = getAccessToken();
-  if (token != null) return Promise.resolve(token);
-  // With PKCE redirect flow we can't silently obtain a token in the background.
-  // Callers should check auth status and redirect to sign-in if needed.
-  return Promise.resolve(null);
 }
 
 /**

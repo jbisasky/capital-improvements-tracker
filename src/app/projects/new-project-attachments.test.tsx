@@ -105,7 +105,9 @@ describe("NewProjectAttachments — extraction checkboxes", () => {
 
     // Click the second checkbox (index 1)
     const checkboxes = screen.getAllByRole("checkbox");
-    fireEvent.click(checkboxes[1]!);
+    const secondCheckbox = checkboxes[1];
+    if (secondCheckbox == null) throw new Error("Expected second checkbox");
+    fireEvent.click(secondCheckbox);
 
     // Assert
     expect(onToggleExclude).toHaveBeenCalledWith(1);

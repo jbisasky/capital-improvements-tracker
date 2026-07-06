@@ -49,7 +49,7 @@ export class MockStorageDriver implements StorageDriver {
     // Small delay so the skeleton loading state is visible in the demo.
     return new Promise((resolve) =>
       setTimeout(
-        () => resolve(ok({ manifest: structuredClone(this.manifest), etag: this.etag })),
+        () => { resolve(ok({ manifest: structuredClone(this.manifest), etag: this.etag })); },
         300,
       ),
     );

@@ -157,16 +157,19 @@ describe("SettingsPage — property form", () => {
     });
   });
 
-  it("shows validation error if required fields are empty", async () => {
+  it("shows validation error if required fields are empty", () => {
     // Arrange
     render(<SettingsPage />);
-    const addressInput = document.getElementById("address") as HTMLInputElement;
+    const addressInput = document.getElementById("address");
+    if (addressInput == null) throw new Error("Expected #address");
     fireEvent.change(addressInput, { target: { value: "" } });
-    const cityInput = document.getElementById("city") as HTMLInputElement;
+    const cityInput = document.getElementById("city");
+    if (cityInput == null) throw new Error("Expected #city");
     fireEvent.change(cityInput, { target: { value: "" } });
 
     // Act — submit the form directly to bypass HTML5 required constraint in jsdom
-    const form = addressInput.closest("form") as HTMLFormElement;
+    const form = addressInput.closest("form");
+    if (form == null) throw new Error("Expected form");
     fireEvent.submit(form);
 
     // Assert — per-field errors appear
@@ -199,12 +202,14 @@ describe("SettingsPage — property form", () => {
     expect(zipInput.value).toBe("20190-4530");
   });
 
-  it("rejects address without both a number and a letter", async () => {
+  it("rejects address without both a number and a letter", () => {
     // Arrange
     render(<SettingsPage />);
-    const addressInput = document.getElementById("address") as HTMLInputElement;
+    const addressInput = document.getElementById("address");
+    if (addressInput == null) throw new Error("Expected #address");
     fireEvent.change(addressInput, { target: { value: "NoNumbers" } });
-    const form = addressInput.closest("form") as HTMLFormElement;
+    const form = addressInput.closest("form");
+    if (form == null) throw new Error("Expected form");
 
     // Act
     fireEvent.submit(form);
@@ -225,7 +230,7 @@ describe("SettingsPage — property form", () => {
     fireEvent.click(screen.getByRole("button", { name: /save property/i }));
 
     // Assert
-    await waitFor(() => expect(mockSaveProperty).toHaveBeenCalledOnce());
+    await waitFor(() => { expect(mockSaveProperty).toHaveBeenCalledOnce(); });
     const call = mockSaveProperty.mock.calls[0]?.[0] as { address2?: string } | undefined;
     expect(call?.address2).toBe("Unit 4B");
   });
