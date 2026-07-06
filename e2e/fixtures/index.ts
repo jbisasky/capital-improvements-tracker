@@ -8,6 +8,7 @@ interface AuthedFixtures {
 }
 
 export const test = base.extend<AuthedFixtures>({
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   authedPage: async ({ page }, use) => {
     // Both must run before page.goto() — addInitScript and route intercepts
     // are registered lazily and apply to the next navigation.

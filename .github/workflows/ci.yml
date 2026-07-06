@@ -32,6 +32,8 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium webkit
       - run: npx playwright test e2e/auth.spec.ts --reporter=list
+        env:
+          VITE_GOOGLE_CLIENT_ID: e2e-fake-client-id.apps.googleusercontent.com
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
