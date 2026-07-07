@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test";
 
-const GEMINI_GLOB = "**/generativelanguage.googleapis.com/**";
+export const GEMINI_GLOB = "**/generativelanguage.googleapis.com/**";
 
 /**
  * A valid ExtractionResult payload that passes ExtractionResultSchema.

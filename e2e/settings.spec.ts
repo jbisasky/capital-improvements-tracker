@@ -1,9 +1,8 @@
 import { test, expect } from "./fixtures/index";
 import { test as pwTest } from "@playwright/test";
-import { seedAuthToken } from "./fixtures/auth-state";
+import { seedAuthToken, seedGeminiKey } from "./fixtures/auth-state";
 import { setupMockDrive, FIXTURE_MANIFEST, EMPTY_MANIFEST } from "./fixtures/mock-drive";
-
-const GEMINI_API_GLOB = "**/generativelanguage.googleapis.com/**";
+import { GEMINI_GLOB } from "./fixtures/mock-gemini";
 
 // ---------------------------------------------------------------------------
 // S1 — Property form pre-fills from manifest
@@ -219,7 +218,7 @@ test.describe("S8 — BYOK key — save and test (valid)", () => {
     await setupMockDrive(page, EMPTY_MANIFEST);
 
     // Intercept Gemini ping — respond with a minimal success body
-    await page.route(GEMINI_API_GLOB, async (route) => {
+    await page.route(GEMINI_GLOB, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -249,7 +248,7 @@ test.describe("S9 — BYOK key — test returns invalid", () => {
     await setupMockDrive(page, EMPTY_MANIFEST);
 
     // Intercept Gemini ping — respond with 400
-    await page.route(GEMINI_API_GLOB, async (route) => {
+    await page.route(GEMINI_GLOB, async (route) => {
       await route.fulfill({
         status: 400,
         contentType: "application/json",
@@ -277,18 +276,10 @@ test.describe("S10 — BYOK key — remove", () => {
     await seedAuthToken(page);
     await setupMockDrive(page, EMPTY_MANIFEST);
 
-    // Pre-seed a Gemini key into localStorage before the page loads.
-    // Keys match gemini-key.ts: STORAGE_KEY="byok_gemini_key", STORAGE_META_KEY="byok_gemini_meta".
-    await page.addInitScript(() => {
-      localStorage.setItem("byok_gemini_key", "AIzaSy_fake_stored_key");
-      localStorage.setItem(
-        "byok_gemini_meta",
-        JSON.stringify({ storedAt: new Date().toISOString(), expiryDays: 30, sessionOnly: false }),
-      );
-    });
+    await seedGeminiKey(page);
 
     // Intercept Gemini in case Test is fired; just return 200
-    await page.route(GEMINI_API_GLOB, async (route) => {
+    await page.route(GEMINI_GLOB, async (route) => {
       await route.fulfill({ status: 200, body: JSON.stringify({}) });
     });
 

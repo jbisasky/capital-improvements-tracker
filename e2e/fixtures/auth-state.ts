@@ -36,6 +36,21 @@ export async function seedExpiredToken(page: Page): Promise<void> {
 }
 
 /**
+ * Seed a valid BYOK Gemini API key into localStorage before the page loads.
+ * Key names must match gemini-key.ts: STORAGE_KEY and STORAGE_META_KEY.
+ * Must be called before page.goto().
+ */
+export async function seedGeminiKey(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    localStorage.setItem("byok_gemini_key", "AIzaSy_e2e_test_key");
+    localStorage.setItem(
+      "byok_gemini_meta",
+      JSON.stringify({ storedAt: new Date().toISOString(), expiryDays: 30, sessionOnly: false }),
+    );
+  });
+}
+
+/**
  * Seed the PKCE state and verifier keys that handleRedirectCallback() reads
  * when processing an OAuth callback URL. Must be called before page.goto().
  */

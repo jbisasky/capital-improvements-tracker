@@ -1,26 +1,15 @@
 import { type Page, test as pwTest } from "@playwright/test";
 import { test, expect } from "./fixtures/index";
-import { seedAuthToken } from "./fixtures/auth-state";
+import { seedAuthToken, seedGeminiKey } from "./fixtures/auth-state";
 import { setupMockDrive, EMPTY_MANIFEST } from "./fixtures/mock-drive";
 import {
   setupMockGemini,
   setupMockGeminiError,
+  buildGeminiSuccessBody,
+  GEMINI_GLOB,
   CANNED_EXTRACTION,
   ZERO_CONFIDENCE_EXTRACTION,
 } from "./fixtures/mock-gemini";
-
-const GEMINI_GLOB = "**/generativelanguage.googleapis.com/**";
-
-/** Pre-seeds a valid Gemini BYOK key into localStorage before page load. */
-async function seedGeminiKey(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    localStorage.setItem("byok_gemini_key", "AIzaSy_e2e_test_key");
-    localStorage.setItem(
-      "byok_gemini_meta",
-      JSON.stringify({ storedAt: new Date().toISOString(), expiryDays: 30, sessionOnly: false }),
-    );
-  });
-}
 
 /** Upload a fake PDF via the hidden file input on /projects/new. */
 async function uploadFakeReceipt(
@@ -313,17 +302,7 @@ test.describe("E10 — Multi-file extraction → synthesized review", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          candidates: [
-            {
-              content: {
-                parts: [{ text: JSON.stringify(CANNED_EXTRACTION) }],
-              },
-              finishReason: "STOP",
-            },
-          ],
-          usageMetadata: { promptTokenCount: 200, candidatesTokenCount: 80, totalTokenCount: 280 },
-        }),
+        body: buildGeminiSuccessBody(CANNED_EXTRACTION),
       });
     });
 
