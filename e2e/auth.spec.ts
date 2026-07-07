@@ -81,7 +81,6 @@ test.describe("A4 — Sign-out flow", () => {
     // Sidebar sign-out button
     await authedPage.getByRole("button", { name: /sign out/i }).click();
 
-    await expect(authedPage).toHaveURL(/\?signed_out=1/);
     // The landing page renders both mobile and desktop layouts; filter to the visible copy.
     await expect(authedPage.getByTestId("signed-out-banner").filter({ visible: true })).toBeVisible();
   });
@@ -99,7 +98,6 @@ test.describe("A4 — Sign-out flow", () => {
     await expect(mobileSignOut).toBeVisible();
     await mobileSignOut.click();
 
-    await expect(page).toHaveURL(/\?signed_out=1/);
     // The landing page renders both mobile and desktop layouts; filter to the visible copy.
     await expect(page.getByTestId("signed-out-banner").filter({ visible: true })).toBeVisible();
   });

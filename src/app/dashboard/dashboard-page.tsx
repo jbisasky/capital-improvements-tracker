@@ -1,6 +1,6 @@
 import { type ReactElement } from "react";
 import { Link } from "react-router";
-import { TrendingUp, Banknote, FolderOpen, AlertCircle, CheckCircle2 } from "lucide-react";
+import { TrendingUp, Banknote, FolderOpen, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 import { useStorage } from "@/services/storage-context";
 import { cn } from "@/lib/utils";
 import { type DocStatus } from "@/domain/doc-completeness";
@@ -107,11 +107,36 @@ function DashboardSkeleton(): ReactElement {
 }
 
 export function DashboardPage(): ReactElement {
-  const { manifest, getDocAssessment } = useStorage();
+  const { manifest, loading, error, reload, getDocAssessment } = useStorage();
   const prefix = useRoutePrefix();
 
-  if (!manifest) {
+  if (!manifest && loading) {
     return <DashboardSkeleton />;
+  }
+
+  if (!manifest) {
+    return (
+      <div
+        role="alert"
+        data-testid="dashboard-error-banner"
+        className="flex flex-col items-center gap-4 rounded-xl border border-destructive/30 bg-destructive/10 p-8 text-center"
+      >
+        <AlertCircle className="size-8 text-destructive" />
+        <div>
+          <p className="font-semibold text-destructive">Couldn't load your data</p>
+          <p className="mt-1 text-sm text-muted-foreground">{error}</p>
+        </div>
+        <button
+          type="button"
+          data-testid="dashboard-retry-button"
+          onClick={() => { void reload(); }}
+          className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <RefreshCw className="size-4" />
+          Try again
+        </button>
+      </div>
+    );
   }
 
   const projects = manifest.projects;
