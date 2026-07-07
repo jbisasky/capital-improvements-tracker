@@ -110,11 +110,20 @@ describe("DemoLayout banner", () => {
     // Arrange + Act
     const { container } = renderLayout();
 
-    // Assert
-    const banner = container.querySelector(".bg-amber-500");
+    // Assert — bg-amber-700 (#b45309) gives ~4.7:1 contrast with white, passing WCAG AA
+    const banner = container.querySelector(".bg-amber-700");
     expect(banner).toBeInTheDocument();
     expect(banner).toHaveClass("min-h-[36px]");
     expect(banner).toHaveClass("fixed");
+  });
+
+  it("banner uses bg-amber-700 not bg-amber-500 for WCAG AA contrast with white text", () => {
+    // Arrange + Act
+    const { container } = renderLayout();
+
+    // Assert — amber-500 (#f59e0b) + white is only ~2.0:1 (fails AA); amber-700 passes
+    expect(container.querySelector(".bg-amber-700")).toBeInTheDocument();
+    expect(container.querySelector(".bg-amber-500")).not.toBeInTheDocument();
   });
 
   it("renders the AppShell and Outlet", () => {

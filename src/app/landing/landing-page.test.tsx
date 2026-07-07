@@ -361,6 +361,27 @@ describe("LandingPage", () => {
     expect(footer).toHaveClass("tracking-wider");
   });
 
+  it("mobile footer uses text-zinc-600 for WCAG AA contrast (not zinc-500)", () => {
+    // Arrange & Act
+    renderLanding();
+
+    // Assert — zinc-600 (#52525b) gives ~6.1:1 contrast on zinc-100 bg, passing AA
+    const footer = within(getMobileFrame()).getByText(/not tax advice/i);
+    expect(footer).toHaveClass("text-zinc-600");
+    expect(footer).not.toHaveClass("text-zinc-500");
+  });
+
+  it("mobile layout contains a <main> landmark element", () => {
+    // Arrange & Act
+    const { container } = renderLanding();
+
+    // Assert — screen readers use <main> to skip to page content
+    const mobileFrame = getMobileFrame();
+    const mainEl = mobileFrame.querySelector("main");
+    expect(mainEl).toBeInTheDocument();
+    expect(container.querySelector("main")).toBeInTheDocument();
+  });
+
   it("includes desktop layered markup in the DOM", () => {
     // Arrange & Act
     const { container } = renderLanding();
