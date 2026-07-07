@@ -41,11 +41,11 @@ test.describe("S2 — Save property happy path", () => {
     await setupMockDrive(page, FIXTURE_MANIFEST);
     await page.goto("/settings");
 
+    // Wait for manifest to pre-fill before editing
+    await expect(page.locator("#city")).toHaveValue("Austin", { timeout: 10_000 });
+
     // Update address to a fresh valid value
     await page.locator("#address").fill("456 Elm Street");
-    await page.locator("#city").fill("Dallas");
-    await page.locator("#state").selectOption("TX");
-    await page.locator("#zip").fill("75201");
 
     await page.getByRole("button", { name: /save property/i }).click();
 
@@ -59,10 +59,9 @@ test.describe("S2 — Save property happy path", () => {
     await setupMockDrive(page, FIXTURE_MANIFEST);
     await page.goto("/settings");
 
+    // Wait for manifest to pre-fill, then change just the address
+    await expect(page.locator("#city")).toHaveValue("Austin", { timeout: 10_000 });
     await page.locator("#address").fill("789 Maple Ave");
-    await page.locator("#city").fill("Houston");
-    await page.locator("#state").selectOption("TX");
-    await page.locator("#zip").fill("77001");
 
     await page.getByRole("button", { name: /save property/i }).click();
 
@@ -170,15 +169,7 @@ test.describe("S6 — Save property — state not selected", () => {
 
 pwTest.describe("S7 — Save property — Drive write error shown", () => {
   pwTest("DRIVE_CONFLICT on write surfaces a Couldn't save error", async ({ page }) => {
-    const expiresAt = Date.now() + 60 * 60 * 1000;
-    await page.addInitScript(
-      ({ token, expiry }: { token: string; expiry: number }) => {
-        sessionStorage.setItem("auth_access_token", token);
-        sessionStorage.setItem("auth_expires_at", String(expiry));
-      },
-      { token: "e2e-fake-token", expiry: expiresAt },
-    );
-
+    await seedAuthToken(page);
     await setupMockDrive(page, FIXTURE_MANIFEST);
 
     // Override the headRevisionId check to return a mismatched revision so CAS fails
@@ -197,10 +188,10 @@ pwTest.describe("S7 — Save property — Drive write error shown", () => {
 
     await page.goto("/settings");
 
+    // Wait for manifest to pre-fill before editing
+    await expect(page.locator("#city")).toHaveValue("Austin", { timeout: 10_000 });
+
     await page.locator("#address").fill("789 Conflict St");
-    await page.locator("#city").fill("Denver");
-    await page.locator("#state").selectOption("CO");
-    await page.locator("#zip").fill("80201");
 
     await page.getByRole("button", { name: /save property/i }).click();
 

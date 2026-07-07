@@ -177,14 +177,7 @@ pwTest.describe("P7 — Drive write conflict shows error", () => {
   pwTest(
     "conflicting headRevisionId on write returns DRIVE_CONFLICT error message",
     async ({ page }) => {
-      const expiresAt = Date.now() + 60 * 60 * 1000;
-      await page.addInitScript(
-        ({ token, expiry }: { token: string; expiry: number }) => {
-          sessionStorage.setItem("auth_access_token", token);
-          sessionStorage.setItem("auth_expires_at", String(expiry));
-        },
-        { token: "e2e-fake-token", expiry: expiresAt },
-      );
+      await seedAuthToken(page);
 
       // Set up Drive routes — but make the headRevisionId check return a
       // *different* revision so the CAS guard triggers DRIVE_CONFLICT.
@@ -229,15 +222,7 @@ pwTest.describe("P8 — Offline — write blocked", () => {
   pwTest(
     "going offline shows the offline banner and blocks saves",
     async ({ page }) => {
-      const expiresAt = Date.now() + 60 * 60 * 1000;
-      await page.addInitScript(
-        ({ token, expiry }: { token: string; expiry: number }) => {
-          sessionStorage.setItem("auth_access_token", token);
-          sessionStorage.setItem("auth_expires_at", String(expiry));
-        },
-        { token: "e2e-fake-token", expiry: expiresAt },
-      );
-
+      await seedAuthToken(page);
       await setupMockDrive(page, EMPTY_MANIFEST);
       await page.goto("/projects/new");
       await page.getByRole("button", { name: /enter details manually/i }).click();

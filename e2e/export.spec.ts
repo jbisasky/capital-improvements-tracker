@@ -129,7 +129,7 @@ test.describe("Export page", () => {
     ).toBeVisible();
   });
 
-  test("screenshot of export page — default state", async ({ page }) => {
+  test("screenshot of export page — default state @screenshot", async ({ page }) => {
     const screenshotDir = "docs/test-reports/pdf-export-screenshots";
     if (!fs.existsSync(screenshotDir)) {
       fs.mkdirSync(screenshotDir, { recursive: true });
@@ -140,7 +140,7 @@ test.describe("Export page", () => {
     });
   });
 
-  test("screenshot of export page — year scope selected", async ({ page }) => {
+  test("screenshot of export page — year scope selected @screenshot", async ({ page }) => {
     await page.getByRole("radio", { name: /by tax year/i }).click();
     const screenshotDir = "docs/test-reports/pdf-export-screenshots";
     if (!fs.existsSync(screenshotDir)) {
