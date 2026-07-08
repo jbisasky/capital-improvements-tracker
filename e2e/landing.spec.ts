@@ -14,8 +14,20 @@ test.describe("Landing page", () => {
     await expect(hero.getByText(/track home improvements/i)).toBeVisible();
   });
 
-  test('"See a demo" button navigates to /demo/dashboard', async ({ page }) => {
-    // Use mobile viewport: at desktop the mobile block is CSS-hidden, desktop block is aria-hidden
+  test('desktop: "See a demo" button navigates to /demo/dashboard', async ({ page }) => {
+    // Desktop: mobile tree is aria-hidden; desktop CTAs are accessible via getByRole
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+
+    const demoLink = page.getByRole("link", { name: /see a demo/i });
+    await expect(demoLink).toBeVisible();
+    await demoLink.click();
+
+    await expect(page).toHaveURL(/\/demo/);
+  });
+
+  test('mobile: "See a demo" button navigates to /demo/dashboard', async ({ page }) => {
+    // Mobile: desktop tree is aria-hidden; scope to the visible mobile card
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
 
@@ -26,9 +38,20 @@ test.describe("Landing page", () => {
     await expect(page).toHaveURL(/\/demo/);
   });
 
-  test("Sign-in button is visible and clickable", async ({ page }) => {
-    // Use mobile viewport so the sign-in button is accessible
-    // (at desktop the mobile block is CSS-hidden; the desktop block is aria-hidden)
+  test("desktop: Sign-in button is visible and clickable", async ({ page }) => {
+    // Desktop: mobile tree is aria-hidden; desktop CTAs are accessible via getByRole
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+
+    const signInBtn = page.getByRole("button", {
+      name: /sign in with google/i,
+    });
+    await expect(signInBtn).toBeVisible();
+    await expect(signInBtn).toBeEnabled();
+  });
+
+  test("mobile: Sign-in button is visible and clickable", async ({ page }) => {
+    // Mobile: desktop tree is aria-hidden; scope to the visible mobile card
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
 
@@ -72,9 +95,13 @@ test.describe("Landing page accessibility (axe)", () => {
   test("desktop: no axe violations on /", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
-    // At desktop viewport the mobile block is CSS-hidden and the desktop block is aria-hidden,
-    // so wait for the dashboard preview watermark to confirm the page is loaded.
     await expect(page.getByTestId("landing-dashboard-preview")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: /capital improvements/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /sign in with google/i }),
+    ).toBeVisible();
 
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);

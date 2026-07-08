@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  // Production smoke uses playwright.production.config.ts (push to main only)
+  testIgnore: /production-smoke\.spec\.ts/,
   timeout: 30_000,
   retries: 0,
   use: {

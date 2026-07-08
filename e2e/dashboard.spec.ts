@@ -131,7 +131,10 @@ test.describe("D4 — Empty state (no projects)", () => {
 
 test.describe("A11y — dashboard (axe)", () => {
   test("dashboard with fixture data has no axe violations", async ({ authedPage }) => {
-    // Arrange — authedPage fixture already navigated to /dashboard
+    // Arrange — wait for the lazy-loaded dashboard page content
+    await expect(
+      authedPage.getByRole("heading", { level: 1, name: /dashboard/i }),
+    ).toBeVisible();
     await expect(authedPage.getByRole("link", { name: /cost basis added/i }).first()).toBeVisible();
 
     // Act

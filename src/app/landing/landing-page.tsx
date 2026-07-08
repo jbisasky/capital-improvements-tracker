@@ -12,6 +12,9 @@ import { Button } from "@/components/ui/button";
 import { GoogleIcon } from "@/components/ui/google-icon";
 import { HomeChartLogo } from "@/components/brand/home-chart-logo";
 import { LandingDashboardPreview } from "@/app/landing/landing-dashboard-preview";
+import { useMediaQuery } from "@/hooks/use-media-query";
+
+const MD_UP_QUERY = "(min-width: 768px)";
 
 const FEATURE_ITEMS = [
   {
@@ -201,6 +204,7 @@ function LandingActions({
 export function LandingPage(): ReactElement {
   const { isAuthenticated, signIn, status, error } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const isDesktop = useMediaQuery(MD_UP_QUERY);
 
   // Capture the flag once on mount so the banner stays visible
   // even after setSearchParams strips the param from the URL on the next render.
@@ -230,6 +234,7 @@ export function LandingPage(): ReactElement {
       <div
         className="flex min-h-screen flex-col bg-[#f4f6f7] md:hidden"
         data-testid="landing-mobile-frame"
+        {...(isDesktop ? { "aria-hidden": true } : {})}
       >
         {/* Dark hero block: nav + headline + subhead */}
         <MobileHeroBlock />
@@ -257,8 +262,11 @@ export function LandingPage(): ReactElement {
         <MobileDisclaimerFooter />
       </div>
 
-      {/* Desktop — full-width layered layout (aria-hidden: landmarks duplicated from mobile above) */}
-      <div className="hidden min-h-screen flex-col bg-zinc-50/50 md:flex" aria-hidden="true">
+      {/* Desktop — full-width layered layout */}
+      <div
+        className="hidden min-h-screen flex-col bg-zinc-50/50 md:flex"
+        {...(!isDesktop ? { "aria-hidden": true } : {})}
+      >
         <header className="relative z-20 flex items-center gap-2 border-b border-zinc-100 bg-zinc-50/50 px-6 py-3">
           <HomeChartLogo decorative className="size-6 text-primary" />
           <span className="text-lg font-semibold tracking-tight text-zinc-900">
@@ -266,7 +274,7 @@ export function LandingPage(): ReactElement {
           </span>
         </header>
 
-        <main className="relative flex-1 overflow-hidden">
+        <main aria-label="Sign in" className="relative flex-1 overflow-hidden">
           {/* Layer 0 (z-0): dashboard watermark — full-bleed, ghost opacity */}
           <div className="absolute inset-0 z-0 flex items-center">
             <div className="h-full min-w-[1200px] opacity-20">

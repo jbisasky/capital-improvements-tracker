@@ -242,7 +242,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
           </div>
         </header>
         <main
-          className="flex-1 overflow-y-auto p-6 pb-20 md:pb-6"
+          className="flex flex-1 flex-col overflow-y-auto p-6 pb-20 md:pb-6"
           style={{ background: "var(--canvas-gradient)" }}
         >
           {children}

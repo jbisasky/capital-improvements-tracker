@@ -1,6 +1,7 @@
-import { type ReactElement, useMemo, useState } from "react";
+import { type ReactElement, useMemo, useState, Suspense } from "react";
 import { Outlet, Navigate } from "react-router";
 import { AppShell } from "@/components/layout/app-shell";
+import { PageContentLoader } from "@/components/layout/page-content-loader";
 import { StorageProvider } from "@/services/storage-context";
 import { DriveStorageDriver } from "@/services/drive-storage-driver";
 import { useAuth } from "@/services/auth-context";
@@ -34,7 +35,9 @@ export function AppLayout(): ReactElement {
   return (
     <StorageProvider driver={driver}>
       <AppShell>
-        <Outlet />
+        <Suspense fallback={<PageContentLoader />}>
+          <Outlet />
+        </Suspense>
       </AppShell>
     </StorageProvider>
   );

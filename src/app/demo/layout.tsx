@@ -1,6 +1,7 @@
-import { type ReactElement } from "react";
+import { type ReactElement, Suspense } from "react";
 import { Link, Outlet } from "react-router";
 import { AppShell } from "@/components/layout/app-shell";
+import { PageContentLoader } from "@/components/layout/page-content-loader";
 import { StorageProvider } from "@/services/storage-context";
 import { MockStorageDriver } from "@/services/mock-storage-driver";
 
@@ -26,7 +27,9 @@ export function DemoLayout(): ReactElement {
       </div>
       <div className="h-screen pt-[36px]">
         <AppShell>
-          <Outlet />
+          <Suspense fallback={<PageContentLoader />}>
+            <Outlet />
+          </Suspense>
         </AppShell>
       </div>
     </StorageProvider>

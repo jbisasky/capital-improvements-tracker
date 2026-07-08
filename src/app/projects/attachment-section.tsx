@@ -213,9 +213,9 @@ export function AttachmentSection({
 
   return (
     <div className="space-y-3 rounded-lg border p-4">
-      <h3 className="text-sm font-medium">
+      <h2 className="text-sm font-medium">
         Attachments ({totalCount})
-      </h3>
+      </h2>
 
       <div
         onDragOver={(e) => {

@@ -28,6 +28,7 @@ describe("AttachmentSection", () => {
       />,
     );
 
+    expect(screen.getByRole("heading", { level: 2, name: /attachments \(10\)/i })).toBeVisible();
     expect(screen.getByRole("button", { name: /Upload file/i })).toBeDisabled();
   });
 
