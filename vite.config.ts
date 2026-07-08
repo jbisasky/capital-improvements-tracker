@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { visualizer } from "rollup-plugin-visualizer";
 import { injectPlausibleScript } from "./src/hosting/inject-plausible";
 import { injectSiteMeta } from "./src/hosting/inject-site-meta";
 import { DEFAULT_SITE_URL } from "./src/hosting/site-meta";
@@ -19,7 +20,14 @@ function htmlTransformPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), htmlTransformPlugin()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    htmlTransformPlugin(),
+    ...(process.env.ANALYZE
+      ? [visualizer({ open: true, gzipSize: true, filename: "dist/stats.html" }) as Plugin]
+      : []),
+  ],
   resolve: {
     alias: {
       "@": "/src",

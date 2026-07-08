@@ -151,6 +151,50 @@ Screen reader users rely on this to skip to page content via the landmark naviga
 
 ---
 
+### 11. `/projects` — Status filter `<select>` has no accessible label
+
+**Finding:** axe-core reports the status filter select element has no associated label, making it inaccessible to screen readers.
+
+- Element: `<select class="rounded-md border bg-background px-3 py-2 text-sm …">` (options: All statuses / Complete / Partial / Incomplete)
+- WCAG criterion: 1.3.1 Info and Relationships / 4.1.2 Name, Role, Value
+
+**Fix:** Add an `aria-label` or associate a visible `<label>` element:
+
+```tsx
+<label htmlFor="status-filter" className="sr-only">Filter by status</label>
+<select id="status-filter" …>
+```
+
+or inline:
+
+```tsx
+<select aria-label="Filter by status" …>
+```
+
+---
+
+### 12. `/projects/{id}` — Heading elements not in sequentially-descending order
+
+**Finding:** axe-core reports a heading order violation on the project detail page. An `<h3>` appears without a preceding `<h2>` in the same section.
+
+- Element: `<h3 class="mb-2 text-sm font-medium">IRS Justification</h3>`
+- WCAG criterion: 1.3.1 Info and Relationships (advisory)
+
+**Fix:** Either promote to `<h2>` if it is a top-level section heading, or ensure an `<h2>` precedes all `<h3>` elements in the page structure. Audit all heading levels in `src/app/projects/` detail view.
+
+---
+
+### 13. `/projects/new` — Heading elements not in sequentially-descending order
+
+**Finding:** axe-core reports a heading order violation on the new-project form page.
+
+- Element: `<h3 class="text-sm font-medium">Attachments</h3>`
+- WCAG criterion: 1.3.1 Info and Relationships (advisory)
+
+**Fix:** Same as finding #12 — audit heading levels in the new-project form (`src/app/projects/new` or equivalent) and ensure `<h3>` elements are preceded by an `<h2>` in the document outline.
+
+---
+
 ## Best Practices
 
 ### 7. CSP blocking the theme inline script (Console errors)
@@ -229,16 +273,19 @@ See finding #7 above.
 
 | Step | # | Finding | Category | Effort | Impact | Status |
 |------|---|---------|----------|--------|--------|--------|
-| 1 | 1 | Dynamic-import OTel | Performance | Medium | High — ~100 kB bundle reduction, ~2 s LCP | ⏳ Pending |
+| 1 | 1 | Dynamic-import OTel | Performance | Medium | High — ~100 kB bundle reduction, ~2 s LCP | ✅ Done |
 | 2 | 2 | CSP hash for inline script | Best Practices | Low | Eliminates console errors + Issues panel warnings | ⏳ Pending |
-| 3 | 6 | Add `<main>` landmark | Accessibility | Low | Fixes axe violation, improves screen reader UX | ⏳ Pending |
-| 4 | 5 | Footer contrast ratio | Accessibility | Low | Fixes WCAG 2 AA violation | ⏳ Pending |
+| 3 | 6 | Add `<main>` landmark | Accessibility | Low | Fixes axe violation, improves screen reader UX | ✅ Done |
+| 4 | 5 | Footer contrast ratio | Accessibility | Low | Fixes WCAG 2 AA violation | ✅ Done |
 | 5 | 3 | Disable unused OTel instrumentations | Performance | Low | 10–30 kB secondary reduction | ⏳ Pending |
 | 6 | 4 | Verify PDF code-split | Performance | Low | Confirm / no-op | ⏳ Pending |
 | 7 | 5a | Pre-render landing page | Performance | Low | ~500ms–1s FCP improvement (optional, fun experiment) | ⏳ Pending |
-| 8 | 2 | Bundle visualizer | Performance | Low | Prerequisite for further analysis | ⏳ Pending |
+| 8 | 2 | Bundle visualizer | Performance | Low | Prerequisite for further analysis | ✅ Done |
 | 9 | 9 | Source maps | Best Practices | Low | DX only, no user impact | ⏳ Pending |
 | 10 | 10 | Structured data | SEO | Low | Optional rich results | ⏳ Pending |
+| 11 | 11 | `/projects` select missing label | Accessibility | Low | Fixes axe Name/Role/Value violation | ⏳ Pending |
+| 12 | 12 | `/projects/{id}` heading order | Accessibility | Low | Fixes axe heading-order violation | ⏳ Pending |
+| 13 | 13 | `/projects/new` heading order | Accessibility | Low | Fixes axe heading-order violation | ⏳ Pending |
 
 ---
 

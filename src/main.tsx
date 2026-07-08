@@ -16,4 +16,4 @@ createRoot(rootElement).render(
 );
 
 // Initialize OTel after the app shell renders (OTEL-15)
-initTelemetry();
+void initTelemetry();

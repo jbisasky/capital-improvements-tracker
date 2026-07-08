@@ -66,7 +66,7 @@ function MobileHeroBlock(): ReactElement {
 
 function MobileDisclaimerFooter(): ReactElement {
   return (
-    <footer className="mt-auto border-t border-zinc-200/50 bg-zinc-100/80 px-6 py-4 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+    <footer className="mt-auto border-t border-zinc-200/50 bg-zinc-100/80 px-6 py-4 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-600">
       ⚠ Not tax advice — for recordkeeping only.
     </footer>
   );
@@ -234,7 +234,7 @@ export function LandingPage(): ReactElement {
         <MobileHeroBlock />
 
         {/* Light body: floating interaction card + breathing room */}
-        <div className="flex flex-1 flex-col">
+        <main className="flex flex-1 flex-col">
           {/* Floating white card overlapping the hero section */}
           <section
             className="relative z-10 mx-5 -mt-6 rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] sm:mx-8"
@@ -251,7 +251,7 @@ export function LandingPage(): ReactElement {
           </section>
           {/* Spacer so footer pins to frame bottom */}
           <div className="flex-1" />
-        </div>
+        </main>
 
         <MobileDisclaimerFooter />
       </div>
@@ -302,7 +302,7 @@ export function LandingPage(): ReactElement {
           </div>
         </main>
 
-        <footer className="relative z-20 border-t border-zinc-100 py-4 text-center text-sm text-zinc-500">
+        <footer className="relative z-20 border-t border-zinc-100 py-4 text-center text-sm text-zinc-600">
           ⚠ Not tax advice — for recordkeeping only.
         </footer>
       </div>
