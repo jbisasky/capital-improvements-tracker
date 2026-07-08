@@ -38,6 +38,7 @@ const FEATURE_ITEMS = [
 function MobileHeroBlock(): ReactElement {
   return (
     <section
+      aria-label="Hero"
       className="overflow-hidden rounded-b-[2rem] bg-[#11262c] px-6 pb-12 pt-8 text-white shadow-md sm:px-8"
       data-testid="landing-mobile-hero"
     >
@@ -234,7 +235,7 @@ export function LandingPage(): ReactElement {
         <MobileHeroBlock />
 
         {/* Light body: floating interaction card + breathing room */}
-        <main className="flex flex-1 flex-col">
+        <main aria-label="Sign in" className="flex flex-1 flex-col">
           {/* Floating white card overlapping the hero section */}
           <section
             className="relative z-10 mx-5 -mt-6 rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] sm:mx-8"
@@ -256,8 +257,8 @@ export function LandingPage(): ReactElement {
         <MobileDisclaimerFooter />
       </div>
 
-      {/* Desktop — full-width layered layout */}
-      <div className="hidden min-h-screen flex-col bg-zinc-50/50 md:flex">
+      {/* Desktop — full-width layered layout (aria-hidden: landmarks duplicated from mobile above) */}
+      <div className="hidden min-h-screen flex-col bg-zinc-50/50 md:flex" aria-hidden="true">
         <header className="relative z-20 flex items-center gap-2 border-b border-zinc-100 bg-zinc-50/50 px-6 py-3">
           <HomeChartLogo decorative className="size-6 text-primary" />
           <span className="text-lg font-semibold tracking-tight text-zinc-900">

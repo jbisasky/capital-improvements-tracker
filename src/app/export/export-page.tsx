@@ -208,6 +208,7 @@ export function ExportPage(): ReactElement {
               <span className="text-sm">By tax year</span>
               {scope === "year" && availableYears.length > 0 && (
                 <select
+                  aria-label="Tax year"
                   value={effectiveYear}
                   onChange={(e) => { setSelectedYear(e.target.value); }}
                   className="ml-auto rounded-md border bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring"

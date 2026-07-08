@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import { axe } from "vitest-axe";
 import { LandingPage } from "./landing-page";
 
 // ---------- mocks ----------
@@ -423,5 +424,49 @@ describe("LandingPage", () => {
 
     // Assert
     expect(screen.queryByTestId("signed-out-banner")).not.toBeInTheDocument();
+  });
+});
+
+// ---------- accessibility ----------
+
+describe("LandingPage accessibility", () => {
+  beforeEach(() => {
+    mockStatus = "idle";
+    mockIsAuthenticated = false;
+    mockError = null;
+  });
+
+  it("has no axe violations in the default unauthenticated state", async () => {
+    // Arrange
+    const { container } = renderLanding();
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+
+  it("has no axe violations while authenticating (loading state)", async () => {
+    // Arrange
+    mockStatus = "authenticating";
+    const { container } = renderLanding();
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+
+  it("has no axe violations when showing the signed-out banner", async () => {
+    // Arrange
+    const { container } = renderLanding("/?signed_out=1");
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
   });
 });

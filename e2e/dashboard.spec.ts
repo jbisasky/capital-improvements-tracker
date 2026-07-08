@@ -2,6 +2,7 @@ import { test, expect } from "./fixtures/index";
 import { test as pwTest } from "@playwright/test";
 import { seedAuthToken } from "./fixtures/auth-state";
 import { setupMockDrive, FIXTURE_MANIFEST, EMPTY_MANIFEST } from "./fixtures/mock-drive";
+import AxeBuilder from "@axe-core/playwright";
 
 // ---------------------------------------------------------------------------
 // D1 — Dashboard loads fixture projects (summary card shows cost-basis total)
@@ -121,5 +122,22 @@ test.describe("D4 — Empty state (no projects)", () => {
     const projectsCard = page
       .locator("a", { has: page.getByText("Projects", { exact: true }) });
     await expect(projectsCard.getByText("0")).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A11y — dashboard
+// ---------------------------------------------------------------------------
+
+test.describe("A11y — dashboard (axe)", () => {
+  test("dashboard with fixture data has no axe violations", async ({ authedPage }) => {
+    // Arrange — authedPage fixture already navigated to /dashboard
+    await expect(authedPage.getByRole("link", { name: /cost basis added/i }).first()).toBeVisible();
+
+    // Act
+    const results = await new AxeBuilder({ page: authedPage }).analyze();
+
+    // Assert
+    expect(results.violations).toEqual([]);
   });
 });

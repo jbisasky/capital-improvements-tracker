@@ -273,6 +273,8 @@ export function AttachmentSection({
           accept={ACCEPTED_ATTACHMENT_ACCEPT}
           onChange={handleInputChange}
           className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
         />
         <input
           ref={cameraInputRef}
@@ -281,6 +283,8 @@ export function AttachmentSection({
           capture="environment"
           onChange={handleInputChange}
           className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
         />
       </div>
 

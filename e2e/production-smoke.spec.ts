@@ -1,4 +1,8 @@
 import { test, expect } from "@playwright/test";
+import {
+  gotoDemoDashboard,
+  gotoDemoProjects,
+} from "./fixtures/demo-ready";
 
 const PRODUCTION_URL = "https://capital-improvements-tracker.pages.dev";
 
@@ -18,17 +22,13 @@ test.describe("Production smoke", () => {
   });
 
   test("demo dashboard loads fixture data", async ({ page }) => {
-    await page.goto("/demo/dashboard");
+    await gotoDemoDashboard(page);
 
     await expect(page.getByText(/viewing read-only demo data/i)).toBeVisible();
-    await expect(page.getByText(/\$47,500|\$82,250|8 projects/i).first()).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(page.getByText(/\$47,500|\$82,250|8 projects/i).first()).toBeVisible();
   });
 
   test("demo deep link /demo/projects loads", async ({ page }) => {
-    await page.goto("/demo/projects");
-
-    await expect(page.getByRole("heading", { name: /projects/i })).toBeVisible();
+    await gotoDemoProjects(page);
   });
 });

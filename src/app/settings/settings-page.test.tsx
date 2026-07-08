@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { SettingsPage } from "./settings-page";
 import { type Manifest } from "@/domain/schemas";
 import { ok, err } from "@/domain/result";
@@ -269,6 +270,19 @@ describe("SettingsPage — Appearance", () => {
 
     // Assert
     expect(mockSetThemePreference).toHaveBeenCalledWith("dark");
+  });
+});
+
+describe("SettingsPage accessibility", () => {
+  it("has no axe violations in the default state (with property pre-filled)", async () => {
+    // Arrange
+    const { container } = render(<SettingsPage />);
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
   });
 });
 

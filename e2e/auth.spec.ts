@@ -2,6 +2,7 @@ import { test, expect } from "./fixtures/index";
 import { test as pwTest } from "@playwright/test";
 import { seedAuthToken, seedExpiredToken, seedPkceState } from "./fixtures/auth-state";
 import { setupMockDrive } from "./fixtures/mock-drive";
+import AxeBuilder from "@axe-core/playwright";
 
 // ---------------------------------------------------------------------------
 // A1 — Sign-in redirects to Google
@@ -18,11 +19,14 @@ pwTest.describe("A1 — Sign-in redirects to Google", () => {
         await route.abort();
       });
 
+      // Use mobile viewport so the sign-in button is visible
+      // (at desktop the mobile block is CSS-hidden; the desktop block is aria-hidden)
+      await page.setViewportSize({ width: 390, height: 844 });
       await page.goto("/");
 
       // Act — click sign-in, then wait for the async PKCE challenge computation
       // and subsequent window.location.href assignment (up to 5 s)
-      await page.getByRole("button", { name: /sign in with google/i }).first().click();
+      await page.getByTestId("landing-mobile-card").getByRole("button", { name: /sign in with google/i }).click();
       await page.waitForTimeout(3000);
 
       // Assert
@@ -40,11 +44,12 @@ pwTest.describe("A1 — Sign-in redirects to Google", () => {
 pwTest.describe("A2 — Auth guard redirects unauthenticated users", () => {
   pwTest("navigating to /dashboard without a token redirects to /", async ({ page }) => {
     // No token seeded — sessionStorage is empty
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/dashboard");
 
     await expect(page).toHaveURL("/");
     await expect(
-      page.getByRole("button", { name: /sign in with google/i }).first(),
+      page.getByTestId("landing-mobile-card").getByRole("button", { name: /sign in with google/i }),
     ).toBeVisible();
   });
 
@@ -111,11 +116,12 @@ pwTest.describe("A5 — Expired token results in redirect", () => {
   pwTest("expired token in sessionStorage redirects to /", async ({ page }) => {
     await seedExpiredToken(page);
     await setupMockDrive(page);
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/dashboard");
 
     await expect(page).toHaveURL("/");
     await expect(
-      page.getByRole("button", { name: /sign in with google/i }).first(),
+      page.getByTestId("landing-mobile-card").getByRole("button", { name: /sign in with google/i }),
     ).toBeVisible();
   });
 });
@@ -159,6 +165,41 @@ pwTest.describe("A6 — OAuth callback success", () => {
       await expect(page.getByRole("link", { name: /dashboard/i }).first()).toBeVisible();
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// A11y — auth flows
+// ---------------------------------------------------------------------------
+
+pwTest.describe("A11y — auth pages (axe)", () => {
+  pwTest("landing page has no axe violations (unauthenticated)", async ({ page }) => {
+    // Arrange — use mobile viewport so the mobile sign-in button is visible
+    // (at desktop the mobile block is CSS-hidden and the desktop block is aria-hidden)
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await expect(
+      page.getByTestId("landing-mobile-card").getByRole("button", { name: /sign in with google/i }),
+    ).toBeVisible();
+
+    // Act
+    const results = await new AxeBuilder({ page }).analyze();
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+});
+
+test.describe("A11y — authenticated dashboard (axe)", () => {
+  test("dashboard has no axe violations after sign-in", async ({ authedPage }) => {
+    // Arrange — authedPage fixture already navigated to /dashboard
+    await expect(authedPage.getByRole("link", { name: /dashboard/i }).first()).toBeVisible();
+
+    // Act
+    const results = await new AxeBuilder({ page: authedPage }).analyze();
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
