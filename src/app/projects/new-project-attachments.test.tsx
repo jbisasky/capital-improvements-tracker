@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import { axe } from "vitest-axe";
 import { NewProjectAttachments } from "./new-project-attachments";
 
 function makeFile(name: string): File {
@@ -111,6 +112,43 @@ describe("NewProjectAttachments — extraction checkboxes", () => {
 
     // Assert
     expect(onToggleExclude).toHaveBeenCalledWith(1);
+  });
+
+  it("has no axe violations (no files, showExtract false)", async () => {
+    // Arrange
+    const { container } = render(
+      <MemoryRouter>
+        <NewProjectAttachments {...baseProps} files={[]} showExtract={false} />
+      </MemoryRouter>,
+    );
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+
+  it("has no axe violations with files and extract checkboxes visible", async () => {
+    // Arrange
+    const files = [makeFile("invoice.pdf"), makeFile("statement.pdf")];
+    const { container } = render(
+      <MemoryRouter>
+        <NewProjectAttachments
+          {...baseProps}
+          files={files}
+          showExtract
+          excludedIndices={new Set()}
+          onToggleExclude={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
   });
 
   it("shows the privacy note near the extract button when key is configured", () => {

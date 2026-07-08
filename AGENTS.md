@@ -49,6 +49,7 @@ When you complete a task or a step, **you MUST update the "Completed Tasks" and 
 
 ### Polish
 - [x] **Dark/Light/System theme:** Added `src/services/theme.ts` + `theme-context.tsx` (`ThemeProvider`/`useTheme`), persisted to `localStorage` (`theme_preference`) — a device-local preference, kept out of `manifest.json` to match the BYOK key/AI budget pattern. Settings page "Appearance" section (Light/Dark/System radiogroup) + sidebar/mobile-top-bar quick-cycle icon toggle. Inline `index.html` script prevents theme flash on load. 218/218 tests pass. See `docs/test-reports/dark-light-mode.md`.
+- [x] **Harden a11y follow-ups:** Lazy-route axe h1 waits (projects/settings), AttachmentSection h3→h2, desktop+mobile auth/landing E2E, AppShell flex main for centered page loader, PR CI full Playwright suite (smoke still main-only), `.cursor/` gitignored. 50/50 targeted chromium E2E + check pass. See `docs/test-reports/harden-a11y-follow-ups.md`.
 
 ### Hosting (Cloudflare Pages)
 - [x] `public/_headers` — CSP, HSTS, security headers (EARS HOST-02, SEC-03).

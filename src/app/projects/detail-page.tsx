@@ -116,14 +116,14 @@ export function ProjectDetailPage(): ReactElement {
           {/* IRS Justification */}
           {project.irsJustification && (
             <div className="rounded-lg border p-4">
-              <h3 className="mb-2 text-sm font-medium">IRS Justification</h3>
+              <h2 className="mb-2 text-sm font-medium">IRS Justification</h2>
               <p className="text-sm text-muted-foreground">{project.irsJustification}</p>
             </div>
           )}
 
           {/* Details grid */}
           <div className="rounded-lg border p-4">
-            <h3 className="mb-3 text-sm font-medium">Details</h3>
+            <h2 className="mb-3 text-sm font-medium">Details</h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               {project.category && (
                 <div>
@@ -191,7 +191,7 @@ export function ProjectDetailPage(): ReactElement {
           {/* Notes */}
           {project.notes && (
             <div className="rounded-lg border p-4">
-              <h3 className="mb-2 text-sm font-medium">Notes</h3>
+              <h2 className="mb-2 text-sm font-medium">Notes</h2>
               <p className="text-sm text-muted-foreground">{project.notes}</p>
             </div>
           )}
@@ -207,14 +207,14 @@ export function ProjectDetailPage(): ReactElement {
         {/* Sidebar — Documentation Health */}
         <div className="space-y-4">
           <div className="rounded-lg border p-4">
-            <h3 className="mb-3 text-sm font-medium">Documentation Health</h3>
+            <h2 className="mb-3 text-sm font-medium">Documentation Health</h2>
             <div className="mb-3 flex items-center gap-3">
               <div
                 className={cn(
-                  "flex size-12 items-center justify-center rounded-full text-sm font-bold text-white",
-                  assessment.status === "complete" && "bg-green-500",
-                  assessment.status === "partial" && "bg-yellow-500",
-                  assessment.status === "incomplete" && "bg-red-500",
+                  "flex size-12 items-center justify-center rounded-full text-sm font-bold",
+                  assessment.status === "complete" && "bg-green-100 text-green-900",
+                  assessment.status === "partial" && "bg-yellow-100 text-yellow-900",
+                  assessment.status === "incomplete" && "bg-red-100 text-red-900",
                 )}
               >
                 {assessment.score}%
@@ -252,7 +252,7 @@ export function ProjectDetailPage(): ReactElement {
 
           {/* Confidence */}
           <div className="rounded-lg border p-4">
-            <h3 className="mb-2 text-sm font-medium">AI Confidence</h3>
+            <h2 className="mb-2 text-sm font-medium">AI Confidence</h2>
             <p className="text-2xl font-bold">{Math.round(project.confidence * 100)}%</p>
           </div>
         </div>

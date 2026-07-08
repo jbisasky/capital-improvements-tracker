@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import { axe } from "vitest-axe";
 import { LandingPage } from "./landing-page";
 
 // ---------- mocks ----------
@@ -27,6 +28,19 @@ vi.mock("@/services/auth-context", () => ({
 vi.mock("@/services/analytics", () => ({
   trackDemoCTAClicked: vi.fn(),
 }));
+
+function stubMdUpMatchMedia(matches: boolean): void {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => ({
+      matches: query === "(min-width: 768px)" ? matches : false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  );
+}
 
 // ---------- helpers ----------
 
@@ -58,6 +72,11 @@ describe("LandingPage", () => {
     mockIsAuthenticated = false;
     mockError = null;
     mockSignIn.mockClear();
+    stubMdUpMatchMedia(false);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("renders hero heading and subheading inside the dark hero block", () => {
@@ -423,5 +442,76 @@ describe("LandingPage", () => {
 
     // Assert
     expect(screen.queryByTestId("signed-out-banner")).not.toBeInTheDocument();
+  });
+});
+
+// ---------- accessibility ----------
+
+describe("LandingPage accessibility", () => {
+  beforeEach(() => {
+    mockStatus = "idle";
+    mockIsAuthenticated = false;
+    mockError = null;
+    stubMdUpMatchMedia(false);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("has no axe violations in the default unauthenticated state", async () => {
+    // Arrange
+    const { container } = renderLanding();
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+
+  it("has no axe violations while authenticating (loading state)", async () => {
+    // Arrange
+    mockStatus = "authenticating";
+    const { container } = renderLanding();
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+
+  it("has no axe violations when showing the signed-out banner", async () => {
+    // Arrange
+    const { container } = renderLanding("/?signed_out=1");
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+
+  it("hides the desktop block from assistive technology on mobile viewports", () => {
+    // Arrange
+    stubMdUpMatchMedia(false);
+    const { container } = renderLanding();
+
+    // Assert
+    const desktopBlock = container.querySelector(".md\\:flex");
+    expect(desktopBlock).toHaveAttribute("aria-hidden", "true");
+    expect(getMobileFrame()).not.toHaveAttribute("aria-hidden");
+  });
+
+  it("hides the mobile block from assistive technology on desktop viewports", () => {
+    // Arrange
+    stubMdUpMatchMedia(true);
+    const { container } = renderLanding();
+
+    // Assert
+    expect(getMobileFrame()).toHaveAttribute("aria-hidden", "true");
+    const desktopBlock = container.querySelector(".md\\:flex");
+    expect(desktopBlock).not.toHaveAttribute("aria-hidden");
   });
 });

@@ -12,6 +12,9 @@ import { Button } from "@/components/ui/button";
 import { GoogleIcon } from "@/components/ui/google-icon";
 import { HomeChartLogo } from "@/components/brand/home-chart-logo";
 import { LandingDashboardPreview } from "@/app/landing/landing-dashboard-preview";
+import { useMediaQuery } from "@/hooks/use-media-query";
+
+const MD_UP_QUERY = "(min-width: 768px)";
 
 const FEATURE_ITEMS = [
   {
@@ -38,6 +41,7 @@ const FEATURE_ITEMS = [
 function MobileHeroBlock(): ReactElement {
   return (
     <section
+      aria-label="Hero"
       className="overflow-hidden rounded-b-[2rem] bg-[#11262c] px-6 pb-12 pt-8 text-white shadow-md sm:px-8"
       data-testid="landing-mobile-hero"
     >
@@ -200,6 +204,7 @@ function LandingActions({
 export function LandingPage(): ReactElement {
   const { isAuthenticated, signIn, status, error } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const isDesktop = useMediaQuery(MD_UP_QUERY);
 
   // Capture the flag once on mount so the banner stays visible
   // even after setSearchParams strips the param from the URL on the next render.
@@ -229,12 +234,13 @@ export function LandingPage(): ReactElement {
       <div
         className="flex min-h-screen flex-col bg-[#f4f6f7] md:hidden"
         data-testid="landing-mobile-frame"
+        {...(isDesktop ? { "aria-hidden": true } : {})}
       >
         {/* Dark hero block: nav + headline + subhead */}
         <MobileHeroBlock />
 
         {/* Light body: floating interaction card + breathing room */}
-        <main className="flex flex-1 flex-col">
+        <main aria-label="Sign in" className="flex flex-1 flex-col">
           {/* Floating white card overlapping the hero section */}
           <section
             className="relative z-10 mx-5 -mt-6 rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] sm:mx-8"
@@ -257,7 +263,10 @@ export function LandingPage(): ReactElement {
       </div>
 
       {/* Desktop — full-width layered layout */}
-      <div className="hidden min-h-screen flex-col bg-zinc-50/50 md:flex">
+      <div
+        className="hidden min-h-screen flex-col bg-zinc-50/50 md:flex"
+        {...(!isDesktop ? { "aria-hidden": true } : {})}
+      >
         <header className="relative z-20 flex items-center gap-2 border-b border-zinc-100 bg-zinc-50/50 px-6 py-3">
           <HomeChartLogo decorative className="size-6 text-primary" />
           <span className="text-lg font-semibold tracking-tight text-zinc-900">
@@ -265,7 +274,7 @@ export function LandingPage(): ReactElement {
           </span>
         </header>
 
-        <main className="relative flex-1 overflow-hidden">
+        <main aria-label="Sign in" className="relative flex-1 overflow-hidden">
           {/* Layer 0 (z-0): dashboard watermark — full-bleed, ghost opacity */}
           <div className="absolute inset-0 z-0 flex items-center">
             <div className="h-full min-w-[1200px] opacity-20">

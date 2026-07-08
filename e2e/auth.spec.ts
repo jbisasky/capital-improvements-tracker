@@ -2,6 +2,7 @@ import { test, expect } from "./fixtures/index";
 import { test as pwTest } from "@playwright/test";
 import { seedAuthToken, seedExpiredToken, seedPkceState } from "./fixtures/auth-state";
 import { setupMockDrive } from "./fixtures/mock-drive";
+import AxeBuilder from "@axe-core/playwright";
 
 // ---------------------------------------------------------------------------
 // A1 — Sign-in redirects to Google
@@ -9,7 +10,7 @@ import { setupMockDrive } from "./fixtures/mock-drive";
 
 pwTest.describe("A1 — Sign-in redirects to Google", () => {
   pwTest(
-    "clicking Sign in triggers navigation to accounts.google.com",
+    "desktop: clicking Sign in triggers navigation to accounts.google.com",
     async ({ page }) => {
       // Arrange — block the Google navigation so the browser doesn't actually leave
       let capturedUrl = "";
@@ -18,14 +19,43 @@ pwTest.describe("A1 — Sign-in redirects to Google", () => {
         await route.abort();
       });
 
+      // Default desktop viewport: only the non-aria-hidden layout is exposed to getByRole
+      // (on mobile the desktop tree is aria-hidden; on desktop the mobile tree is aria-hidden)
+      await page.setViewportSize({ width: 1280, height: 800 });
       await page.goto("/");
 
       // Act — click sign-in, then wait for the async PKCE challenge computation
       // and subsequent window.location.href assignment (up to 5 s)
-      await page.getByRole("button", { name: /sign in with google/i }).first().click();
+      await page.getByRole("button", { name: /sign in with google/i }).click();
       await page.waitForTimeout(3000);
 
       // Assert
+      expect(capturedUrl).toContain("accounts.google.com");
+      expect(capturedUrl).toContain("response_type=code");
+      expect(capturedUrl).toContain("scope=");
+    },
+  );
+
+  pwTest(
+    "mobile: clicking Sign in triggers navigation to accounts.google.com",
+    async ({ page }) => {
+      // Arrange — block the Google navigation so the browser doesn't actually leave
+      let capturedUrl = "";
+      await page.route("**/accounts.google.com/**", async (route) => {
+        capturedUrl = route.request().url();
+        await route.abort();
+      });
+
+      // Mobile: desktop tree is aria-hidden; scope to the visible mobile card
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto("/");
+
+      await page
+        .getByTestId("landing-mobile-card")
+        .getByRole("button", { name: /sign in with google/i })
+        .click();
+      await page.waitForTimeout(3000);
+
       expect(capturedUrl).toContain("accounts.google.com");
       expect(capturedUrl).toContain("response_type=code");
       expect(capturedUrl).toContain("scope=");
@@ -38,13 +68,14 @@ pwTest.describe("A1 — Sign-in redirects to Google", () => {
 // ---------------------------------------------------------------------------
 
 pwTest.describe("A2 — Auth guard redirects unauthenticated users", () => {
-  pwTest("navigating to /dashboard without a token redirects to /", async ({ page }) => {
+  pwTest("desktop: navigating to /dashboard without a token redirects to /", async ({ page }) => {
     // No token seeded — sessionStorage is empty
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/dashboard");
 
     await expect(page).toHaveURL("/");
     await expect(
-      page.getByRole("button", { name: /sign in with google/i }).first(),
+      page.getByRole("button", { name: /sign in with google/i }),
     ).toBeVisible();
   });
 
@@ -54,7 +85,7 @@ pwTest.describe("A2 — Auth guard redirects unauthenticated users", () => {
 
     await expect(page).toHaveURL("/");
     await expect(
-      page.getByRole("button", { name: /sign in with google/i }).first(),
+      page.getByTestId("landing-mobile-card").getByRole("button", { name: /sign in with google/i }),
     ).toBeVisible();
   });
 });
@@ -108,14 +139,27 @@ test.describe("A4 — Sign-out flow", () => {
 // ---------------------------------------------------------------------------
 
 pwTest.describe("A5 — Expired token results in redirect", () => {
-  pwTest("expired token in sessionStorage redirects to /", async ({ page }) => {
+  pwTest("desktop: expired token in sessionStorage redirects to /", async ({ page }) => {
     await seedExpiredToken(page);
     await setupMockDrive(page);
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/dashboard");
 
     await expect(page).toHaveURL("/");
     await expect(
-      page.getByRole("button", { name: /sign in with google/i }).first(),
+      page.getByRole("button", { name: /sign in with google/i }),
+    ).toBeVisible();
+  });
+
+  pwTest("mobile: expired token in sessionStorage redirects to /", async ({ page }) => {
+    await seedExpiredToken(page);
+    await setupMockDrive(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/dashboard");
+
+    await expect(page).toHaveURL("/");
+    await expect(
+      page.getByTestId("landing-mobile-card").getByRole("button", { name: /sign in with google/i }),
     ).toBeVisible();
   });
 });
@@ -159,6 +203,42 @@ pwTest.describe("A6 — OAuth callback success", () => {
       await expect(page.getByRole("link", { name: /dashboard/i }).first()).toBeVisible();
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// A11y — auth flows
+// ---------------------------------------------------------------------------
+
+pwTest.describe("A11y — auth pages (axe)", () => {
+  pwTest("landing page has no axe violations (unauthenticated)", async ({ page }) => {
+    // Arrange — mobile: desktop tree is aria-hidden; assert the visible mobile CTA
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await expect(
+      page.getByTestId("landing-mobile-card").getByRole("button", { name: /sign in with google/i }),
+    ).toBeVisible();
+
+    // Act
+    const results = await new AxeBuilder({ page }).analyze();
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+});
+
+test.describe("A11y — authenticated dashboard (axe)", () => {
+  test("dashboard has no axe violations after sign-in", async ({ authedPage }) => {
+    // Arrange — wait for the lazy-loaded dashboard page, not just the shell sidebar
+    await expect(
+      authedPage.getByRole("heading", { level: 1, name: /dashboard/i }),
+    ).toBeVisible();
+
+    // Act
+    const results = await new AxeBuilder({ page: authedPage }).analyze();
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------

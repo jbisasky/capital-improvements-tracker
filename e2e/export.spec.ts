@@ -1,10 +1,12 @@
 import { test, expect } from "@playwright/test";
 import * as path from "path";
 import * as fs from "fs";
+import AxeBuilder from "@axe-core/playwright";
+import { gotoDemoExport } from "./fixtures/demo-ready";
 
 test.describe("Export page", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demo/export");
+    await gotoDemoExport(page);
   });
 
   test("shows the Export heading", async ({ page }) => {
@@ -35,10 +37,10 @@ test.describe("Export page", () => {
 
   test("selecting 'By tax year' reveals a year dropdown", async ({ page }) => {
     const yearRadio = page.getByRole("radio", { name: /by tax year/i });
-    await yearRadio.click();
+    await yearRadio.check();
+    await expect(yearRadio).toBeChecked();
 
-    // Year select should appear
-    await expect(page.locator("select")).toBeVisible();
+    await expect(page.getByRole("combobox", { name: /tax year/i })).toBeVisible();
   });
 
   test("project count updates when switching to year scope", async ({ page }) => {
@@ -49,10 +51,11 @@ test.describe("Export page", () => {
       .textContent();
 
     // Switch to year scope — count may differ
-    await page.getByRole("radio", { name: /by tax year/i }).click();
+    const yearRadio = page.getByRole("radio", { name: /by tax year/i });
+    await yearRadio.check();
+    await expect(yearRadio).toBeChecked();
 
-    // Year select appears and shows a year
-    const yearSelect = page.locator("select");
+    const yearSelect = page.getByRole("combobox", { name: /tax year/i });
     await expect(yearSelect).toBeVisible();
     const yearValue = await yearSelect.inputValue();
     expect(yearValue).toMatch(/^\d{4}$/);
@@ -129,6 +132,18 @@ test.describe("Export page", () => {
     ).toBeVisible();
   });
 
+  test("export page has no axe violations", async ({ page }) => {
+    // Arrange — beforeEach waits for the loaded export form (not just the h1
+    // visible during the MockStorageDriver loading shell).
+    await expect(page.getByRole("radio", { name: /pdf summary/i })).toBeVisible();
+
+    // Act
+    const results = await new AxeBuilder({ page }).analyze();
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+
   test("screenshot of export page — default state @screenshot", async ({ page }) => {
     const screenshotDir = "docs/test-reports/pdf-export-screenshots";
     if (!fs.existsSync(screenshotDir)) {
@@ -141,7 +156,9 @@ test.describe("Export page", () => {
   });
 
   test("screenshot of export page — year scope selected @screenshot", async ({ page }) => {
-    await page.getByRole("radio", { name: /by tax year/i }).click();
+    const yearRadio = page.getByRole("radio", { name: /by tax year/i });
+    await yearRadio.check();
+    await expect(page.getByRole("combobox", { name: /tax year/i })).toBeVisible();
     const screenshotDir = "docs/test-reports/pdf-export-screenshots";
     if (!fs.existsSync(screenshotDir)) {
       fs.mkdirSync(screenshotDir, { recursive: true });

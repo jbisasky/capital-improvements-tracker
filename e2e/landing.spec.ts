@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 test.describe("Landing page", () => {
   test("loads and shows hero text inside dark hero block", async ({ page }) => {
@@ -13,7 +14,9 @@ test.describe("Landing page", () => {
     await expect(hero.getByText(/track home improvements/i)).toBeVisible();
   });
 
-  test('"See a demo" button navigates to /demo/dashboard', async ({ page }) => {
+  test('desktop: "See a demo" button navigates to /demo/dashboard', async ({ page }) => {
+    // Desktop: mobile tree is aria-hidden; desktop CTAs are accessible via getByRole
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
 
     const demoLink = page.getByRole("link", { name: /see a demo/i });
@@ -23,10 +26,36 @@ test.describe("Landing page", () => {
     await expect(page).toHaveURL(/\/demo/);
   });
 
-  test("Sign-in button is visible and clickable", async ({ page }) => {
+  test('mobile: "See a demo" button navigates to /demo/dashboard', async ({ page }) => {
+    // Mobile: desktop tree is aria-hidden; scope to the visible mobile card
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    const demoLink = page.getByTestId("landing-mobile-card").getByRole("link", { name: /see a demo/i });
+    await expect(demoLink).toBeVisible();
+    await demoLink.click();
+
+    await expect(page).toHaveURL(/\/demo/);
+  });
+
+  test("desktop: Sign-in button is visible and clickable", async ({ page }) => {
+    // Desktop: mobile tree is aria-hidden; desktop CTAs are accessible via getByRole
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
 
     const signInBtn = page.getByRole("button", {
+      name: /sign in with google/i,
+    });
+    await expect(signInBtn).toBeVisible();
+    await expect(signInBtn).toBeEnabled();
+  });
+
+  test("mobile: Sign-in button is visible and clickable", async ({ page }) => {
+    // Mobile: desktop tree is aria-hidden; scope to the visible mobile card
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    const signInBtn = page.getByTestId("landing-mobile-card").getByRole("button", {
       name: /sign in with google/i,
     });
     await expect(signInBtn).toBeVisible();
@@ -38,9 +67,6 @@ test.describe("Landing page", () => {
     await page.goto("/");
 
     await expect(page.getByTestId("landing-dashboard-preview")).toBeVisible();
-    await expect(
-      page.getByRole("heading", { level: 1, name: /capital improvements/i }),
-    ).toBeVisible();
     await page.screenshot({
       path: "docs/test-reports/task8-screenshots/landing-desktop.png",
       fullPage: true,
@@ -58,5 +84,35 @@ test.describe("Landing page", () => {
       path: "docs/test-reports/task8-screenshots/landing-mobile.png",
       fullPage: true,
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A11y — landing page
+// ---------------------------------------------------------------------------
+
+test.describe("Landing page accessibility (axe)", () => {
+  test("desktop: no axe violations on /", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.getByTestId("landing-dashboard-preview")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: /capital improvements/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /sign in with google/i }),
+    ).toBeVisible();
+
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test("mobile: no axe violations on /", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await expect(page.getByTestId("landing-mobile-hero")).toBeVisible();
+
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
   });
 });

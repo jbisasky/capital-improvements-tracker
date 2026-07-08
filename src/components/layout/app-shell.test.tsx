@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, type MockInstance } from "vitest"
 import * as storageContext from "@/services/storage-context";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import { axe } from "vitest-axe";
 import { AppShell } from "./app-shell";
 import { OfflineProvider } from "@/services/offline-context";
 
@@ -324,6 +325,38 @@ describe("AppShell theme toggle", () => {
 
     // Assert
     expect(mockSetThemePreference).toHaveBeenCalledWith("system");
+  });
+});
+
+// ---------- accessibility ----------
+
+describe("AppShell accessibility", () => {
+  const useStorageMockA11y = storageContext.useStorage as unknown as MockInstance;
+
+  beforeEach(() => {
+    useStorageMockA11y.mockReturnValue({ loading: false, manifest: null });
+  });
+
+  it("has no axe violations in live mode", async () => {
+    // Arrange
+    const { container } = renderShell("/dashboard");
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+
+  it("has no axe violations in demo mode", async () => {
+    // Arrange
+    const { container } = renderShell("/demo/dashboard");
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
   });
 });
 

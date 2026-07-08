@@ -2,6 +2,7 @@ import { test, expect } from "./fixtures/index";
 import { test as pwTest } from "@playwright/test";
 import { seedAuthToken } from "./fixtures/auth-state";
 import { setupMockDrive, FIXTURE_MANIFEST, EMPTY_MANIFEST } from "./fixtures/mock-drive";
+import AxeBuilder from "@axe-core/playwright";
 
 // ---------------------------------------------------------------------------
 // P1 — Projects list renders all fixture projects with title + cost
@@ -217,6 +218,60 @@ pwTest.describe("P7 — Drive write conflict shows error", () => {
 // ---------------------------------------------------------------------------
 // P8 — Offline — write blocked, offline banner shown
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// A11y — projects pages
+// ---------------------------------------------------------------------------
+
+test.describe("A11y — projects pages (axe)", () => {
+  test("projects list has no axe violations", async ({ page }) => {
+    // Arrange — wait for the lazy-loaded projects page, not just fixture text
+    await seedAuthToken(page);
+    await setupMockDrive(page, FIXTURE_MANIFEST);
+    await page.goto("/projects");
+    await expect(page.getByRole("heading", { level: 1, name: /projects/i })).toBeVisible();
+    await expect(page.getByText("Complete Roof Replacement")).toBeVisible();
+
+    // Act
+    const results = await new AxeBuilder({ page }).analyze();
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+
+  test("project detail page has no axe violations", async ({ page }) => {
+    // Arrange — wait for the lazy-loaded detail page h1
+    await seedAuthToken(page);
+    await setupMockDrive(page, FIXTURE_MANIFEST);
+    await page.goto("/projects/550e8400-e29b-41d4-a716-446655440001");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Complete Roof Replacement" }),
+    ).toBeVisible();
+
+    // Act
+    const results = await new AxeBuilder({ page }).analyze();
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+
+  test("new project form (manual entry) has no axe violations", async ({ page }) => {
+    // Arrange — wait for the lazy-loaded form h1 after switching to manual entry
+    await seedAuthToken(page);
+    await setupMockDrive(page, EMPTY_MANIFEST);
+    await page.goto("/projects/new");
+    await page.getByRole("button", { name: /enter details manually/i }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: /add new project/i }),
+    ).toBeVisible();
+
+    // Act
+    const results = await new AxeBuilder({ page }).analyze();
+
+    // Assert
+    expect(results.violations).toEqual([]);
+  });
+});
 
 pwTest.describe("P8 — Offline — write blocked", () => {
   pwTest(

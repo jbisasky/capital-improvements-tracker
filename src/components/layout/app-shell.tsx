@@ -117,7 +117,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
         </div>
 
         {/* Nav items */}
-        <nav className="flex flex-1 flex-col gap-1 p-2">
+        <nav aria-label="Sidebar" className="flex flex-1 flex-col gap-1 p-2">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -242,7 +242,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
           </div>
         </header>
         <main
-          className="flex-1 overflow-y-auto p-6 pb-20 md:pb-6"
+          className="flex flex-1 flex-col overflow-y-auto p-6 pb-20 md:pb-6"
           style={{ background: "var(--canvas-gradient)" }}
         >
           {children}
@@ -250,7 +250,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
       </div>
 
       {/* Mobile bottom tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-border bg-background md:hidden">
+      <nav aria-label="Mobile tab bar" className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-border bg-background md:hidden">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}

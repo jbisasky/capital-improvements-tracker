@@ -3,6 +3,7 @@ import { test as pwTest } from "@playwright/test";
 import { seedAuthToken, seedGeminiKey } from "./fixtures/auth-state";
 import { setupMockDrive, FIXTURE_MANIFEST, EMPTY_MANIFEST } from "./fixtures/mock-drive";
 import { GEMINI_GLOB } from "./fixtures/mock-gemini";
+import AxeBuilder from "@axe-core/playwright";
 
 // ---------------------------------------------------------------------------
 // S1 — Property form pre-fills from manifest
@@ -298,5 +299,26 @@ test.describe("S11 — Sign-out from settings", () => {
     await page.getByRole("button", { name: /sign out/i }).click();
 
     await expect(page.getByTestId("signed-out-banner").filter({ visible: true })).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A11y — settings page
+// ---------------------------------------------------------------------------
+
+test.describe("A11y — settings page (axe)", () => {
+  test("settings page with property pre-filled has no axe violations", async ({ page }) => {
+    // Arrange — wait for the lazy-loaded settings page before axe
+    await seedAuthToken(page);
+    await setupMockDrive(page, FIXTURE_MANIFEST);
+    await page.goto("/settings");
+    await expect(page.getByRole("heading", { level: 1, name: /settings/i })).toBeVisible();
+    await expect(page.locator("#address")).toHaveValue("123 Oak Lane", { timeout: 10_000 });
+
+    // Act
+    const results = await new AxeBuilder({ page }).analyze();
+
+    // Assert
+    expect(results.violations).toEqual([]);
   });
 });

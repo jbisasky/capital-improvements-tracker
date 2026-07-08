@@ -1,4 +1,14 @@
 import { test as pwTest, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import {
+  gotoDemoDashboard,
+  gotoDemoExport,
+  gotoDemoProjectDetail,
+  gotoDemoProjects,
+  waitForDemoDashboardReady,
+  waitForDemoProjectDetailReady,
+  waitForDemoProjectsReady,
+} from "./fixtures/demo-ready";
 
 // First fixture project ID from MockStorageDriver / DEMO_MANIFEST
 const FIRST_PROJECT_ID = "550e8400-e29b-41d4-a716-446655440001";
@@ -18,9 +28,8 @@ pwTest.describe("DM1–DM2 — Demo banner and fixture data", () => {
   pwTest("DM2: dashboard shows non-zero cost-basis total from fixture manifest", async ({
     page,
   }) => {
-    await page.goto("/demo/dashboard");
+    await gotoDemoDashboard(page);
     // DEMO_MANIFEST.summary.totalCostBasisAdded = 47500
-    // The dashboard renders a formatted currency value — assert a dollar sign is present
     await expect(page.getByText(/\$/).filter({ visible: true }).first()).toBeVisible();
   });
 });
@@ -69,31 +78,18 @@ pwTest.describe("DM4 — Desktop Exit Demo & Connect Drive link", () => {
 
 pwTest.describe("DM5–DM7 — Demo route smoke", () => {
   pwTest("DM5: demo projects list renders project titles", async ({ page }) => {
-    await page.goto("/demo/projects");
-
-    // DEMO_MANIFEST has "Complete Roof Replacement" as the first project
-    await expect(
-      page.getByText(/complete roof replacement/i).filter({ visible: true }),
-    ).toBeVisible();
+    await gotoDemoProjects(page);
   });
 
   pwTest("DM6: demo project detail page renders without auth redirect", async ({ page }) => {
-    await page.goto(`/demo/projects/${FIRST_PROJECT_ID}`);
-
-    // Should stay on the detail page — not redirected to /
+    await gotoDemoProjectDetail(page, FIRST_PROJECT_ID);
     await expect(page).toHaveURL(new RegExp(FIRST_PROJECT_ID));
-    // Project title visible
-    await expect(
-      page.getByText(/complete roof replacement/i).filter({ visible: true }),
-    ).toBeVisible();
   });
 
   pwTest("DM7: demo export page renders format options", async ({ page }) => {
-    await page.goto("/demo/export");
-
-    // Export page has format selector options (PDF, CSV, JSON)
-    await expect(page.getByText(/pdf/i).filter({ visible: true }).first()).toBeVisible();
-    await expect(page.getByText(/csv/i).filter({ visible: true }).first()).toBeVisible();
+    await gotoDemoExport(page);
+    await expect(page.getByRole("radio", { name: /pdf summary/i })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /csv/i })).toBeVisible();
   });
 });
 
@@ -101,25 +97,52 @@ pwTest.describe("DM5–DM7 — Demo route smoke", () => {
 // DM8 — Demo is read-only: no googleapis.com calls
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// A11y — demo pages
+// ---------------------------------------------------------------------------
+
+pwTest.describe("A11y — demo pages (axe)", () => {
+  pwTest("demo dashboard has no axe violations", async ({ page }) => {
+    await page.goto("/demo/dashboard");
+    await expect(page.getByText(/viewing read-only demo data/i).filter({ visible: true })).toBeVisible();
+    await waitForDemoDashboardReady(page);
+
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  pwTest("demo projects list has no axe violations", async ({ page }) => {
+    await page.goto("/demo/projects");
+    await waitForDemoProjectsReady(page);
+
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  pwTest("demo project detail page has no axe violations", async ({ page }) => {
+    await page.goto(`/demo/projects/${FIRST_PROJECT_ID}`);
+    await waitForDemoProjectDetailReady(page);
+
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  });
+});
+
 pwTest.describe("DM8 — Demo makes no Drive API calls", () => {
   pwTest("DM8: navigating demo routes makes zero googleapis.com requests", async ({ page }) => {
-    // Arrange — intercept any googleapis call (should never fire in demo)
     let googleApiCallCount = 0;
     await page.route("**/googleapis.com/**", (route) => {
       googleApiCallCount++;
       void route.abort();
     });
 
-    // Act — visit several demo routes
     await page.goto("/demo/dashboard");
     await page.goto("/demo/projects");
     await page.goto(`/demo/projects/${FIRST_PROJECT_ID}`);
     await page.goto("/demo/export");
 
-    // Small wait to let any async effects settle
     await page.waitForTimeout(500);
 
-    // Assert
     expect(googleApiCallCount).toBe(0);
   });
 });

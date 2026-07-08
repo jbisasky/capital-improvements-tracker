@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { AboutPage } from "./about-page";
 
 vi.mock("../../../package.json", () => ({
@@ -30,6 +31,17 @@ describe("AboutPage", () => {
     expect(
       screen.getByText(/informational purposes only/i),
     ).toBeInTheDocument();
+  });
+
+  it("has no axe violations", async () => {
+    // Arrange
+    const { container } = renderAbout();
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
   });
 
   it("renders all documentation links with correct href values", () => {

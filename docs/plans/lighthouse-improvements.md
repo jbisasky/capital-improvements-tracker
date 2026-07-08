@@ -278,7 +278,7 @@ See finding #7 above.
 | 3 | 6 | Add `<main>` landmark | Accessibility | Low | Fixes axe violation, improves screen reader UX | ✅ Done |
 | 4 | 5 | Footer contrast ratio | Accessibility | Low | Fixes WCAG 2 AA violation | ✅ Done |
 | 5 | 3 | Disable unused OTel instrumentations | Performance | Low | 10–30 kB secondary reduction | ⏳ Pending |
-| 6 | 4 | Verify PDF code-split | Performance | Low | Confirm / no-op | ⏳ Pending |
+| 6 | 4 | Route lazy-loading (AppLayout, DemoLayout, all pages) | Performance | Medium | Removes @react-pdf + DriveStorageDriver from landing critical path | ✅ Done |
 | 7 | 5a | Pre-render landing page | Performance | Low | ~500ms–1s FCP improvement (optional, fun experiment) | ⏳ Pending |
 | 8 | 2 | Bundle visualizer | Performance | Low | Prerequisite for further analysis | ✅ Done |
 | 9 | 9 | Source maps | Best Practices | Low | DX only, no user impact | ⏳ Pending |

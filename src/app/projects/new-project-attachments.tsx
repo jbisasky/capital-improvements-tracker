@@ -67,7 +67,7 @@ export function NewProjectAttachments({
 
   return (
     <div className="space-y-4 rounded-lg border p-4">
-      <h3 className="text-sm font-medium">Attachments</h3>
+      <h2 className="text-sm font-medium">Attachments</h2>
       <p className="text-sm text-muted-foreground">
         Add one or more receipts or invoices (up to {MAX_ATTACHMENTS_PER_PROJECT}). All selected
         files are saved with the project. AI reads all listed files together and suggests project
@@ -102,6 +102,8 @@ export function NewProjectAttachments({
             accept={ACCEPTED_ATTACHMENT_TYPES.join(",")}
             onChange={handleFileSelect}
             className="hidden"
+            aria-hidden="true"
+            tabIndex={-1}
           />
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
@@ -132,7 +134,7 @@ export function NewProjectAttachments({
                       type="checkbox"
                       checked={included}
                       onChange={() => { onToggleExclude?.(index); }}
-                      title={included ? "Exclude from AI extraction" : "Include in AI extraction"}
+                      aria-label={`${included ? "Exclude" : "Include"} ${file.name} from AI extraction`}
                       className="shrink-0 cursor-pointer"
                     />
                   )}

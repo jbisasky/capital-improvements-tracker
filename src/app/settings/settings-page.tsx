@@ -525,8 +525,9 @@ export function SettingsPage(): ReactElement {
 
             {!sessionOnly && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Key expires after:</span>
+                <label htmlFor="keyExpiry" className="text-xs text-muted-foreground">Key expires after:</label>
                 <select
+                  id="keyExpiry"
                   value={expiryDays == null ? "null" : String(expiryDays)}
                   onChange={(e) => {
                     setExpiryDays(e.target.value === "null" ? null : Number(e.target.value) as ExpiryDays);

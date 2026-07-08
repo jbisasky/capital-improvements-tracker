@@ -1,6 +1,7 @@
 import type * as ReactRouter from "react-router";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { MemoryRouter } from "react-router";
 import { DemoLayout } from "./layout";
 
@@ -73,7 +74,7 @@ describe("DemoLayout banner", () => {
     expect(desktopLink).toHaveAttribute("href", "/");
     expect(desktopLink).toHaveClass("hidden");
     expect(desktopLink).toHaveClass("md:inline-block");
-    expect(desktopLink).toHaveClass("bg-white/20");
+    expect(desktopLink).toHaveClass("bg-amber-900");
   });
 
   it("mobile link is visually hidden on md+ via md:hidden class", () => {
@@ -133,5 +134,16 @@ describe("DemoLayout banner", () => {
     // Assert
     expect(screen.getByTestId("app-shell")).toBeInTheDocument();
     expect(screen.getByTestId("outlet")).toBeInTheDocument();
+  });
+
+  it("has no axe violations", async () => {
+    // Arrange
+    const { container } = renderLayout();
+
+    // Act
+    const results = await axe(container);
+
+    // Assert
+    expect(results.violations).toEqual([]);
   });
 });

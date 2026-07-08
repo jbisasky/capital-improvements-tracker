@@ -213,9 +213,9 @@ export function AttachmentSection({
 
   return (
     <div className="space-y-3 rounded-lg border p-4">
-      <h3 className="text-sm font-medium">
+      <h2 className="text-sm font-medium">
         Attachments ({totalCount})
-      </h3>
+      </h2>
 
       <div
         onDragOver={(e) => {
@@ -273,6 +273,8 @@ export function AttachmentSection({
           accept={ACCEPTED_ATTACHMENT_ACCEPT}
           onChange={handleInputChange}
           className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
         />
         <input
           ref={cameraInputRef}
@@ -281,6 +283,8 @@ export function AttachmentSection({
           capture="environment"
           onChange={handleInputChange}
           className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
         />
       </div>
 
