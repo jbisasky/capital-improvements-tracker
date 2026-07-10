@@ -10,6 +10,9 @@ export async function waitForDemoDashboardReady(page: Page): Promise<void> {
   await expect(
     page.getByRole("heading", { level: 1, name: /dashboard/i }).filter({ visible: true }),
   ).toBeVisible();
+  // MockStorageDriver resolves readManifest after ~300ms; skeleton shows static chrome only.
+  await expect(page.getByTestId("dashboard-skeleton")).toHaveCount(0);
+  await expect(page.getByText("$47,500")).toBeVisible();
 }
 
 export async function waitForDemoProjectsReady(page: Page): Promise<void> {

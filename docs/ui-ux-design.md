@@ -103,7 +103,7 @@ collapses to a bottom tab bar with a center **Add (＋)** action; on desktop it'
 
 ### Desktop layout
 
-![Desktop shell — left rail navigation, top bar with search/sync/account, footer disclaimer](mockups/02-dashboard.png)
+![Desktop shell — left rail navigation, top bar with search/sync/account, footer disclaimer](mockups/02-dashboard.jpg)
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -126,7 +126,7 @@ DESKTOP
 
 ### Mobile layout
 
-![Mobile shell — bottom tab bar with center Add button, compact header, synced footer](mockups/09-mobile-layout.png)
+![Mobile shell — bottom tab bar with center Add button, compact header, synced footer](mockups/09-mobile-layout.jpg)
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -174,7 +174,7 @@ follow [§11 Visual design & theming](#11-visual-design--theming) (HLD D17).
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Landing page — legacy reference](mockups/01-landing.png) | ![Mobile landing — legacy reference](mockups/m01-landing.png) |
+| ![Landing page — legacy reference](mockups/01-landing.jpg) | ![Mobile landing — legacy reference](mockups/m01-landing.jpg) |
 
 > PNG mockups above are **legacy reference**. Authoritative layout is the split-screen spec below
 > and [§11](#11-visual-design--theming).
@@ -295,7 +295,7 @@ See also [§9.1 Landing mobile rules](#91-landing-mobile-rules).
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Dashboard — summary cards, educational banner, recent projects table](mockups/02-dashboard.png) | ![Mobile dashboard](mockups/m02-dashboard.png) |
+| ![Dashboard — summary cards, educational banner, recent projects table](mockups/02-dashboard.jpg) | ![Mobile dashboard](mockups/m02-dashboard.jpg) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -327,7 +327,7 @@ See also [§9.1 Landing mobile rules](#91-landing-mobile-rules).
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Projects list — filterable table with treatment chips and attachment counts](mockups/03-projects-list.png) | ![Mobile projects list](mockups/m03-projects-list.png) |
+| ![Projects list — filterable table with treatment chips and attachment counts](mockups/03-projects-list.jpg) | ![Mobile projects list](mockups/m03-projects-list.jpg) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -360,7 +360,7 @@ field set on a single review screen.
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Add improvement form — attachments, AI extract, fields, tax treatment radios, save](mockups/04-add-edit.png) | ![Mobile add improvement](mockups/m04-add-edit.png) |
+| ![Add improvement form — attachments, AI extract, fields, tax treatment radios, save](mockups/04-add-edit.jpg) | ![Mobile add improvement](mockups/m04-add-edit.jpg) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -399,7 +399,7 @@ field set on a single review screen.
 
 | Desktop | Mobile |
 | --- | --- |
-| ![AI review modal — per-field confidence badges, editable inputs, confirm/discard](mockups/05-ai-review.png) | ![Mobile AI review](mockups/m05-ai-review.png) |
+| ![AI review modal — per-field confidence badges, editable inputs, confirm/discard](mockups/05-ai-review.jpg) | ![Mobile AI review](mockups/m05-ai-review.jpg) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -433,7 +433,7 @@ field set on a single review screen.
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Project detail — cost/treatment table, justification, attachments list, history](mockups/06-project-detail.png) | ![Mobile project detail](mockups/m06-project-detail.png) |
+| ![Project detail — cost/treatment table, justification, attachments list, history](mockups/06-project-detail.jpg) | ![Mobile project detail](mockups/m06-project-detail.jpg) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -465,7 +465,7 @@ field set on a single review screen.
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Settings — account, BYOK key, usage limits, data export, appearance toggle](mockups/07-settings.png) | ![Mobile settings](mockups/m07-settings.png) |
+| ![Settings — account, BYOK key, usage limits, data export, appearance toggle](mockups/07-settings.jpg) | ![Mobile settings](mockups/m07-settings.jpg) |
 
 <details><summary>ASCII wireframe (original)</summary>
 
@@ -502,7 +502,7 @@ field set on a single review screen.
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Export — format and scope radio groups, info note, download button](mockups/08-export.png) | ![Mobile export](mockups/m08-export.png) |
+| ![Export — format and scope radio groups, info note, download button](mockups/08-export.jpg) | ![Mobile export](mockups/m08-export.jpg) |
 
 <details><summary>ASCII wireframe (original)</summary>
 

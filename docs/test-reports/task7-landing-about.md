@@ -53,13 +53,13 @@
 
 ### Landing page (desktop, 1280×900)
 
-![Landing page](task7-screenshots/landing-page.png)
+![Landing page](task7-screenshots/landing-page.jpg)
 
 Two-column layout: hero + CTA on left, decorative icon card on right, header bar at top, disclaimer footer at bottom.
 
 ### About page (via demo mode)
 
-![About page](task7-screenshots/about-page.png)
+![About page](task7-screenshots/about-page.jpg)
 
 Updated documentation links (all pointing to `jbisasky`), Requirements (EARS) link added, disclaimer with Badge component.
 

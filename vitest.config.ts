@@ -6,7 +6,7 @@ export default mergeConfig(viteConfig, defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "e2e/helpers/**/*.test.ts"],
     coverage: {
       provider: "v8",
       include: ["src/**"],
