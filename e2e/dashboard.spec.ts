@@ -2,6 +2,7 @@ import { test, expect } from "./fixtures/index";
 import { test as pwTest } from "@playwright/test";
 import { seedAuthToken } from "./fixtures/auth-state";
 import { setupMockDrive, FIXTURE_MANIFEST, EMPTY_MANIFEST } from "./fixtures/mock-drive";
+import { seedManifestCache } from "./fixtures/manifest-cache";
 import AxeBuilder from "@axe-core/playwright";
 
 // ---------------------------------------------------------------------------
@@ -122,6 +123,31 @@ test.describe("D4 — Empty state (no projects)", () => {
     const projectsCard = page
       .locator("a", { has: page.getByText("Projects", { exact: true }) });
     await expect(projectsCard.getByText("0")).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D5 — Post-login sync shows skeleton, not stale demo cache
+// ---------------------------------------------------------------------------
+
+test.describe("D5 — Dashboard skeleton during Drive sync", () => {
+  test("does not flash demo cached projects while Drive sync is in progress", async ({ page }) => {
+    // Arrange — simulate demo cache pollution from a prior /demo visit
+    await seedAuthToken(page);
+    await setupMockDrive(page, EMPTY_MANIFEST, { readDelayMs: 2_000 });
+    await seedManifestCache(page, FIXTURE_MANIFEST);
+
+    // Act
+    await page.goto("/dashboard");
+
+    // Assert — skeleton visible, demo project names must not flash
+    await expect(page.getByTestId("dashboard-skeleton")).toBeVisible();
+    await expect(page.getByText("Complete Roof Replacement")).not.toBeVisible();
+    await expect(page.getByText("$47,500")).not.toBeVisible();
+
+    // Assert — after Drive responds, real empty manifest renders
+    await expect(page.getByText(/No projects yet/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("dashboard-skeleton")).not.toBeVisible();
   });
 });
 

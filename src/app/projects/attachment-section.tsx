@@ -1,7 +1,6 @@
 import { type ReactElement, useRef, useState, useCallback } from "react";
 import {
   Upload,
-  Camera,
   FileText,
   Eye,
   Download,
@@ -16,8 +15,13 @@ import {
 } from "@/domain/attachment-validation";
 import { useStorage } from "@/services/storage-context";
 import { cn } from "@/lib/utils";
+import { AlertDialog } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 type ItemStatus = "uploaded" | "uploading" | "failed" | "pending";
+
+const ATTACHMENT_ACTION_CLASS =
+  "h-10 flex-1 gap-1.5 px-3 text-sm sm:h-7 sm:flex-none sm:px-2.5 sm:text-[0.8rem]";
 
 interface DisplayItem {
   key: string;
@@ -84,10 +88,12 @@ export function AttachmentSection({
   } = useStorage();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [uploadingKeys, setUploadingKeys] = useState<Set<string>>(new Set());
   const [failedItems, setFailedItems] = useState<Map<string, string>>(new Map());
+  const [removeTarget, setRemoveTarget] = useState<{ fileId: string; filename: string } | null>(
+    null,
+  );
 
   const totalCount =
     attachments.length
@@ -211,6 +217,10 @@ export function AttachmentSection({
     void removeAttachment(projectId, fileId);
   }
 
+  function confirmRemoveUploaded(fileId: string, filename: string): void {
+    setRemoveTarget({ fileId, filename });
+  }
+
   return (
     <div className="space-y-3 rounded-lg border p-4">
       <h2 className="text-sm font-medium">
@@ -236,7 +246,7 @@ export function AttachmentSection({
             <p className="text-center text-sm text-muted-foreground">
               {items.length === 0
                 ? "Upload a receipt or invoice"
-                : "Drag and drop or use the buttons below"}
+                : "Drag and drop or tap the button below"}
             </p>
             <p className="mt-1 text-center text-xs text-muted-foreground/70">
               Receipts, invoices, and permits only
@@ -244,43 +254,24 @@ export function AttachmentSection({
           </>
         )}
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
+        <div className="mt-3 flex justify-center">
+          <Button
             type="button"
-            disabled={atLimit}
-            onClick={() => { cameraInputRef.current?.click(); }}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-            title={atLimit ? `Maximum ${String(MAX_ATTACHMENTS_PER_PROJECT)} attachments` : undefined}
-          >
-            <Camera className="size-4" />
-            Scan / take photo
-          </button>
-          <button
-            type="button"
+            variant="outline"
             disabled={atLimit}
             onClick={() => { fileInputRef.current?.click(); }}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
             title={atLimit ? `Maximum ${String(MAX_ATTACHMENTS_PER_PROJECT)} attachments` : undefined}
+            className="h-11 w-full max-w-sm gap-2 text-sm sm:h-8 sm:w-auto sm:max-w-none"
           >
             <Upload className="size-4" />
-            Upload file
-          </button>
+            Upload receipt or photo
+          </Button>
         </div>
 
         <input
           ref={fileInputRef}
           type="file"
           accept={ACCEPTED_ATTACHMENT_ACCEPT}
-          onChange={handleInputChange}
-          className="hidden"
-          aria-hidden="true"
-          tabIndex={-1}
-        />
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept={ACCEPTED_ATTACHMENT_ACCEPT}
-          capture="environment"
           onChange={handleInputChange}
           className="hidden"
           aria-hidden="true"
@@ -327,32 +318,38 @@ export function AttachmentSection({
                 <span className="text-xs text-muted-foreground">· saves on create</span>
               )}
               {item.fileId != null && mode === "live" && (
-                <span className="ml-auto flex gap-1">
-                  <button
+                <span className="flex w-full basis-full gap-2 sm:ml-auto sm:w-auto sm:basis-auto sm:flex-nowrap">
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
+                    className={ATTACHMENT_ACTION_CLASS}
                     onClick={() => {
                       void handleView(item.fileId ?? "", item.mimeType);
                     }}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-0.5 text-xs hover:bg-accent"
                   >
-                    <Eye className="size-3" /> View
-                  </button>
-                  <button
+                    <Eye className="size-3.5 sm:size-3" /> View
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
+                    className={ATTACHMENT_ACTION_CLASS}
                     onClick={() => {
                       void handleDownload(item.fileId ?? "", item.filename, item.mimeType);
                     }}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-0.5 text-xs hover:bg-accent"
                   >
-                    <Download className="size-3" /> Download
-                  </button>
-                  <button
+                    <Download className="size-3.5 sm:size-3" /> Download
+                  </Button>
+                  <Button
                     type="button"
-                    onClick={() => { handleRemoveUploaded(item.fileId ?? ""); }}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded border border-red-200 px-2 py-0.5 text-xs text-red-600 hover:bg-red-50"
+                    variant="destructive"
+                    size="sm"
+                    className={ATTACHMENT_ACTION_CLASS}
+                    onClick={() => { confirmRemoveUploaded(item.fileId ?? "", item.filename); }}
                   >
-                    <Trash2 className="size-3" /> Remove
-                  </button>
+                    <Trash2 className="size-3.5 sm:size-3" /> Remove
+                  </Button>
                 </span>
               )}
               {item.file != null && item.status === "pending" && (
@@ -378,6 +375,27 @@ export function AttachmentSection({
           ))}
         </ul>
       )}
+
+      <AlertDialog
+        open={removeTarget != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoveTarget(null);
+          }
+        }}
+        title="Remove attachment?"
+        description={
+          removeTarget != null
+            ? `"${removeTarget.filename}" will be removed from this project and moved to your Google Drive trash.`
+            : ""
+        }
+        confirmLabel="Remove attachment"
+        onConfirm={() => {
+          if (removeTarget != null) {
+            handleRemoveUploaded(removeTarget.fileId);
+          }
+        }}
+      />
     </div>
   );
 }

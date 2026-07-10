@@ -11,9 +11,9 @@ Google's endpoints**. Your tokens, API key, and documents never touch a third-pa
 server.
 
 <p>
-  <img src="docs/screenshots/landing.png" alt="Landing page mockup" width="209" />
+  <img src="docs/screenshots/mobile-dashboard.jpg" alt="Mobile dashboard — cost basis summary and recent projects" width="280" />
+  <img src="docs/screenshots/mobile-project-detail.jpg" alt="Mobile project detail — demo solar panel installation project" width="280" />
   &nbsp;&nbsp;
-  <img src="docs/screenshots/mobile-dashboard.png" alt="Mobile dashboard mockup" width="209" />
 </p>
 
 ## Why this exists
@@ -32,51 +32,92 @@ This app is a durable, low-maintenance personal ledger that:
 
 ## Screenshots
 
+Captured from the running app in **demo mode** (`/demo`). Regenerate with:
+
+```bash
+npx playwright test e2e/readme-screenshots.spec.ts --project=chromium
+npm run compress:doc-images   # ensure all docs/ images ≤200 kB
+```
+
+If you use Wrangler instead of Vite (`npm run dev:cf` on port 8788):
+
+```bash
+SCREENSHOT_BASE_URL=http://localhost:8788 npx playwright test e2e/readme-screenshots.spec.ts --project=chromium
+npm run compress:doc-images   # ensure all docs/ images ≤200 kB
+```
+
+See [End-to-end tests (Playwright)](#end-to-end-tests-playwright) for full Playwright setup.
+
+<details>
+<summary>Mobile — demo dashboard and project detail</summary>
+
+<p>
+  <img src="docs/screenshots/mobile-dashboard.jpg" alt="Mobile dashboard" width="280" />
+  <img src="docs/screenshots/mobile-project-detail.jpg" alt="Mobile project detail" width="280" />
+</p>
+</details>
+
+<details>
+<summary>Desktop — landing page</summary>
+
+![Landing page — sign in with Google or try the demo](docs/screenshots/landing.jpg)
+</details>
+
 <details>
 <summary>Dashboard — summary cards, documentation health, recent projects</summary>
 
-![Dashboard](docs/screenshots/dashboard.png)
+![Dashboard — cost basis, total spent, project count, and documentation health](docs/screenshots/dashboard.jpg)
 </details>
 
 <details>
 <summary>Projects list — search, filter by documentation status, doc health badges</summary>
 
-![Projects list](docs/screenshots/projects-list.png)
+![Projects list — search, filters, and per-project documentation badges](docs/screenshots/projects-list.jpg)
 </details>
 
 <details>
 <summary>Project detail — IRS fields, documentation health score, attachments</summary>
 
-![Project detail](docs/screenshots/project-detail.png)
+![Project detail — financial summary, IRS details, and attachments](docs/screenshots/project-detail.jpg)
 </details>
 
 ## Features
 
-### Implemented (Tasks 1–6)
+### Projects & documentation
 
-- **AI extraction** — Gemini 2.5 Flash multimodal receipt scanning with human review step (BYOK)
-- **Diagnostics page** — Ring-buffer logging for background sync and AI rate limit debugging
-- **Google Drive integration** — OAuth sign-in, real read/write to `appDataFolder`, CAS concurrency
-
-- **Dashboard** — cost basis / total spent / project count / documentation health summary
-- **Projects CRUD** — create, view, edit, delete projects with full IRS field support
-- **12 optional IRS fields** per project (category, vendor, TIN, payment method, permit #, depreciation, energy credits, safe harbor, etc.)
-- **Documentation completeness checker** — per-project colored badge (green/yellow/red) based on what the IRS would need for that specific tax treatment
+- **Dashboard** — cost basis added, total spent, project count, documentation health, recent projects
+- **Projects CRUD** — create, view, edit, delete with full IRS field support (12 optional fields: category, vendor, TIN, payment method, permit #, depreciation, energy credits, safe harbor, etc.)
+- **Attachment uploads** — receipts and invoices to Google Drive; view, download, and remove with confirmation
+- **Documentation completeness checker** — per-project badge (green/yellow/red) based on what the IRS would need for that tax treatment
 - **Search & filter** — search by title or vendor; filter by documentation status
-- **Export** — download manifest as JSON or CSV
-- **Property profile** — set-once address/type in Settings, inherited by all projects
-- **Demo mode** — 8 fixture projects with realistic IRS data, no sign-in required
-- **Analytics** — Plausible integration (privacy-first, no cookies)
-- **Observability** — OpenTelemetry browser SDK → Honeycomb (performance traces, no PII)
-- **Landing page polish** — two-column marketing layout, Google-branded sign-in CTA, decorative dashboard preview card
-- **About page** — fixed documentation links, added Requirements (EARS) link, Badge disclaimer
+- **Loading skeletons** — static page chrome during Drive sync; no flash of stale cached data
+
+### Export & AI
+
+- **Export** — PDF summary (default), CSV spreadsheet, or full `manifest.json` backup; scope all projects or filter by tax year
+- **AI extraction** — Gemini 2.5 Flash multimodal receipt scanning with human review step (BYOK — key stored locally)
+
+### Storage, auth & offline
+
+- **Google Drive integration** — GIS OAuth sign-in; read/write `manifest.json` in `appDataFolder`; attachments in a visible Drive folder; CAS concurrency
+- **Demo mode** — 8 fixture projects with realistic IRS data at `/demo` — no sign-in required
 - **PWA & offline** — service worker (app shell cache), web manifest, IndexedDB manifest cache, offline read-only mode with write guards
-- **Strict TypeScript** — `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, zero `any`
+- **Property profile** — set-once address and property type in Settings, inherited by exports and projects
+
+### Settings & polish
+
+- **Appearance** — Light / Dark / System theme (device-local preference)
+- **BYOK & AI limits** — Gemini API key storage, usage budgets, key test/remove
+- **Diagnostics** — ring-buffer logging for sync and AI debugging
+- **Landing & About** — marketing landing page with demo CTA; about page with doc links and disclaimers
+
+### Observability & quality
+
+- **Analytics** — Plausible (privacy-first, no cookies)
+- **Observability** — OpenTelemetry browser SDK → Honeycomb (traces, no PII)
+- **Strict TypeScript** — `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`; zero `any`
 - **ESLint** — `strictTypeChecked` + `stylisticTypeChecked`
-
-### Planned (Task 8)
-
-- ~~**PWA & offline** — service worker, offline read-only mode~~ **Done**
+- **Hosted on Cloudflare Pages** — static deploy with CSP and security headers
 
 ## Tech stack
 
@@ -193,12 +234,64 @@ client's **Authorized JavaScript origins** in Google Cloud Console — see
 
 | Command | Description |
 | --- | --- |
-| `npm run dev` | Start Vite dev server with HMR |
+| `npm run dev` | Start Vite dev server with HMR (`http://localhost:5173`) |
+| `npm run dev:cf` | Vite via Wrangler Pages dev (`http://localhost:8788`) |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | Run `tsc --noEmit` |
 | `npm run lint` | Run ESLint |
 | `npm run check` | Run typecheck + lint together |
+| `npm run compress:doc-images` | Compress all `docs/` images to ≤200 kB |
+| `npm run compress:doc-images:check` | Fail if any `docs/` image exceeds 200 kB |
+
+### End-to-end tests (Playwright)
+
+Tests live in `e2e/` and run against a local dev server (`http://localhost:5173`).
+Playwright starts `npm run dev` automatically, or reuses a server already running on
+port 5173.
+
+**One-time setup** — install browser binaries:
+
+```bash
+npx playwright install --with-deps chromium webkit
+```
+
+**Run the full local suite** (Chromium + WebKit — matches CI):
+
+```bash
+npx playwright test
+```
+
+**Common variants:**
+
+```bash
+# Chromium only (faster)
+npx playwright test --project=chromium
+
+# Single spec file
+npx playwright test e2e/dashboard.spec.ts
+
+# Filter by test title
+npx playwright test -g "demo dashboard"
+
+# Headed browser (watch the run)
+npx playwright test e2e/landing.spec.ts --headed
+
+# Interactive debugger
+npx playwright test e2e/landing.spec.ts --debug
+```
+
+**Production smoke** — hits the live Cloudflare Pages deployment (no local server):
+
+```bash
+npx playwright test e2e/production-smoke.spec.ts --config=playwright.production.config.ts
+```
+
+**Unit & component tests** (Vitest — `src/**/*.test.*`):
+
+```bash
+npx vitest run
+```
 
 ### Demo mode
 
@@ -213,7 +306,7 @@ src/
 ├── app/                    # Routes and page components
 │   ├── dashboard/          # Dashboard page
 │   ├── demo/               # Demo layout + demo dashboard
-│   ├── export/             # Export page (JSON/CSV)
+│   ├── export/             # Export page (PDF / CSV / JSON)
 │   ├── landing/            # Landing page (sign-in + demo CTA)
 │   ├── projects/           # Projects CRUD (list, detail, new, edit, form)
 │   ├── settings/           # Settings + diagnostics
@@ -244,16 +337,20 @@ docs/
 
 ## Roadmap
 
+Initial MVP tasks (1–8) are complete — scaffold through PWA/offline. See git history and [docs/test-reports/](docs/test-reports/) for delivery evidence.
+
 | # | Task | Status |
 | --- | --- | --- |
 | 1 | Scaffold — React Router 7 SPA, Tailwind v4, shadcn/ui | Done |
 | 2 | Domain + storage layer — Zod schemas, Result type, MockStorageDriver | Done |
-| 3 | Core views — Dashboard, Projects, Settings, Export (mock data) | Done |
+| 3 | Core views — Dashboard, Projects, Settings, Export | Done |
 | 4 | Auth + Drive integration — GIS OAuth, real Drive read/write, CAS | Done |
 | 5 | AI extraction + BYOK — Gemini integration, extraction review flow | Done |
 | 6 | Polish — Diagnostics page | Done |
 | 7 | Polish — Landing page & about page refinement | Done |
 | 8 | Polish — PWA/offline & service worker | Done |
+
+Post-MVP polish shipped in follow-up PRs includes PDF export, dark/light theme, attachment uploads, Drive sync skeleton UX, PR #53 loading/sync review fixes, and Cloudflare Pages production hosting.
 
 ## License
 

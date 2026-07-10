@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { type DocStatus } from "@/domain/doc-completeness";
 import { type TaxTreatment } from "@/domain/schemas";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -39,12 +40,35 @@ const TREATMENT_LABELS: Record<TaxTreatment, string> = {
 
 type FilterStatus = "all" | DocStatus;
 
+function ProjectListSkeleton(): ReactElement {
+  return (
+    <div
+      className="divide-y rounded-lg border"
+      data-testid="projects-list-skeleton"
+    >
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex items-center justify-between gap-4 p-4">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <Skeleton className="size-2.5 shrink-0 rounded-full" />
+            <div className="min-w-0 space-y-1.5">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-3 w-56" />
+            </div>
+          </div>
+          <Skeleton className="h-4 w-16 shrink-0" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ProjectsListPage(): ReactElement {
   const { manifest, getDocAssessment } = useStorage();
   const prefix = useRoutePrefix();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
 
+  const isDataPending = manifest == null;
   const projects = useMemo(() => manifest?.projects ?? [], [manifest?.projects]);
 
   const filtered = useMemo(() => {
@@ -65,15 +89,6 @@ export function ProjectsListPage(): ReactElement {
     }
     return result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }, [projects, search, filterStatus, getDocAssessment]);
-
-  if (!manifest) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Projects</h1>
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -114,7 +129,9 @@ export function ProjectsListPage(): ReactElement {
       </div>
 
       {/* Project list */}
-      {filtered.length === 0 ? (
+      {isDataPending ? (
+        <ProjectListSkeleton />
+      ) : filtered.length === 0 ? (
         <p className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
           {projects.length === 0
             ? "No projects yet. Add your first improvement to get started."

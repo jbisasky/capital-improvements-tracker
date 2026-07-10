@@ -89,7 +89,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
               type="button"
               aria-label="Expand sidebar"
               onClick={() => { setCollapsed(false); }}
-              className="flex w-full cursor-pointer items-center justify-center text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
+              className="flex w-full cursor-pointer items-center justify-center rounded-md p-2 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
             >
               <Menu className="size-6" />
             </button>
@@ -108,7 +108,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
                 type="button"
                 aria-label="Collapse sidebar"
                 onClick={() => { setCollapsed(true); }}
-                className="shrink-0 cursor-pointer px-3 text-sidebar-foreground/40 transition-colors hover:text-sidebar-foreground"
+                className="shrink-0 cursor-pointer rounded-md p-2 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
               >
                 <PanelLeftClose className="size-5" />
               </button>
@@ -128,7 +128,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
                   "flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors",
                   collapsed ? "justify-center" : "gap-3 px-3",
                   isActive
-                    ? "bg-sidebar-accent text-primary"
+                    ? "bg-primary/10 text-primary"
                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
                 )
               }
@@ -217,7 +217,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
               title={`Theme: ${THEME_LABEL[themePreference]} (tap to cycle)`}
               aria-label={`Theme: ${THEME_LABEL[themePreference]}`}
               onClick={cycleTheme}
-              className="flex cursor-pointer items-center text-muted-foreground transition-colors hover:text-foreground"
+              className="flex cursor-pointer items-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ThemeIcon className="size-4" />
             </button>
@@ -225,7 +225,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="flex cursor-pointer items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <LogOut className="size-4" />
                 Sign out
@@ -233,7 +233,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
             ) : (
               <Link
                 to="/"
-                className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <LogOut className="size-4" />
                 Exit Demo
@@ -257,10 +257,10 @@ export function AppShell({ children }: AppShellProps): ReactElement {
             to={`${prefix}${to}`}
             className={({ isActive }) =>
               cn(
-                "flex flex-col items-center gap-0.5 px-2 py-1 text-xs transition-colors",
+                "flex flex-col items-center gap-0.5 rounded-md px-3 py-1.5 text-xs transition-colors",
                   isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )
             }
           >

@@ -24,7 +24,27 @@ If you make any code changes (not just documentation updates), you must:
    - **Avoid Flakiness:** Do not rely on external network calls or brittle DOM structures. Mock where appropriate.
 2. **Run Tests:** Run the relevant Vitest unit/component tests to ensure they pass.
 3. **E2E Testing:** Run a suite of Playwright E2E tests covering the affected flows.
-4. **Report:** Generate a Markdown test report (in the `docs/test-reports/` folder) documenting the test evidence, including screenshots of the passing flows. Reference the format in `docs/test-reports/task4-auth-drive.md` (or similar) as an example.
+4. **Report:** Generate a Markdown test report (in the `docs/test-reports/` folder) documenting the test evidence, including screenshots of the passing flows. Reference the format in `docs/test-reports/task4-auth-drive.md` (or similar) as an example. **Compress every screenshot** per [Documentation images](#documentation-images) before committing.
+
+## Documentation images
+
+Every raster image under `docs/` (PNG, JPEG, WebP) — including `docs/screenshots/`, `docs/test-reports/**`, and `docs/mockups/` — must be **≤200 kB (204,800 bytes)** after optimization.
+
+When creating or updating doc images:
+
+1. Capture or export the image.
+2. Run `npm run compress:doc-images` (or `npm run compress:doc-images -- --check` to verify only).
+3. Confirm nothing exceeds the limit:
+
+   ```bash
+   find docs -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' \) -size +200k
+   ```
+
+   (should produce no output)
+
+**Playwright captures:** use JPEG (`type: 'jpeg'`, `quality: 80`), viewport-only (`fullPage: false`) unless a full-page capture is required. See `e2e/helpers/doc-screenshot.ts`. Do **not** commit raw lossless PNGs to `docs/` without running the compress script.
+
+If a screenshot cannot reach 200 kB without unacceptable blur, crop to the relevant UI region or reduce viewport width — do not raise the limit without user approval.
 
 ## 🔄 Task Tracking Directives
 When you complete a task or a step, **you MUST update the "Completed Tasks" and "Remaining Tasks" sections in this `AGENTS.md` file AND in the `README.md` file (if applicable)**.
@@ -46,6 +66,8 @@ When you complete a task or a step, **you MUST update the "Completed Tasks" and 
 
 ### Bug Fixes
 - [x] **Save Property fix:** Implemented `saveProperty` end-to-end (schema → StorageDriver interface → MockStorageDriver → DriveStorageDriver → StorageContext). Fixed Settings page to wire the handler, sync form state from late-loading manifest via `useEffect`, add optional `address2` field, add required-field validation with inline error, and show Saving…/Saved ✓/error button states. 194/194 tests pass.
+- [x] **Dashboard sync skeleton fix:** Stopped demo mode from polluting IndexedDB offline cache (`persistOfflineCache={false}`), deferred manifest display until Drive confirms (skeleton during sync), clear cache on sign-out. 305/305 unit tests + 8/8 dashboard E2E pass. See `docs/test-reports/dashboard-sync-skeleton.md`.
+- [x] **PR #53 review fixes:** Fixed year-scoped export after loading, offline cached startup, Safe Harbor tooltip markup, AlertDialog focus management, and auth token restoration for local/E2E runs. Focused Vitest 39/39, check pass, 35/35 affected Chromium E2E pass. See `docs/test-reports/pr53-review-fixes.md`.
 
 ### Polish
 - [x] **Dark/Light/System theme:** Added `src/services/theme.ts` + `theme-context.tsx` (`ThemeProvider`/`useTheme`), persisted to `localStorage` (`theme_preference`) — a device-local preference, kept out of `manifest.json` to match the BYOK key/AI budget pattern. Settings page "Appearance" section (Light/Dark/System radiogroup) + sidebar/mobile-top-bar quick-cycle icon toggle. Inline `index.html` script prevents theme flash on load. 218/218 tests pass. See `docs/test-reports/dark-light-mode.md`.

@@ -11,6 +11,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "check": "npm run typecheck && npm run lint",
+    "compress:doc-images": "node scripts/compress-doc-images.mjs",
+    "compress:doc-images:check": "node scripts/compress-doc-images.mjs --check",
     "audit": "npm audit --audit-level=high",
     "preview": "vite preview"
   },
@@ -58,6 +60,7 @@
     "globals": "^17.7.0",
     "jsdom": "^29.1.1",
     "rollup-plugin-visualizer": "^7.0.1",
+    "sharp": "^0.34.5",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.62.1",
     "vite": "^8.1.3",

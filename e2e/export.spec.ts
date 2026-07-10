@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
-import * as path from "path";
 import * as fs from "fs";
 import AxeBuilder from "@axe-core/playwright";
 import { gotoDemoExport } from "./fixtures/demo-ready";
+import { DOC_SCREENSHOT_OPTS, docScreenshotPath } from "./helpers/doc-screenshot";
 
 test.describe("Export page", () => {
   test.beforeEach(async ({ page }) => {
@@ -150,7 +150,8 @@ test.describe("Export page", () => {
       fs.mkdirSync(screenshotDir, { recursive: true });
     }
     await page.screenshot({
-      path: path.join(screenshotDir, "export-page-default.png"),
+      path: docScreenshotPath(screenshotDir, "export-page-default.jpg"),
+      ...DOC_SCREENSHOT_OPTS,
       fullPage: true,
     });
   });
@@ -164,7 +165,8 @@ test.describe("Export page", () => {
       fs.mkdirSync(screenshotDir, { recursive: true });
     }
     await page.screenshot({
-      path: path.join(screenshotDir, "export-page-year-scope.png"),
+      path: docScreenshotPath(screenshotDir, "export-page-year-scope.jpg"),
+      ...DOC_SCREENSHOT_OPTS,
       fullPage: true,
     });
   });

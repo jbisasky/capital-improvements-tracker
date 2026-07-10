@@ -5,6 +5,9 @@ import {
   RECEIPT_DETAIL_FIELD_LABEL,
   RECEIPT_DETAIL_LABELS,
 } from "@/domain/receipt-detail-level";
+import { Button } from "@/components/ui/button";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { FORM_DATE, FORM_SELECT, FORM_TEXT } from "@/lib/form-field-classes";
 
 export type { ProjectFormData } from "@/app/projects/project-form-types";
 
@@ -55,6 +58,9 @@ const ENERGY_OPTIONS: { value: EnergyCreditType; label: string }[] = [
   { value: "45l", label: "45L" },
 ];
 
+const SAFE_HARBOR_TOOLTIP =
+  "The IRS de minimis safe harbor lets you expense tangible property purchases of $2,500 or less instead of capitalizing them as improvements. Check this if that election applies to this project—not tax advice; confirm with your tax advisor.";
+
 const RECEIPT_DETAIL_OPTIONS = (
   Object.entries(RECEIPT_DETAIL_LABELS) as [ReceiptDetailLevel, string][]
 ).map(([value, label]) => ({ value, label }));
@@ -90,7 +96,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
               type="text"
               value={form.title}
               onChange={(e) => { handleChange("title", e.target.value); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_TEXT}
             />
           </div>
           <div>
@@ -103,7 +109,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
               type="date"
               value={form.completionDate}
               onChange={(e) => { handleChange("completionDate", e.target.value); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_DATE}
             />
           </div>
           <div>
@@ -118,7 +124,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
               step="0.01"
               value={form.totalCost}
               onChange={(e) => { handleChange("totalCost", e.target.value); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_TEXT}
             />
           </div>
           <div>
@@ -129,7 +135,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
               id="taxTreatment"
               value={form.taxTreatment}
               onChange={(e) => { handleChange("taxTreatment", e.target.value); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_SELECT}
             >
               {TREATMENT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -147,7 +153,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
               step="0.01"
               value={form.costBasisAdjustment}
               onChange={(e) => { handleChange("costBasisAdjustment", e.target.value); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_TEXT}
             />
           </div>
           <div>
@@ -161,7 +167,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
               step="0.01"
               value={form.deductibleAmount}
               onChange={(e) => { handleChange("deductibleAmount", e.target.value); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_TEXT}
             />
           </div>
           <div className="sm:col-span-2">
@@ -173,7 +179,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
               rows={3}
               value={form.irsJustification}
               onChange={(e) => { handleChange("irsJustification", e.target.value); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_TEXT}
             />
           </div>
         </div>
@@ -199,7 +205,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 id="category"
                 value={form.category}
                 onChange={(e) => { handleChange("category", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_SELECT}
               >
                 <option value="">Select...</option>
                 {CATEGORY_OPTIONS.map((opt) => (
@@ -216,7 +222,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 type="text"
                 value={form.vendorName}
                 onChange={(e) => { handleChange("vendorName", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_TEXT}
               />
             </div>
             <div>
@@ -229,7 +235,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 placeholder="XX-XXXXXXX"
                 value={form.vendorTin}
                 onChange={(e) => { handleChange("vendorTin", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_TEXT}
               />
             </div>
             <div>
@@ -240,7 +246,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 id="paymentMethod"
                 value={form.paymentMethod}
                 onChange={(e) => { handleChange("paymentMethod", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_SELECT}
               >
                 <option value="">Select...</option>
                 {PAYMENT_OPTIONS.map((opt) => (
@@ -257,7 +263,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 type="date"
                 value={form.datePaymentMade}
                 onChange={(e) => { handleChange("datePaymentMade", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_DATE}
               />
             </div>
             <div>
@@ -269,7 +275,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 type="text"
                 value={form.permitNumber}
                 onChange={(e) => { handleChange("permitNumber", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_TEXT}
               />
             </div>
             <div>
@@ -280,7 +286,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 id="receiptDetailLevel"
                 value={form.receiptDetailLevel}
                 onChange={(e) => { handleChange("receiptDetailLevel", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_SELECT}
               >
                 <option value="">Not set</option>
                 {RECEIPT_DETAIL_OPTIONS.map((opt) => (
@@ -296,7 +302,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 id="energyCreditType"
                 value={form.energyCreditType}
                 onChange={(e) => { handleChange("energyCreditType", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_SELECT}
               >
                 <option value="">Select...</option>
                 {ENERGY_OPTIONS.map((opt) => (
@@ -315,7 +321,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 step="0.5"
                 value={form.usefulLifeYears}
                 onChange={(e) => { handleChange("usefulLifeYears", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_TEXT}
               />
             </div>
             <div>
@@ -327,7 +333,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 type="date"
                 value={form.depreciationStartDate}
                 onChange={(e) => { handleChange("depreciationStartDate", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_DATE}
               />
             </div>
             <div>
@@ -340,7 +346,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 min="0"
                 value={form.sqftAffected}
                 onChange={(e) => { handleChange("sqftAffected", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_TEXT}
               />
             </div>
             <div className="flex items-center gap-2 sm:col-span-2">
@@ -354,6 +360,9 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
               <label htmlFor="safeHarborElection" className="text-sm">
                 Safe Harbor Election (de minimis ≤ $2,500)
               </label>
+              <InfoTooltip label="About safe harbor election">
+                {SAFE_HARBOR_TOOLTIP}
+              </InfoTooltip>
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="notes" className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -364,7 +373,7 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 rows={3}
                 value={form.notes}
                 onChange={(e) => { handleChange("notes", e.target.value); }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={FORM_TEXT}
                 placeholder="Any additional details for audit documentation..."
               />
             </div>
@@ -373,12 +382,9 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
       </div>
 
       <div className="flex justify-end">
-        <button
-          type="submit"
-          className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
-        >
+        <Button type="submit">
           {submitLabel}
-        </button>
+        </Button>
       </div>
     </form>
   );

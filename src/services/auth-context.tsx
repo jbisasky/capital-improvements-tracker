@@ -34,11 +34,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const CLIENT_ID = (import.meta.env["VITE_GOOGLE_CLIENT_ID"] as string | undefined) ?? "";
 
 // Initialize auth at module load time so getAuthState() returns the restored
-// token state before the first React render. This prevents AppLayout from
-// briefly seeing "unauthenticated" and redirecting to "/" on page refresh.
-if (CLIENT_ID !== "") {
-  initAuth(CLIENT_ID);
-}
+// token state before the first React render. Token restoration must work even
+// when OAuth sign-in is not configured (for E2E and demo-like local runs).
+initAuth(CLIENT_ID);
 
 interface AuthProviderProps {
   children: ReactNode;

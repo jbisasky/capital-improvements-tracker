@@ -31,7 +31,7 @@ interface StorageState {
   error: string | null;
 }
 
-interface StorageContextValue extends StorageState {
+export interface StorageContextValue extends StorageState {
   reload: () => Promise<void>;
   isViewingCachedData: boolean;
   writesDisabled: boolean;
@@ -57,6 +57,8 @@ const StorageContext = createContext<StorageContextValue | null>(null);
 interface StorageProviderProps {
   driver: StorageDriver;
   children: ReactNode;
+  /** When false, successful reads are not persisted to IndexedDB (demo mode). */
+  persistOfflineCache?: boolean;
 }
 
 function applyManifestUpdate(
@@ -72,6 +74,7 @@ function applyManifestUpdate(
 export function StorageProvider({
   driver,
   children,
+  persistOfflineCache = true,
 }: StorageProviderProps): ReactElement {
   const { isOnline } = useOffline();
   const [state, setState] = useState<StorageState>({
@@ -83,25 +86,30 @@ export function StorageProvider({
   const [isViewingCachedData, setIsViewingCachedData] = useState(false);
 
   const loadManifest = useCallback(async (): Promise<void> => {
-    // Stale-while-revalidate: show cached data immediately so the dashboard
-    // renders without waiting for the Drive round-trip (~5–15s). The Drive
-    // fetch runs in the background and replaces the cached data when it lands.
     const cached = await loadManifestCache();
-    if (cached != null) {
+
+    // When the browser already knows it is offline, show cached data
+    // immediately for read-only browsing instead of waiting for fetch retries.
+    if (!navigator.onLine && cached != null) {
       setIsViewingCachedData(true);
       setState({
         manifest: cached,
         etag: null,
-        loading: true, // still loading — background refresh in progress
+        loading: false,
         error: null,
       });
-    } else {
-      setState((prev) => ({ ...prev, loading: true, error: null }));
+      return;
     }
+
+    // While online, keep cached manifest for fallback only — do not expose it
+    // to the UI until Drive confirms (or Drive fails and we must fall back).
+    setState((prev) => ({ ...prev, loading: true, error: null }));
 
     const result: Result<ManifestReadResult> = await driver.readManifest();
     if (result.ok) {
-      await saveManifestCache(result.value.manifest);
+      if (persistOfflineCache) {
+        await saveManifestCache(result.value.manifest);
+      }
       setIsViewingCachedData(false);
       setState({
         manifest: result.value.manifest,
@@ -112,21 +120,15 @@ export function StorageProvider({
       return;
     }
 
-    // Drive fetch failed. If we already showed cached data, keep showing it
-    // (offline or transient error) rather than blanking the screen.
+    // Drive fetch failed — fall back to cached data when available.
     if (cached != null) {
-      if (!navigator.onLine) {
-        // Already showing cached data — just mark as not loading.
-        setState((prev) => ({ ...prev, loading: false }));
-      } else {
-        // Online but Drive call failed — show cached data with an error banner.
-        setIsViewingCachedData(true);
-        setState((prev) => ({
-          ...prev,
-          loading: false,
-          error: result.error.message,
-        }));
-      }
+      setIsViewingCachedData(true);
+      setState({
+        manifest: cached,
+        etag: null,
+        loading: false,
+        error: navigator.onLine ? result.error.message : null,
+      });
       return;
     }
 
@@ -145,13 +147,15 @@ export function StorageProvider({
       loading: false,
       error: result.error.message,
     });
-  }, [driver]);
+  }, [driver, persistOfflineCache]);
 
   const initialized = useRef<boolean | null>(null);
-  if (initialized.current == null) {
+
+  useEffect(() => {
+    if (initialized.current != null) return;
     initialized.current = true;
     void loadManifest();
-  }
+  }, [loadManifest]);
 
   useEffect(() => {
     const handleOnline = (): void => {

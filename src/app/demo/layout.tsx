@@ -9,7 +9,7 @@ const demoDriver = new MockStorageDriver();
 
 export function DemoLayout(): ReactElement {
   return (
-    <StorageProvider driver={demoDriver}>
+    <StorageProvider driver={demoDriver} persistOfflineCache={false}>
       <div role="banner" className="fixed top-0 right-0 left-0 z-50 flex flex-row items-center justify-center bg-amber-700 px-4 py-2 text-xs font-medium text-white min-h-[36px]">
         Viewing read-only demo data.
         <Link

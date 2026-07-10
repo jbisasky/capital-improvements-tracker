@@ -42,13 +42,13 @@
 
 ### Desktop — split-screen with framed dashboard preview
 
-![Landing desktop split-screen](task8-screenshots/landing-desktop.png)
+![Landing desktop split-screen](task8-screenshots/landing-desktop.jpg)
 
 Solid white copy column left; `LandingDashboardPreview` in `rounded-xl border-zinc-100 shadow-xl` frame right. No text-over-image collision.
 
 ### Mobile — compact layout with enclosed feature card
 
-![Landing mobile layout](task8-screenshots/landing-mobile.png)
+![Landing mobile layout](task8-screenshots/landing-mobile.jpg)
 
 Navbar logo only (no oversized hero logo); hero content in elevated `rounded-2xl` compound card on `bg-zinc-50/50`; borderless `#feature-list` with relaxed line height; premium Google CTA with ring/shadow.
 

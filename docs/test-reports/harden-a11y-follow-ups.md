@@ -36,11 +36,11 @@
 
 ### Desktop landing (responsive CTAs via `getByRole`)
 
-![Desktop landing](harden-a11y-screenshots/landing-desktop.png)
+![Desktop landing](harden-a11y-screenshots/landing-desktop.jpg)
 
 ### Mobile landing (scoped to `landing-mobile-card`)
 
-![Mobile landing](harden-a11y-screenshots/landing-mobile.png)
+![Mobile landing](harden-a11y-screenshots/landing-mobile.jpg)
 
 ## CI note
 

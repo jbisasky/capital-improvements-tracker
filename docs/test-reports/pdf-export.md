@@ -88,13 +88,13 @@ Running 13 tests using 1 worker
 
 ### Export page — year scope selected (fully loaded)
 
-![Export page with year scope selected](pdf-export-screenshots/export-page-year-scope.png)
+![Export page with year scope selected](pdf-export-screenshots/export-page-year-scope.jpg)
 
 *Shows: PDF format selected by default, Scope radio with "By tax year" active, year dropdown showing 2026, "6 projects will be exported.", "Download PDF" button.*
 
 ### Export page — default state (screenshot taken at navigation time)
 
-![Export page default state](pdf-export-screenshots/export-page-default.png)
+![Export page default state](pdf-export-screenshots/export-page-default.jpg)
 
 *Note: screenshot taken immediately after navigation; manifest hydrates asynchronously. All 13 functional tests pass including the full loaded UI assertions.*
 
