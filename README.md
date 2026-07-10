@@ -350,7 +350,7 @@ Initial MVP tasks (1–8) are complete — scaffold through PWA/offline. See git
 | 7 | Polish — Landing page & about page refinement | Done |
 | 8 | Polish — PWA/offline & service worker | Done |
 
-Post-MVP polish shipped in follow-up PRs includes PDF export, dark/light theme, attachment uploads, Drive sync skeleton UX, and Cloudflare Pages production hosting.
+Post-MVP polish shipped in follow-up PRs includes PDF export, dark/light theme, attachment uploads, Drive sync skeleton UX, PR #53 loading/sync review fixes, and Cloudflare Pages production hosting.
 
 ## License
 

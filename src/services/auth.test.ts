@@ -322,6 +322,20 @@ describe("initAuth session token restoration", () => {
     expect(getAuthState().expiresAt).toBe(expiresAt);
   });
 
+  it("restores authenticated state even when OAuth client id is not configured", () => {
+    // Arrange
+    const expiresAt = Date.now() + 3_600_000;
+    sessionStorage.setItem("auth_access_token", "restored_token");
+    sessionStorage.setItem("auth_expires_at", String(expiresAt));
+
+    // Act
+    initAuth("");
+
+    // Assert
+    expect(getAuthState().status).toBe("authenticated");
+    expect(getAuthState().accessToken).toBe("restored_token");
+  });
+
   it("starts unauthenticated when sessionStorage token has expired", () => {
     // Arrange — expired token
     const expiresAt = Date.now() - 1000;

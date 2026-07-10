@@ -16,18 +16,37 @@ vi.mock("@/services/analytics", () => ({
 }));
 
 describe("ExportPage loading states", () => {
-  const originalCreateObjectUrl = URL.createObjectURL;
-  const originalRevokeObjectUrl = URL.revokeObjectURL;
+  const createObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, "createObjectURL");
+  const revokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, "revokeObjectURL");
+  let createdObjectUrlTarget: Blob | MediaSource | null = null;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    URL.createObjectURL = vi.fn(() => "blob:export");
-    URL.revokeObjectURL = vi.fn();
+    createdObjectUrlTarget = null;
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: (object: Blob | MediaSource): string => {
+        createdObjectUrlTarget = object;
+        return "blob:export";
+      },
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: () => undefined,
+    });
   });
 
   afterEach(() => {
-    URL.createObjectURL = originalCreateObjectUrl;
-    URL.revokeObjectURL = originalRevokeObjectUrl;
+    if (createObjectUrlDescriptor != null) {
+      Object.defineProperty(URL, "createObjectURL", createObjectUrlDescriptor);
+    } else {
+      Reflect.deleteProperty(URL, "createObjectURL");
+    }
+    if (revokeObjectUrlDescriptor != null) {
+      Object.defineProperty(URL, "revokeObjectURL", revokeObjectUrlDescriptor);
+    } else {
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    }
   });
 
   it("renders format and scope controls while manifest is loading", () => {
@@ -117,16 +136,18 @@ describe("ExportPage loading states", () => {
     );
 
     // Act
-    fireEvent.click(screen.getByRole("radio", { name: /^csv$/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /csv spreadsheet-friendly/i }));
     fireEvent.click(screen.getByRole("button", { name: /download csv/i }));
 
     // Assert
     await waitFor(() => {
-      expect(URL.createObjectURL).toHaveBeenCalled();
+      expect(createdObjectUrlTarget).toBeInstanceOf(Blob);
     });
-    const [blob] = vi.mocked(URL.createObjectURL).mock.calls[0] ?? [];
-    expect(blob).toBeInstanceOf(Blob);
-    const csv = await (blob as Blob).text();
+    const blob = createdObjectUrlTarget;
+    if (!(blob instanceof Blob)) {
+      throw new Error("Expected CSV export to create a Blob");
+    }
+    const csv = await blob.text();
     expect(csv).toContain("HVAC System Upgrade");
     expect(csv).not.toContain("Complete Roof Replacement");
   });

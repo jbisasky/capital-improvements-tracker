@@ -37,11 +37,11 @@ const DRIVE_MANIFEST: Manifest = {
   ],
 };
 
-function createStubDriver(
-  readResult: Promise<Result<ManifestReadResult>>,
-): StorageDriver {
+type ReadManifestFn = () => Promise<Result<ManifestReadResult>>;
+
+function createStubDriverFromReadManifest(readManifest: ReadManifestFn): StorageDriver {
   return {
-    readManifest: vi.fn(() => readResult),
+    readManifest,
     writeManifest: vi.fn(),
     addProject: vi.fn(),
     addProjectWithAttachments: vi.fn(),
@@ -54,6 +54,12 @@ function createStubDriver(
     listUnlinkedDriveFiles: vi.fn(),
     saveProperty: vi.fn(),
   };
+}
+
+function createStubDriver(
+  readResult: Promise<Result<ManifestReadResult>>,
+): StorageDriver {
+  return createStubDriverFromReadManifest(vi.fn(() => readResult));
 }
 
 function StorageProbe(): ReactElement {
@@ -177,9 +183,9 @@ describe("StorageProvider loadManifest", () => {
       value: false,
     });
     loadManifestCacheMock.mockResolvedValue(DEMO_MANIFEST);
-    const driver = createStubDriver(
-      new Promise<Result<ManifestReadResult>>(() => {}),
-    );
+    const pendingRead = Promise.race<Result<ManifestReadResult>>([]);
+    const readManifestMock = vi.fn(() => pendingRead);
+    const driver = createStubDriverFromReadManifest(readManifestMock);
 
     // Act
     renderProvider(driver);
@@ -190,6 +196,6 @@ describe("StorageProvider loadManifest", () => {
     });
     expect(screen.getByTestId("manifest")).toHaveTextContent("Complete Roof Replacement");
     expect(screen.getByTestId("cached")).toHaveTextContent("yes");
-    expect(driver.readManifest).not.toHaveBeenCalled();
+    expect(readManifestMock).not.toHaveBeenCalled();
   });
 });

@@ -113,6 +113,7 @@ describe("AlertDialog", () => {
     // Arrange
     render(<DialogHarness />);
     const opener = screen.getByRole("button", { name: /open delete dialog/i });
+    opener.focus();
     fireEvent.click(opener);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /cancel/i })).toHaveFocus();

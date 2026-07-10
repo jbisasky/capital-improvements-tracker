@@ -150,10 +150,12 @@ export function StorageProvider({
   }, [driver, persistOfflineCache]);
 
   const initialized = useRef<boolean | null>(null);
-  if (initialized.current == null) {
+
+  useEffect(() => {
+    if (initialized.current != null) return;
     initialized.current = true;
     void loadManifest();
-  }
+  }, [loadManifest]);
 
   useEffect(() => {
     const handleOnline = (): void => {
