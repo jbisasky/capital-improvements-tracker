@@ -51,41 +51,44 @@ function MetricCard({ icon, label, value, href }: MetricCardProps): ReactElement
 }
 
 function DashboardSkeleton(): ReactElement {
-  return (
-    <div className="space-y-8">
-      {/* Page heading */}
-      <Skeleton className="h-8 w-36" />
+  const metricLabels = [
+    { icon: <TrendingUp className="size-3.5" />, label: "Cost Basis Added" },
+    { icon: <Banknote className="size-3.5" />, label: "Total Spent" },
+    { icon: <FolderOpen className="size-3.5" />, label: "Projects" },
+    { icon: <CheckCircle2 className="size-3.5" />, label: "Docs Complete" },
+  ] as const;
 
-      {/* Metric cards — 2×2 on mobile, 4-col at lg+ */}
+  return (
+    <div className="space-y-8" data-testid="dashboard-skeleton">
+      <h1 className="text-2xl font-semibold">Dashboard</h1>
+
+      {/* Metric cards — labels are static; values skeletonize */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className={cn(CARD_SURFACE, "p-5")}
-          >
-            <div className="mb-3 flex items-center gap-1.5">
-              <Skeleton className="size-3.5 rounded-sm" />
-              <Skeleton className="h-3 w-24" />
+        {metricLabels.map(({ icon, label }) => (
+          <div key={label} className={cn(CARD_SURFACE, "p-5")}>
+            <div className="mb-2 flex items-center gap-1.5 text-muted-foreground">
+              {icon}
+              <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
             </div>
             <Skeleton className="h-8 w-28" />
           </div>
         ))}
       </div>
 
-      {/* Documentation health bar */}
+      {/* Documentation health — title is static; counts and bar skeletonize */}
       <div className={cn(CARD_SURFACE, "p-4")}>
-        <div className="mb-3 flex items-center justify-between">
-          <Skeleton className="h-4 w-40" />
+        <div className="mb-2 flex items-center justify-between text-sm">
+          <span className="font-medium text-foreground">Documentation Health</span>
           <Skeleton className="h-4 w-32" />
         </div>
         <Skeleton className="h-2 w-full rounded-full" />
       </div>
 
-      {/* Recent projects section */}
+      {/* Recent projects — heading is static; rows skeletonize */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Skeleton className="h-6 w-36" />
-          <Skeleton className="h-4 w-16" />
+          <h2 className="text-lg font-semibold text-foreground">Recent Projects</h2>
+          <span className="text-sm font-medium text-muted-foreground">View all →</span>
         </div>
         <div className={cn(CARD_SURFACE, "divide-y divide-border")}>
           {Array.from({ length: 5 }).map((_, i) => (

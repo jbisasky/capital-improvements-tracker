@@ -14,6 +14,14 @@ import {
   type AuthState,
 } from "@/services/auth";
 
+vi.mock("@/services/offline-manifest-cache", () => ({
+  clearManifestCache: vi.fn().mockResolvedValue(undefined),
+}));
+
+import { clearManifestCache } from "@/services/offline-manifest-cache";
+
+const clearManifestCacheMock = vi.mocked(clearManifestCache);
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -385,6 +393,7 @@ describe("signOut", () => {
   beforeEach(() => {
     _resetForTesting();
     setUrl("");
+    clearManifestCacheMock.mockClear();
   });
 
   it("clears the sessionStorage token on sign out", () => {
@@ -402,5 +411,19 @@ describe("signOut", () => {
     expect(getAuthState().status).toBe("unauthenticated");
     expect(sessionStorage.getItem("auth_access_token")).toBeNull();
     expect(sessionStorage.getItem("auth_expires_at")).toBeNull();
+  });
+
+  it("clears the offline manifest cache on sign out", () => {
+    // Arrange
+    const expiresAt = Date.now() + 3_600_000;
+    sessionStorage.setItem("auth_access_token", "tok");
+    sessionStorage.setItem("auth_expires_at", String(expiresAt));
+    initAuth("test-client-id");
+
+    // Act
+    signOut();
+
+    // Assert
+    expect(clearManifestCacheMock).toHaveBeenCalledOnce();
   });
 });

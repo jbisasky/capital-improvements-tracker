@@ -4,6 +4,8 @@ import { useStorage } from "@/services/storage-context";
 import { type PropertyType } from "@/domain/schemas";
 import { useRoutePrefix } from "@/hooks/use-route-prefix";
 import { useAuth } from "@/services/auth-context";
+import { cn } from "@/lib/utils";
+import { FORM_SELECT, FORM_SELECT_SM, FORM_TEXT } from "@/lib/form-field-classes";
 import { clearLocalDeviceData } from "@/services/clear-local-data";
 import { trackClearAllData, trackBYOKKeySaved } from "@/services/analytics";
 import {
@@ -274,11 +276,12 @@ export function SettingsPage(): ReactElement {
               role="radio"
               aria-checked={themePreference === value}
               onClick={() => { setThemePreference(value); }}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={cn(
+                "flex cursor-pointer items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
                 themePreference === value
                   ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
             >
               <Icon className="size-4" />
               {label}
@@ -307,7 +310,7 @@ export function SettingsPage(): ReactElement {
               onChange={(e) => { setAddress(e.target.value); clearFieldError("address"); }}
               placeholder="123 Main St"
               autoComplete="street-address"
-              className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring${fieldErrors.address != null ? " border-destructive" : ""}`}
+              className={cn(FORM_TEXT, fieldErrors.address != null && "border-destructive")}
             />
             {fieldErrors.address != null && (
               <p className="mt-1 text-xs text-destructive">{fieldErrors.address}</p>
@@ -323,7 +326,7 @@ export function SettingsPage(): ReactElement {
               value={address2}
               onChange={(e) => { setAddress2(e.target.value); }}
               placeholder="Apt, suite, unit, etc."
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_TEXT}
             />
           </div>
           <div>
@@ -338,7 +341,7 @@ export function SettingsPage(): ReactElement {
               value={city}
               onChange={(e) => { setCity(e.target.value.replace(/\d/g, "")); clearFieldError("city"); }}
               autoComplete="address-level2"
-              className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring${fieldErrors.city != null ? " border-destructive" : ""}`}
+              className={cn(FORM_TEXT, fieldErrors.city != null && "border-destructive")}
             />
             {fieldErrors.city != null && (
               <p className="mt-1 text-xs text-destructive">{fieldErrors.city}</p>
@@ -355,7 +358,7 @@ export function SettingsPage(): ReactElement {
                 value={state}
                 onChange={(e) => { setState(e.target.value); clearFieldError("state"); }}
                 autoComplete="address-level1"
-                className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring${fieldErrors.state != null ? " border-destructive" : ""}`}
+                className={cn(FORM_SELECT, fieldErrors.state != null && "border-destructive")}
               >
                 <option value="">State…</option>
                 {US_STATES.map((s) => (
@@ -380,7 +383,7 @@ export function SettingsPage(): ReactElement {
                 onChange={(e) => { handleZipChange(e.target.value); clearFieldError("zip"); }}
                 placeholder="12345"
                 autoComplete="postal-code"
-                className={`w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring${fieldErrors.zip != null ? " border-destructive" : ""}`}
+                className={cn(FORM_TEXT, fieldErrors.zip != null && "border-destructive")}
               />
               {fieldErrors.zip != null && (
                 <p className="mt-1 text-xs text-destructive">{fieldErrors.zip}</p>
@@ -395,7 +398,7 @@ export function SettingsPage(): ReactElement {
               id="propertyType"
               value={propertyType}
               onChange={(e) => { setPropertyType(e.target.value as PropertyType); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_SELECT}
             >
               {PROPERTY_TYPES.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -412,7 +415,7 @@ export function SettingsPage(): ReactElement {
               min="0"
               value={sqftTotal}
               onChange={(e) => { setSqftTotal(e.target.value); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_TEXT}
             />
           </div>
         </div>
@@ -485,7 +488,7 @@ export function SettingsPage(): ReactElement {
                 autoComplete="off"
                 value={keyInput}
                 onChange={(e) => { setKeyInput(e.target.value); }}
-                className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className={cn(FORM_TEXT, "flex-1")}
               />
               <button
                 type="button"
@@ -532,7 +535,7 @@ export function SettingsPage(): ReactElement {
                   onChange={(e) => {
                     setExpiryDays(e.target.value === "null" ? null : Number(e.target.value) as ExpiryDays);
                   }}
-                  className="rounded-md border bg-background px-2 py-1 text-xs outline-none"
+                className={FORM_SELECT_SM}
                 >
                   {EXPIRY_OPTIONS.map((opt) => (
                     <option key={String(opt.value)} value={opt.value == null ? "null" : String(opt.value)}>
@@ -569,7 +572,7 @@ export function SettingsPage(): ReactElement {
               min="1"
               value={budget.maxAiCallsPerSession}
               onChange={(e) => { setBudget((b) => ({ ...b, maxAiCallsPerSession: Number(e.target.value) || 50 })); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_TEXT}
             />
           </div>
           <div>
@@ -582,7 +585,7 @@ export function SettingsPage(): ReactElement {
               min="1"
               value={budget.maxAiCallsPerDay}
               onChange={(e) => { setBudget((b) => ({ ...b, maxAiCallsPerDay: Number(e.target.value) || 200 })); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_TEXT}
             />
           </div>
           <div>
@@ -596,7 +599,7 @@ export function SettingsPage(): ReactElement {
               step="100000"
               value={budget.maxAiTokensPerDay}
               onChange={(e) => { setBudget((b) => ({ ...b, maxAiTokensPerDay: Number(e.target.value) || 2_000_000 })); }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={FORM_TEXT}
             />
           </div>
         </div>

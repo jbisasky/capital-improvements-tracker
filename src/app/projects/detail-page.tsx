@@ -10,6 +10,9 @@ import {
   RECEIPT_DETAIL_LABELS,
 } from "@/domain/receipt-detail-level";
 import { AttachmentSection } from "@/app/projects/attachment-section";
+import { Skeleton } from "@/components/ui/skeleton";
+import { buttonVariants } from "@/components/ui/button-variants";
+import { Button } from "@/components/ui/button";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -28,18 +31,128 @@ const TREATMENT_LABELS: Record<TaxTreatment, string> = {
   unknown: "Unclassified",
 };
 
+const FINANCIAL_LABELS = ["Total Cost", "Cost Basis", "Deductible"] as const;
+const DETAIL_LABELS = ["Category", "Vendor", "Payment Method", "Receipt detail"] as const;
+
+function ProjectDetailSkeleton({ prefix }: { prefix: string }): ReactElement {
+  return (
+    <div className="space-y-6" data-testid="project-detail-skeleton">
+      <Link
+        to={`${prefix}/projects`}
+        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+      >
+        <ArrowLeft className="size-4" /> Back to projects
+      </Link>
+
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64 max-w-full" />
+          <Skeleton className="h-4 w-48 max-w-full" />
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm opacity-50"
+          >
+            <Pencil className="size-3.5" /> Edit
+          </button>
+          <button
+            type="button"
+            disabled
+            className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 opacity-50"
+          >
+            <Trash2 className="size-3.5" /> Delete
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {FINANCIAL_LABELS.map((label) => (
+              <div key={label} className="rounded-lg border p-4">
+                <p className="text-sm text-muted-foreground">{label}</p>
+                <Skeleton className="mt-1 h-7 w-24" />
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-lg border p-4">
+            <h2 className="mb-2 text-sm font-medium">IRS Justification</h2>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-4/5" />
+            </div>
+          </div>
+
+          <div className="rounded-lg border p-4">
+            <h2 className="mb-3 text-sm font-medium">Details</h2>
+            <dl className="grid gap-3 sm:grid-cols-2">
+              {DETAIL_LABELS.map((label) => (
+                <div key={label}>
+                  <dt className="text-xs text-muted-foreground">{label}</dt>
+                  <dd className="mt-1">
+                    <Skeleton className="h-4 w-32" />
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-sm font-medium">Attachments</h2>
+            <div className="divide-y rounded-lg border">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 p-3">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="size-8 rounded-md" />
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-lg border p-4">
+            <h2 className="mb-3 text-sm font-medium">Documentation Health</h2>
+            <div className="mb-3 flex items-center gap-3">
+              <Skeleton className="size-12 rounded-full" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-3 w-36" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          </div>
+
+          <div className="rounded-lg border p-4">
+            <h2 className="mb-2 text-sm font-medium">AI Confidence</h2>
+            <Skeleton className="h-8 w-16" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProjectDetailPage(): ReactElement {
   const { id } = useParams();
   const navigate = useNavigate();
   const prefix = useRoutePrefix();
   const { manifest, deleteProject, getDocAssessment } = useStorage();
 
-  if (!manifest) {
-    return (
-      <div className="space-y-6">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
+  const isDataPending = manifest == null;
+
+  if (isDataPending) {
+    return <ProjectDetailSkeleton prefix={prefix} />;
   }
 
   const project = manifest.projects.find((p) => p.id === id);
@@ -80,17 +193,19 @@ export function ProjectDetailPage(): ReactElement {
         <div className="flex gap-2">
           <Link
             to={`${prefix}/projects/${project.id}/edit`}
-            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
           >
             <Pencil className="size-3.5" /> Edit
           </Link>
-          <button
+          <Button
             type="button"
+            variant="destructive"
+            size="sm"
             onClick={() => { void handleDelete(); }}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            className="gap-1.5"
           >
             <Trash2 className="size-3.5" /> Delete
-          </button>
+          </Button>
         </div>
       </div>
 

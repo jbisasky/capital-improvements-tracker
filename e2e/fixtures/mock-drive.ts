@@ -67,6 +67,11 @@ export const FIXTURE_MANIFEST = {
   ],
 };
 
+export interface MockDriveOptions {
+  /** Delay manifest download so loading skeleton is observable in E2E. */
+  readDelayMs?: number;
+}
+
 /**
  * Install page.route() intercepts for all Google Drive API calls made by
  * DriveStorageDriver. Must be called before page.goto().
@@ -84,8 +89,10 @@ export const FIXTURE_MANIFEST = {
 export async function setupMockDrive(
   page: Page,
   manifest?: object,
+  options?: MockDriveOptions,
 ): Promise<void> {
   const activeManifest = manifest ?? EMPTY_MANIFEST;
+  const readDelayMs = options?.readDelayMs ?? 0;
   const driveApiBase = "**/www.googleapis.com/drive/v3";
   const uploadApiBase = "**/www.googleapis.com/upload/drive/v3";
 
@@ -132,6 +139,11 @@ export async function setupMockDrive(
 
     // Manifest content download: GET /files/:id?alt=media
     if (method === "GET" && url.includes("alt=media")) {
+      if (readDelayMs > 0) {
+        await new Promise((resolve) => {
+          setTimeout(resolve, readDelayMs);
+        });
+      }
       await route.fulfill({
         status: 200,
         contentType: "text/plain",

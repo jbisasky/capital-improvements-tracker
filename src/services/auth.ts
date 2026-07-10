@@ -17,6 +17,8 @@
  *                       sessionStorage if one exists.
  */
 
+import { clearManifestCache } from "@/services/offline-manifest-cache";
+
 const REQUIRED_SCOPES = [
   "https://www.googleapis.com/auth/drive.appdata",
   "https://www.googleapis.com/auth/drive.file",
@@ -366,6 +368,8 @@ export function signOut(): void {
   const token = state.accessToken;
   state = { ...INITIAL_STATE };
   notify();
+
+  void clearManifestCache();
 
   if (token != null) {
     // Best-effort revocation — GIS revoke endpoint works without the library.
