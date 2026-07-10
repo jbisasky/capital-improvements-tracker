@@ -357,12 +357,12 @@ export function ProjectForm({ initial, onSubmit, submitLabel }: ProjectFormProps
                 onChange={(e) => { handleChange("safeHarborElection", e.target.checked); }}
                 className="size-4 rounded border"
               />
-              <label htmlFor="safeHarborElection" className="inline-flex items-center gap-1.5 text-sm">
+              <label htmlFor="safeHarborElection" className="text-sm">
                 Safe Harbor Election (de minimis ≤ $2,500)
-                <InfoTooltip label="About safe harbor election">
-                  {SAFE_HARBOR_TOOLTIP}
-                </InfoTooltip>
               </label>
+              <InfoTooltip label="About safe harbor election">
+                {SAFE_HARBOR_TOOLTIP}
+              </InfoTooltip>
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="notes" className="mb-1 block text-xs font-medium text-muted-foreground">

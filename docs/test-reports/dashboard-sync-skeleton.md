@@ -1,6 +1,6 @@
 # Test Report — Dashboard Sync Skeleton (Demo Cache Fix)
 
-**Date:** 2026-07-08  
+**Date:** 2026-07-08
 **Scope:** Fix post-login dashboard showing demo/cached fixture data during Drive sync; show skeleton until Drive confirms.
 
 ---

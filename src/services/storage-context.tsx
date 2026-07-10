@@ -86,9 +86,23 @@ export function StorageProvider({
   const [isViewingCachedData, setIsViewingCachedData] = useState(false);
 
   const loadManifest = useCallback(async (): Promise<void> => {
-    // Keep cached manifest for offline fallback only — do not expose it to the
-    // UI until Drive confirms (or Drive fails and we must fall back).
     const cached = await loadManifestCache();
+
+    // When the browser already knows it is offline, show cached data
+    // immediately for read-only browsing instead of waiting for fetch retries.
+    if (!navigator.onLine && cached != null) {
+      setIsViewingCachedData(true);
+      setState({
+        manifest: cached,
+        etag: null,
+        loading: false,
+        error: null,
+      });
+      return;
+    }
+
+    // While online, keep cached manifest for fallback only — do not expose it
+    // to the UI until Drive confirms (or Drive fails and we must fall back).
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     const result: Result<ManifestReadResult> = await driver.readManifest();

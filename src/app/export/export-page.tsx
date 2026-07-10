@@ -48,17 +48,18 @@ export function ExportPage(): ReactElement {
   async function handleExport(): Promise<void> {
     if (!manifest) return;
 
+    const exportYear = scope === "year" ? effectiveYear : undefined;
     const scopedProjects = filterProjectsByScope(
       manifest.projects,
       scope,
-      scope === "year" ? selectedYear : undefined,
+      exportYear,
     );
 
     let content: string | Blob;
     let filename: string;
     let mimeType: string;
     const dateSuffix = new Date().toISOString().slice(0, 10);
-    const yearSuffix = scope === "year" && selectedYear ? `-${selectedYear}` : "";
+    const yearSuffix = exportYear != null && exportYear !== "" ? `-${exportYear}` : "";
 
     if (format === "json") {
       content = JSON.stringify(manifest, null, 2);
@@ -96,8 +97,8 @@ export function ExportPage(): ReactElement {
             manifest={manifest}
             projects={scopedProjects}
             scope={scope}
-            {...(scope === "year" && selectedYear !== ""
-              ? { year: selectedYear }
+            {...(exportYear != null && exportYear !== ""
+              ? { year: exportYear }
               : {})}
           />,
         ).toBlob();

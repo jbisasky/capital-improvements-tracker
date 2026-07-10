@@ -169,4 +169,27 @@ describe("StorageProvider loadManifest", () => {
     expect(screen.getByTestId("manifest")).toHaveTextContent("Complete Roof Replacement");
     expect(screen.getByTestId("cached")).toHaveTextContent("yes");
   });
+
+  it("shows cached manifest immediately on offline startup", async () => {
+    // Arrange
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      value: false,
+    });
+    loadManifestCacheMock.mockResolvedValue(DEMO_MANIFEST);
+    const driver = createStubDriver(
+      new Promise<Result<ManifestReadResult>>(() => {}),
+    );
+
+    // Act
+    renderProvider(driver);
+
+    // Assert
+    await waitFor(() => {
+      expect(screen.getByTestId("loading")).toHaveTextContent("no");
+    });
+    expect(screen.getByTestId("manifest")).toHaveTextContent("Complete Roof Replacement");
+    expect(screen.getByTestId("cached")).toHaveTextContent("yes");
+    expect(driver.readManifest).not.toHaveBeenCalled();
+  });
 });

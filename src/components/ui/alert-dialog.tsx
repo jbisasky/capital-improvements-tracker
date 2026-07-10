@@ -1,4 +1,4 @@
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -26,17 +26,62 @@ export function AlertDialog({
 }: AlertDialogProps): ReactElement | null {
   const titleId = "alert-dialog-title";
   const descriptionId = "alert-dialog-description";
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    queueMicrotask(() => {
+      cancelRef.current?.focus();
+    });
+
+    function getFocusableElements(): HTMLElement[] {
+      const dialog = dialogRef.current;
+      if (dialog == null) return [];
+      return Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+        ),
+      ).filter((element) => element.tabIndex !== -1);
+    }
+
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.key === "Escape") {
         onOpenChange(false);
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusable = getFocusableElements();
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (first == null || last == null) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
+      if (previouslyFocused != null && document.contains(previouslyFocused)) {
+        previouslyFocused.focus();
+      }
     };
   }, [open, onOpenChange]);
 
@@ -62,6 +107,7 @@ export function AlertDialog({
         onClick={handleClose}
       />
       <div
+        ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -78,7 +124,7 @@ export function AlertDialog({
           {description}
         </p>
         <div className="mt-6 flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={handleClose}>
+          <Button ref={cancelRef} type="button" variant="outline" onClick={handleClose}>
             {cancelLabel}
           </Button>
           <Button
