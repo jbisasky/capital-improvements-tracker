@@ -20,8 +20,8 @@ function ensureScreenshotDir(): void {
   }
 }
 
-function captureDocScreenshot(page: Page, basename: string): Promise<void> {
-  return page.screenshot({
+async function captureDocScreenshot(page: Page, basename: string): Promise<void> {
+  await page.screenshot({
     path: docScreenshotPath(SCREENSHOT_DIR, basename),
     ...DOC_SCREENSHOT_OPTS,
   });
