@@ -43,7 +43,7 @@ test.describe("P2 — Project detail page loads", () => {
 
     await expect(page.getByRole("heading", { name: "Complete Roof Replacement" })).toBeVisible();
     // Total Cost card — scope to avoid strict violation (cost basis is also $28,500)
-    const totalCostCard = page.locator("div.rounded-lg.border.p-4", {
+    const totalCostCard = page.locator("div.rounded-lg.border", {
       has: page.getByText("Total Cost"),
     }).first();
     await expect(totalCostCard.getByText("$28,500")).toBeVisible();
