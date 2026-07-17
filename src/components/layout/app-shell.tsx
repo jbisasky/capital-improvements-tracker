@@ -76,6 +76,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
     <div className="flex h-full overflow-hidden">
       {/* Desktop sidebar */}
       <aside
+        aria-label="Main navigation"
         className={cn(
           "hidden shrink-0 flex-col bg-sidebar md:flex",
           "h-full overflow-hidden",

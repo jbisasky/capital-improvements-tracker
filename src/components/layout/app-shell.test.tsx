@@ -161,9 +161,8 @@ describe("AppShell brand logo link", () => {
     // Arrange + Act
     renderShell("/dashboard");
 
-    // Assert — sidebar is the aside element
-    const sidebar = document.querySelector<HTMLElement>("aside");
-    if (sidebar == null) throw new Error("Expected sidebar");
+    // Assert — sidebar is the labelled complementary landmark
+    const sidebar = screen.getByRole("complementary", { name: /main navigation/i });
     const link = within(sidebar).getByRole("link", { name: /capital improvements/i });
     expect(link).toHaveAttribute("href", "/dashboard");
   });

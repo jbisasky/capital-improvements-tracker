@@ -78,15 +78,15 @@ function ProjectDetailSkeleton({ prefix }: { prefix: string }): ReactElement {
             ))}
           </div>
 
-          <div className="rounded-lg border p-3 md:p-4">
+          <section className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-2 text-sm font-medium">IRS Justification</h2>
             <div className="space-y-2">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-4/5" />
             </div>
-          </div>
+          </section>
 
-          <div className="rounded-lg border p-3 md:p-4">
+          <section className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-3 text-sm font-medium">Details</h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               {DETAIL_LABELS.map((label) => (
@@ -98,7 +98,7 @@ function ProjectDetailSkeleton({ prefix }: { prefix: string }): ReactElement {
                 </div>
               ))}
             </dl>
-          </div>
+          </section>
 
           <div className="space-y-3">
             <h2 className="text-sm font-medium">Attachments</h2>
@@ -119,8 +119,8 @@ function ProjectDetailSkeleton({ prefix }: { prefix: string }): ReactElement {
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-lg border p-3 md:p-4">
+        <aside aria-label="Documentation status" className="space-y-4">
+          <section className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-3 text-sm font-medium">Documentation Health</h2>
             <div className="mb-3 flex items-center gap-3">
               <Skeleton className="size-12 rounded-full" />
@@ -131,13 +131,13 @@ function ProjectDetailSkeleton({ prefix }: { prefix: string }): ReactElement {
               <Skeleton className="h-3 w-36" />
               <Skeleton className="h-3 w-32" />
             </div>
-          </div>
+          </section>
 
-          <div className="rounded-lg border p-3 md:p-4">
+          <section className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-2 text-sm font-medium">AI Confidence</h2>
             <Skeleton className="h-8 w-16" />
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
     </div>
   );
@@ -185,7 +185,7 @@ export function ProjectDetailPage(): ReactElement {
 
       <div>
         <h1 className="text-2xl font-semibold">{project.title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{project.completionDate}</p>
+        <time dateTime={project.completionDate} className="mt-1 block text-sm text-muted-foreground">{project.completionDate}</time>
         <p className="text-sm text-muted-foreground">{TREATMENT_LABELS[project.taxTreatment]}</p>
         <div className="mt-3 flex gap-2">
           <Link
@@ -227,14 +227,14 @@ export function ProjectDetailPage(): ReactElement {
 
           {/* IRS Justification */}
           {project.irsJustification && (
-            <div className="rounded-lg border p-3 md:p-4">
+            <section className="rounded-lg border p-3 md:p-4">
               <h2 className="mb-2 text-sm font-medium">IRS Justification</h2>
               <p className="text-sm text-muted-foreground">{project.irsJustification}</p>
-            </div>
+            </section>
           )}
 
           {/* Details grid */}
-          <div className="rounded-lg border p-3 md:p-4">
+          <section className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-3 text-sm font-medium">Details</h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               {project.category && (
@@ -264,7 +264,7 @@ export function ProjectDetailPage(): ReactElement {
               {project.datePaymentMade && (
                 <div>
                   <dt className="text-xs text-muted-foreground">Payment Date</dt>
-                  <dd className="text-sm">{project.datePaymentMade}</dd>
+                  <dd className="text-sm"><time dateTime={project.datePaymentMade}>{project.datePaymentMade}</time></dd>
                 </div>
               )}
               {project.permitNumber && (
@@ -298,14 +298,14 @@ export function ProjectDetailPage(): ReactElement {
                 </div>
               )}
             </dl>
-          </div>
+          </section>
 
           {/* Notes */}
           {project.notes && (
-            <div className="rounded-lg border p-3 md:p-4">
+            <section className="rounded-lg border p-3 md:p-4">
               <h2 className="mb-2 text-sm font-medium">Notes</h2>
               <p className="text-sm text-muted-foreground">{project.notes}</p>
-            </div>
+            </section>
           )}
 
           {/* Attachments */}
@@ -317,8 +317,8 @@ export function ProjectDetailPage(): ReactElement {
         </div>
 
         {/* Sidebar — Documentation Health */}
-        <div className="space-y-4">
-          <div className="rounded-lg border p-3 md:p-4">
+        <aside aria-label="Documentation status" className="space-y-4">
+          <section className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-3 text-sm font-medium">Documentation Health</h2>
             <div className="mb-3 flex items-center gap-3">
               <div
@@ -360,14 +360,14 @@ export function ProjectDetailPage(): ReactElement {
                 </ul>
               </div>
             )}
-          </div>
+          </section>
 
           {/* Confidence */}
-          <div className="rounded-lg border p-3 md:p-4">
+          <section className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-2 text-sm font-medium">AI Confidence</h2>
             <p className="text-2xl font-bold">{Math.round(project.confidence * 100)}%</p>
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
     </div>
   );

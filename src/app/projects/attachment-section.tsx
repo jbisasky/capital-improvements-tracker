@@ -222,7 +222,7 @@ export function AttachmentSection({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border p-4">
+    <section className="space-y-3 rounded-lg border p-4">
       <h2 className="text-sm font-medium">
         Attachments ({totalCount})
       </h2>
@@ -396,6 +396,6 @@ export function AttachmentSection({
           }
         }}
       />
-    </div>
+    </section>
   );
 }

@@ -262,7 +262,7 @@ export function SettingsPage(): ReactElement {
       <h1 className="text-2xl font-semibold">Settings</h1>
 
       {/* Appearance */}
-      <div className="space-y-3 rounded-lg border p-3 md:space-y-4 md:p-4">
+      <section className="space-y-3 rounded-lg border p-3 md:space-y-4 md:p-4">
         <h2 className="text-lg font-medium">Appearance</h2>
         <div
           role="radiogroup"
@@ -288,7 +288,7 @@ export function SettingsPage(): ReactElement {
             </button>
           ))}
         </div>
-      </div>
+      </section>
 
       {/* Property Profile */}
       <form onSubmit={handleSaveProperty} className="space-y-3 rounded-lg border p-3 md:space-y-4 md:p-4">
@@ -432,7 +432,7 @@ export function SettingsPage(): ReactElement {
       </form>
 
       {/* BYOK API Key */}
-      <div className="space-y-3 rounded-lg border p-3 md:space-y-4 md:p-4">
+      <section className="space-y-3 rounded-lg border p-3 md:space-y-4 md:p-4">
         <h2 className="text-lg font-medium">Gemini API Key (BYOK)</h2>
         <p className="text-sm text-muted-foreground">
           Enter your Google Gemini API key to enable AI-powered receipt extraction.
@@ -552,10 +552,10 @@ export function SettingsPage(): ReactElement {
           Your key is sent only to Google&apos;s Gemini API over HTTPS. It is never logged or
           sent to any other server.
         </p>
-      </div>
+      </section>
 
       {/* Usage Budget */}
-      <div className="space-y-3 rounded-lg border p-3 md:space-y-4 md:p-4">
+      <section className="space-y-3 rounded-lg border p-3 md:space-y-4 md:p-4">
         <h2 className="text-lg font-medium">AI Usage Limits</h2>
         <p className="text-sm text-muted-foreground">
           Protect against runaway API usage. Limits pause extractions until reset.
@@ -616,10 +616,10 @@ export function SettingsPage(): ReactElement {
         >
           Save Limits
         </button>
-      </div>
+      </section>
 
       {/* Google Drive storage */}
-      <div className="space-y-3 rounded-lg border p-3 md:p-4">
+      <section className="space-y-3 rounded-lg border p-3 md:p-4">
         <h2 className="text-lg font-medium">Google Drive storage</h2>
         <p className="text-sm text-muted-foreground">
           Project records are stored in a hidden <code className="text-xs">manifest.json</code> file
@@ -661,10 +661,10 @@ export function SettingsPage(): ReactElement {
         >
           View storage diagnostics
         </Link>
-      </div>
+      </section>
 
       {/* Clear All Data */}
-      <div className="space-y-3 rounded-lg border border-red-200 p-3 md:space-y-4 md:p-4">
+      <section className="space-y-3 rounded-lg border border-red-200 p-3 md:space-y-4 md:p-4">
         <h2 className="text-lg font-medium text-red-600">Danger Zone</h2>
         <p className="text-sm text-muted-foreground">
           Clear all locally stored data including API keys, preferences, and cached
@@ -696,7 +696,7 @@ export function SettingsPage(): ReactElement {
             Clear All Local Data
           </button>
         )}
-      </div>
+      </section>
 
       {/* About link — visible on mobile where About is removed from the tab bar */}
       <div className="md:hidden">
