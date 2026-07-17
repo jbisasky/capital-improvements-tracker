@@ -5,10 +5,10 @@ import { version } from "../../../package.json";
 export function AboutPage(): ReactElement {
   return (
     <div className="mx-auto max-w-2xl space-y-6 md:space-y-12">
-      <div className="space-y-2">
+      <header className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">About</h1>
         <p className="text-muted-foreground">Version {version}</p>
-      </div>
+      </header>
 
       <section className="space-y-3 md:space-y-4">
         <h2 className="text-xl font-semibold">Privacy &amp; Data Storage</h2>

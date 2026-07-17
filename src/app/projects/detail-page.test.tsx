@@ -59,6 +59,7 @@ describe("ProjectDetailPage loading states", () => {
     expect(screen.getByText("Total Cost")).toBeInTheDocument();
     expect(screen.getByText("Documentation Health")).toBeInTheDocument();
     expect(screen.getByText("AI Confidence")).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: /documentation status/i })).toBeInTheDocument();
     expect(screen.getByTestId("project-detail-skeleton")).toBeInTheDocument();
     expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
   });
@@ -78,6 +79,7 @@ describe("ProjectDetailPage loading states", () => {
     // Assert
     expect(screen.queryByTestId("project-detail-skeleton")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Complete Roof Replacement" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: /documentation status/i })).toBeInTheDocument();
     expect(screen.getByTestId("attachment-section")).toBeInTheDocument();
   });
 });

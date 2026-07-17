@@ -152,8 +152,8 @@ export function ProjectsListPage(): ReactElement {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{project.title}</p>
                     <p className="text-sm text-muted-foreground">
-                      {project.completionDate} ·{" "}
-                      {TREATMENT_LABELS[project.taxTreatment]}
+                      <time dateTime={project.completionDate}>{project.completionDate}</time>
+                      {" · "}{TREATMENT_LABELS[project.taxTreatment]}
                       {project.vendorName ? ` · ${project.vendorName}` : ""}
                     </p>
                   </div>

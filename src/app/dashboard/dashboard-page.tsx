@@ -85,7 +85,7 @@ function DashboardSkeleton(): ReactElement {
       </div>
 
       {/* Recent projects — heading is static; rows skeletonize */}
-      <div className="space-y-3">
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Recent Projects</h2>
           <span className="text-sm font-medium text-muted-foreground">View all →</span>
@@ -104,7 +104,7 @@ function DashboardSkeleton(): ReactElement {
             </div>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -203,7 +203,7 @@ export function DashboardPage(): ReactElement {
       )}
 
       {/* Recent projects */}
-      <div className="space-y-3">
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Recent Projects</h2>
           <Link
@@ -232,7 +232,8 @@ export function DashboardPage(): ReactElement {
                     <div>
                       <p className="font-medium text-card-foreground">{project.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {project.completionDate} · {formatCurrency(project.totalCost)}
+                        <time dateTime={project.completionDate}>{project.completionDate}</time>
+                        {" · "}{formatCurrency(project.totalCost)}
                       </p>
                     </div>
                   </div>
@@ -247,7 +248,7 @@ export function DashboardPage(): ReactElement {
             })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
