@@ -127,13 +127,13 @@ export function ExportPage(): ReactElement {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <h1 className="text-2xl font-semibold">Export</h1>
       <p className="text-muted-foreground">
         Download your capital improvements data for tax preparation or backup.
       </p>
 
-      <div className="max-w-md space-y-5 rounded-lg border p-5">
+      <div className="max-w-md space-y-4 rounded-lg border p-4 md:space-y-5 md:p-5">
         {/* Format */}
         <fieldset>
           <legend className="mb-2 block text-sm font-medium">Format</legend>

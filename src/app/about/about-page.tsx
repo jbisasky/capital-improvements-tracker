@@ -4,13 +4,13 @@ import { version } from "../../../package.json";
 
 export function AboutPage(): ReactElement {
   return (
-    <div className="mx-auto max-w-2xl space-y-12 p-6">
+    <div className="mx-auto max-w-2xl space-y-6 md:space-y-12">
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">About</h1>
         <p className="text-muted-foreground">Version {version}</p>
       </div>
 
-      <section className="space-y-4">
+      <section className="space-y-3 md:space-y-4">
         <h2 className="text-xl font-semibold">Privacy &amp; Data Storage</h2>
         <div className="space-y-3 text-muted-foreground">
           <p>
@@ -24,9 +24,9 @@ export function AboutPage(): ReactElement {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3 md:space-y-4">
         <h2 className="text-xl font-semibold">Disclaimer</h2>
-        <div className="rounded-lg border border-border bg-muted/50 p-4">
+        <div className="rounded-lg border border-border bg-muted/50 p-3 md:p-4">
           <p className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Badge variant="destructive">⚠ Important</Badge>
             Not tax advice — for recordkeeping only.
@@ -41,7 +41,7 @@ export function AboutPage(): ReactElement {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3 md:space-y-4">
         <h2 className="text-xl font-semibold">Documentation</h2>
         <ul className="list-inside list-disc space-y-2 text-muted-foreground">
           <li>
