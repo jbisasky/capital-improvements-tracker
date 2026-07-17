@@ -40,7 +40,7 @@ interface MetricCardProps {
 
 function MetricCard({ icon, label, value, href }: MetricCardProps): ReactElement {
   return (
-    <Link to={href} className={cn(CARD_SURFACE, "p-5 transition-colors hover:bg-accent/50")}>
+    <Link to={href} className={cn(CARD_SURFACE, "p-3 md:p-5 transition-colors hover:bg-accent/50")}>
       <div className="mb-2 flex items-center gap-1.5 text-muted-foreground">
         {icon}
         <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
@@ -59,13 +59,13 @@ function DashboardSkeleton(): ReactElement {
   ] as const;
 
   return (
-    <div className="space-y-8" data-testid="dashboard-skeleton">
+    <div className="space-y-6 md:space-y-8" data-testid="dashboard-skeleton">
       <h1 className="text-2xl font-semibold">Dashboard</h1>
 
       {/* Metric cards — labels are static; values skeletonize */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         {metricLabels.map(({ icon, label }) => (
-          <div key={label} className={cn(CARD_SURFACE, "p-5")}>
+          <div key={label} className={cn(CARD_SURFACE, "p-3 md:p-5")}>
             <div className="mb-2 flex items-center gap-1.5 text-muted-foreground">
               {icon}
               <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
@@ -151,7 +151,7 @@ export function DashboardPage(): ReactElement {
     .slice(0, 5);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       <h1 className="text-2xl font-semibold">Dashboard</h1>
 
       {/* Summary cards — 2×2 on mobile, 4-col at md+ */}
@@ -184,7 +184,7 @@ export function DashboardPage(): ReactElement {
 
       {/* Documentation health bar */}
       {projects.length > 0 && (
-        <Link to={`${prefix}/projects`} className={cn(CARD_SURFACE, "block p-4 transition-colors hover:bg-accent/50")}>
+        <Link to={`${prefix}/projects`} className={cn(CARD_SURFACE, "block p-3 md:p-4 transition-colors hover:bg-accent/50")}>
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="font-medium text-foreground">Documentation Health</span>
             <span className="text-muted-foreground">
@@ -225,7 +225,7 @@ export function DashboardPage(): ReactElement {
                 <Link
                   key={project.id}
                   to={`${prefix}/projects/${project.id}`}
-                  className="flex items-center justify-between p-4 transition-colors hover:bg-accent/50"
+                  className="flex items-center justify-between p-3 md:p-4 transition-colors hover:bg-accent/50"
                 >
                   <div className="flex items-center gap-3">
                     <StatusDot status={assessment.status} />

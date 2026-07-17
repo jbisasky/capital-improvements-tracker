@@ -35,6 +35,8 @@ const NAV_ITEMS = [
   { to: "/about", label: "About", icon: Info },
 ] as const;
 
+const MOBILE_NAV_ITEMS = NAV_ITEMS.filter((item) => item.to !== "/about");
+
 const THEME_CYCLE: Record<ThemePreference, ThemePreference> = {
   light: "dark",
   dark: "system",
@@ -242,7 +244,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
           </div>
         </header>
         <main
-          className="flex flex-1 flex-col overflow-y-auto p-6 pb-20 md:pb-6"
+          className="flex flex-1 flex-col overflow-y-auto p-4 pb-20 md:p-6 md:pb-6"
           style={{ background: "var(--canvas-gradient)" }}
         >
           {children}
@@ -251,7 +253,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
 
       {/* Mobile bottom tab bar */}
       <nav aria-label="Mobile tab bar" className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-border bg-background md:hidden">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+        {MOBILE_NAV_ITEMS.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={`${prefix}${to}`}
