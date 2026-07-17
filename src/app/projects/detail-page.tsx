@@ -36,7 +36,7 @@ const DETAIL_LABELS = ["Category", "Vendor", "Payment Method", "Receipt detail"]
 
 function ProjectDetailSkeleton({ prefix }: { prefix: string }): ReactElement {
   return (
-    <div className="space-y-6" data-testid="project-detail-skeleton">
+    <div className="space-y-4 md:space-y-6" data-testid="project-detail-skeleton">
       <Link
         to={`${prefix}/projects`}
         className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
@@ -67,18 +67,18 @@ function ProjectDetailSkeleton({ prefix }: { prefix: string }): ReactElement {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
+        <div className="space-y-4 md:space-y-6 lg:col-span-2">
+          <div className="grid gap-2 sm:grid-cols-3 sm:gap-4">
             {FINANCIAL_LABELS.map((label) => (
-              <div key={label} className="rounded-lg border p-4">
+              <div key={label} className="flex items-center justify-between rounded-lg border p-3 sm:block sm:p-4">
                 <p className="text-sm text-muted-foreground">{label}</p>
-                <Skeleton className="mt-1 h-7 w-24" />
+                <Skeleton className="h-6 w-24 sm:mt-1 sm:h-7" />
               </div>
             ))}
           </div>
 
-          <div className="rounded-lg border p-4">
+          <div className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-2 text-sm font-medium">IRS Justification</h2>
             <div className="space-y-2">
               <Skeleton className="h-4 w-full" />
@@ -86,7 +86,7 @@ function ProjectDetailSkeleton({ prefix }: { prefix: string }): ReactElement {
             </div>
           </div>
 
-          <div className="rounded-lg border p-4">
+          <div className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-3 text-sm font-medium">Details</h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               {DETAIL_LABELS.map((label) => (
@@ -120,7 +120,7 @@ function ProjectDetailSkeleton({ prefix }: { prefix: string }): ReactElement {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-lg border p-4">
+          <div className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-3 text-sm font-medium">Documentation Health</h2>
             <div className="mb-3 flex items-center gap-3">
               <Skeleton className="size-12 rounded-full" />
@@ -133,7 +133,7 @@ function ProjectDetailSkeleton({ prefix }: { prefix: string }): ReactElement {
             </div>
           </div>
 
-          <div className="rounded-lg border p-4">
+          <div className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-2 text-sm font-medium">AI Confidence</h2>
             <Skeleton className="h-8 w-16" />
           </div>
@@ -178,19 +178,16 @@ export function ProjectDetailPage(): ReactElement {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <Link to={`${prefix}/projects`} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
         <ArrowLeft className="size-4" /> Back to projects
       </Link>
 
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{project.title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {project.completionDate} · {TREATMENT_LABELS[project.taxTreatment]}
-          </p>
-        </div>
-        <div className="flex gap-2">
+      <div>
+        <h1 className="text-2xl font-semibold">{project.title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{project.completionDate}</p>
+        <p className="text-sm text-muted-foreground">{TREATMENT_LABELS[project.taxTreatment]}</p>
+        <div className="mt-3 flex gap-2">
           <Link
             to={`${prefix}/projects/${project.id}/edit`}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
@@ -209,35 +206,35 @@ export function ProjectDetailPage(): ReactElement {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
         {/* Main content */}
-        <div className="space-y-6 lg:col-span-2">
+        <div className="space-y-4 md:space-y-6 lg:col-span-2">
           {/* Financial summary */}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-lg border p-4">
+          <div className="grid gap-2 sm:grid-cols-3 sm:gap-4">
+            <div className="flex items-center justify-between rounded-lg border p-3 sm:block sm:p-4">
               <p className="text-sm text-muted-foreground">Total Cost</p>
-              <p className="mt-1 text-lg font-semibold">{formatCurrency(project.totalCost)}</p>
+              <p className="text-base font-semibold sm:mt-1 sm:text-lg">{formatCurrency(project.totalCost)}</p>
             </div>
-            <div className="rounded-lg border p-4">
+            <div className="flex items-center justify-between rounded-lg border p-3 sm:block sm:p-4">
               <p className="text-sm text-muted-foreground">Cost Basis</p>
-              <p className="mt-1 text-lg font-semibold">{formatCurrency(project.costBasisAdjustment)}</p>
+              <p className="text-base font-semibold sm:mt-1 sm:text-lg">{formatCurrency(project.costBasisAdjustment)}</p>
             </div>
-            <div className="rounded-lg border p-4">
+            <div className="flex items-center justify-between rounded-lg border p-3 sm:block sm:p-4">
               <p className="text-sm text-muted-foreground">Deductible</p>
-              <p className="mt-1 text-lg font-semibold">{formatCurrency(project.deductibleAmount)}</p>
+              <p className="text-base font-semibold sm:mt-1 sm:text-lg">{formatCurrency(project.deductibleAmount)}</p>
             </div>
           </div>
 
           {/* IRS Justification */}
           {project.irsJustification && (
-            <div className="rounded-lg border p-4">
+            <div className="rounded-lg border p-3 md:p-4">
               <h2 className="mb-2 text-sm font-medium">IRS Justification</h2>
               <p className="text-sm text-muted-foreground">{project.irsJustification}</p>
             </div>
           )}
 
           {/* Details grid */}
-          <div className="rounded-lg border p-4">
+          <div className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-3 text-sm font-medium">Details</h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               {project.category && (
@@ -305,7 +302,7 @@ export function ProjectDetailPage(): ReactElement {
 
           {/* Notes */}
           {project.notes && (
-            <div className="rounded-lg border p-4">
+            <div className="rounded-lg border p-3 md:p-4">
               <h2 className="mb-2 text-sm font-medium">Notes</h2>
               <p className="text-sm text-muted-foreground">{project.notes}</p>
             </div>
@@ -321,7 +318,7 @@ export function ProjectDetailPage(): ReactElement {
 
         {/* Sidebar — Documentation Health */}
         <div className="space-y-4">
-          <div className="rounded-lg border p-4">
+          <div className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-3 text-sm font-medium">Documentation Health</h2>
             <div className="mb-3 flex items-center gap-3">
               <div
@@ -366,7 +363,7 @@ export function ProjectDetailPage(): ReactElement {
           </div>
 
           {/* Confidence */}
-          <div className="rounded-lg border p-4">
+          <div className="rounded-lg border p-3 md:p-4">
             <h2 className="mb-2 text-sm font-medium">AI Confidence</h2>
             <p className="text-2xl font-bold">{Math.round(project.confidence * 100)}%</p>
           </div>

@@ -25,7 +25,7 @@ import {
 import { testGeminiKey } from "@/services/gemini";
 import { useTheme } from "@/services/theme-context";
 import { type ThemePreference } from "@/services/theme";
-import { Sun, Moon, Monitor } from "lucide-react";
+import { Sun, Moon, Monitor, Info } from "lucide-react";
 
 const US_STATES: { abbr: string; name: string }[] = [
   { abbr: "AL", name: "Alabama" },
@@ -258,11 +258,11 @@ export function SettingsPage(): ReactElement {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5 md:space-y-8">
       <h1 className="text-2xl font-semibold">Settings</h1>
 
       {/* Appearance */}
-      <div className="space-y-4 rounded-lg border p-4">
+      <div className="space-y-3 rounded-lg border p-3 md:space-y-4 md:p-4">
         <h2 className="text-lg font-medium">Appearance</h2>
         <div
           role="radiogroup"
@@ -291,7 +291,7 @@ export function SettingsPage(): ReactElement {
       </div>
 
       {/* Property Profile */}
-      <form onSubmit={handleSaveProperty} className="space-y-4 rounded-lg border p-4">
+      <form onSubmit={handleSaveProperty} className="space-y-3 rounded-lg border p-3 md:space-y-4 md:p-4">
         <h2 className="text-lg font-medium">Your Property</h2>
         <p className="text-sm text-muted-foreground">
           Set your property details once — they apply to all projects.
@@ -432,7 +432,7 @@ export function SettingsPage(): ReactElement {
       </form>
 
       {/* BYOK API Key */}
-      <div className="space-y-4 rounded-lg border p-4">
+      <div className="space-y-3 rounded-lg border p-3 md:space-y-4 md:p-4">
         <h2 className="text-lg font-medium">Gemini API Key (BYOK)</h2>
         <p className="text-sm text-muted-foreground">
           Enter your Google Gemini API key to enable AI-powered receipt extraction.
@@ -555,7 +555,7 @@ export function SettingsPage(): ReactElement {
       </div>
 
       {/* Usage Budget */}
-      <div className="space-y-4 rounded-lg border p-4">
+      <div className="space-y-3 rounded-lg border p-3 md:space-y-4 md:p-4">
         <h2 className="text-lg font-medium">AI Usage Limits</h2>
         <p className="text-sm text-muted-foreground">
           Protect against runaway API usage. Limits pause extractions until reset.
@@ -619,7 +619,7 @@ export function SettingsPage(): ReactElement {
       </div>
 
       {/* Google Drive storage */}
-      <div className="space-y-3 rounded-lg border p-4">
+      <div className="space-y-3 rounded-lg border p-3 md:p-4">
         <h2 className="text-lg font-medium">Google Drive storage</h2>
         <p className="text-sm text-muted-foreground">
           Project records are stored in a hidden <code className="text-xs">manifest.json</code> file
@@ -664,7 +664,7 @@ export function SettingsPage(): ReactElement {
       </div>
 
       {/* Clear All Data */}
-      <div className="space-y-4 rounded-lg border border-red-200 p-4">
+      <div className="space-y-3 rounded-lg border border-red-200 p-3 md:space-y-4 md:p-4">
         <h2 className="text-lg font-medium text-red-600">Danger Zone</h2>
         <p className="text-sm text-muted-foreground">
           Clear all locally stored data including API keys, preferences, and cached
@@ -696,6 +696,17 @@ export function SettingsPage(): ReactElement {
             Clear All Local Data
           </button>
         )}
+      </div>
+
+      {/* About link — visible on mobile where About is removed from the tab bar */}
+      <div className="md:hidden">
+        <Link
+          to={`${prefix}/about`}
+          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+        >
+          <Info className="size-4" />
+          About this app
+        </Link>
       </div>
     </div>
   );
